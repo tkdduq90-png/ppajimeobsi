@@ -136,6 +136,42 @@ nav#nav{display:flex; flex-direction:column; gap:1px; align-self:start; position
 h2.sec{font-size:12px; font-weight:600; color:var(--ink-2); letter-spacing:.02em;
   padding-bottom:5px; border-bottom:1px solid var(--rule); margin:22px 0 10px}
 h2.sec:first-child{margin-top:0}
+/* 로드맵 */
+.rmhead{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.rmbar{height:8px;border-radius:4px;background:var(--rule);overflow:hidden;margin:8px 0 4px}
+.rmbar>span{display:block;height:100%;background:var(--go);transition:width .5s}
+.stg{position:relative;padding-left:30px;padding-bottom:6px}
+.stg::before{content:'';position:absolute;left:9px;top:22px;bottom:-6px;width:2px;background:var(--rule)}
+.stg:last-child::before{display:none}
+.stg.done::before{background:var(--go)}
+.node{position:absolute;left:0;top:3px;width:20px;height:20px;border-radius:50%;
+  border:2px solid var(--rule);background:var(--card);display:flex;align-items:center;
+  justify-content:center;font-size:11px;font-weight:700;color:var(--ink-3)}
+.stg.done .node{background:var(--go);border-color:var(--go);color:#fff}
+.stg.cur .node{border-color:var(--ink);background:var(--ink);color:#fff;
+  box-shadow:0 0 0 4px rgba(26,32,39,.12)}
+.stg .sh{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:7px}
+.stg .sn{font-size:16px;font-weight:600;letter-spacing:-0.02em}
+.stg.lock .sn{color:var(--ink-3)}
+.stg .sd{font-size:12.5px;color:var(--ink-2)}
+.stg .cnt{font-size:12.5px;color:var(--ink-2);white-space:nowrap}
+.items{background:var(--card);border:1px solid var(--rule);border-radius:8px;overflow:hidden;margin-bottom:14px}
+.it{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--rule-2)}
+.it:first-child{border-top:none}
+.it .ck{width:17px;height:17px;border-radius:50%;flex-shrink:0;display:flex;
+  align-items:center;justify-content:center;font-size:10px;font-weight:700}
+.ck.done{background:var(--go);color:#fff}
+.ck.now{background:var(--ink);color:#fff}
+.ck.todo{border:1.5px solid var(--rule)}
+.ck.lost{background:var(--stop-bg);color:var(--stop)}
+.ck.lock{border:1.5px dashed var(--rule)}
+.it .tx{flex:1;min-width:0}
+.it .tn{font-size:14px}
+.it.lockrow .tn,.it.lostrow .tn{color:var(--ink-3)}
+.it.lostrow .tn{text-decoration:line-through}
+.it .td{font-size:11.5px;color:var(--ink-2);margin-top:1px}
+.badge-win{background:var(--go-bg);border:1px solid #BEDCD4;border-radius:8px;
+  padding:11px 14px;margin-bottom:12px}
 .bar{height:5px;border-radius:3px;background:#E4E8EA;overflow:hidden;width:74px}
 .bar>span{display:block;height:100%}
 .opt{display:block;width:100%;text-align:left;padding:13px 15px;margin-bottom:7px;
@@ -400,6 +436,32 @@ corp:{
            ['제출','입력값을 항목별로 복사 · 최종 제출은 본인이','wait'],
            ['선정 후 관리','협약 · 집행 증빙 · 중간점검 · 최종보고','wait']],
     paid:1},
+  road:{label:'기술창업 로드맵', cur:1,
+    stages:[
+      {n:'준비', d:'사업자등록 전', items:[
+        ['창업교육 이수','done','K-Startup 온라인 4시간'],
+        ['사업 아이템 확정','done',''],
+        ['예비창업패키지','lost','최대 1억 · 사업자등록으로 소멸']]},
+      {n:'설립', d:'등록 직후 3년', items:[
+        ['사업자등록','done','2022-01-24'],
+        ['상표 출원','todo','브랜드 보호 · 가점 항목','전문가'],
+        ['초기창업패키지','now','최대 1억 · 선정 가능성 52% · 12일 남음'],
+        ['두루누리 사회보험료','todo','채용 전 신청해야 소급']]},
+      {n:'기반', d:'기술과 자격 확보', items:[
+        ['특허 출원','done','2027-02 출원 완료'],
+        ['특허 등록 전환','todo','R&D 선정 가능성 23% → 47%','전문가'],
+        ['벤처기업 확인','todo','세제감면 · 다수 사업 가점'],
+        ['창업성장 R&D','todo','최대 2억']]},
+      {n:'성장', d:'매출과 고용', items:[
+        ['창업도약패키지','locked','최대 3억 · 업력 3~7년'],
+        ['TIPS','locked','최대 5억 · 운영사 추천 필요','전문가'],
+        ['고용창출장려금','locked','최대 3,600만'],
+        ['이노비즈 인증','locked','기술혁신형 중소기업']]},
+      {n:'확장', d:'해외와 규모화', items:[
+        ['수출바우처','locked','최대 1억'],
+        ['스케일업 팁스','locked','최대 12억'],
+        ['정책자금 확대','locked','중진공 자금']]}],
+    later:['위기 대응','정리와 재도전']},
   ask:[
    {q:'지금 내가 받을 수 있는 게 뭐야?',mode:'logic',
     a:'신청 가능한 사업이 4건입니다. 그중 선정 가능성이 40% 이상인 것은 초기창업패키지와 청년창업사관학교 두 건입니다. 창업성장 R&D는 자격은 되지만 기술성 증빙이 없어 23%로 낮습니다.',
@@ -512,6 +574,27 @@ solo:{
            ['보증 심사','지역신용보증재단 · 보증료 외 비용 없음','wait'],
            ['부결 시','사유 확인 · 6개월 재신청 제한 안내','wait']],
     paid:0},
+  road:{label:'음식점 창업 로드맵', cur:2,
+    stages:[
+      {n:'준비', d:'개업 전', items:[
+        ['상권 분석','done','소상공인시장진흥공단 무료'],
+        ['위생교육 이수','done','식품위생법 필수'],
+        ['신사업창업사관학교','lost','교육·자금 2천만 · 등록으로 소멸']]},
+      {n:'개업', d:'등록과 영업 시작', items:[
+        ['사업자등록','done','2023-04-11'],
+        ['영업신고','done','관할 구청'],
+        ['상표 출원','todo','상호 보호 · 프랜차이즈 확장 대비','전문가'],
+        ['노란우산 가입','todo','소득공제 · 폐업 시 공제금']]},
+      {n:'안정', d:'운영 기반 다지기', items:[
+        ['소상공인 정책자금','now','최대 7,000만 · 매출 3억 미만'],
+        ['스마트상점 기술보급','now','최대 500만 · 키오스크'],
+        ['두루누리 사회보험료','todo','월 최대 60만'],
+        ['경영안정자금','now','매출 18% 감소 확인 · 요건 충족']]},
+      {n:'성장', d:'매출 확대', items:[
+        ['온라인 판로 지원','locked','배달·포장 확대'],
+        ['백년가게','locked','업력 30년 요건'],
+        ['프랜차이즈 전환','locked','가맹사업 등록','전문가']]}],
+    later:['위기 대응','폐업과 재기']},
   ask:[
    {q:'지금 내가 받을 수 있는 게 뭐야?',mode:'logic',
     a:'신청 가능한 것이 4건입니다. 경영안정자금은 카드매출에서 전년 대비 18% 감소가 확인되어 요건을 충족했습니다. 다만 창업지원사업 전반은 음식점업이 제외 업종이라 해당되지 않습니다.',
@@ -546,19 +629,24 @@ worker:{
       ['직전 이직','자발적 퇴사 없음','자동','고용보험','실업급여 수급 자격']]},
     {g:'소득', items:[
       ['연 소득','4,100만','자동','홈택스','소득 기준 사업 · 청년도약계좌'],
-      ['중소기업 재직','해당','자동','고용보험','소득세 90% 감면 대상']]},
+      ['중소기업 재직','해당 · 업종 요건 충족','자동','고용보험','소득세 90% 감면 대상'],
+      ['취업일','2022-03-02 · 만 29세','자동','고용보험','청년 5년 감면 · 2027-03-01 종료']]},
     {g:'주거', items:[
-      ['임차 형태','월세 62만 · 보증금 3,000만','직접','직접 입력','청년월세 · 버팀목'],
-      ['무주택 여부','무주택','자동','공공 마이데이터','주거 지원 전반']]},
+      ['임차 형태','월세 62만 · 보증금 3,000만','직접','직접 입력','청년월세 · 청년안심주택'],
+      ['무주택 여부','무주택','자동','공공 마이데이터','주거 지원 전반'],
+      ['본인 소득 구간','중위소득 132%','자동','공공 마이데이터','청년월세 특별지원 60% 초과'],
+      ['자동차 가액','2,100만','자동','공공 마이데이터','LH 자산 요건 4,542만 이내']]},
     {g:'이력', items:[
       ['내일배움카드','미발급','직접','직접 입력','직업훈련 자격'],
       ['청년도약계좌','미가입','직접','직접 입력','정부기여금 상실 중']]}],
   tl:[
     {m:'2026년 9월', sub:'재직 4년차 · 중소기업 · 서울 성동구', chg:null,
-     todo:[['중소기업 취업자 소득세 감면','5년간 90% 감면 · 미신청 상태','연말정산 전'],
+     todo:[['중소기업 취업자 소득세 감면','연 200만 한도 · 미신청 · 제도 일몰 3개월 전','지금'],
+           ['서울시 청년월세 지원 신청','월 20만 · 10개월 · 소득 요건 충족','21일 남음'],
            ['청년도약계좌 가입','정부기여금 월 최대 2만 4천','상시']],
-     soon:[['청년 대상 사업 8건','만 34세까지','1년 5개월'],
-           ['소득세 감면','재직 5년 경과 시 종료','1년 2개월']],
+     soon:[['소득세 감면 제도','2026년 12월 31일 일몰 예정','3개월'],
+           ['소득세 감면 잔여 기간','취업일 기준 5년 경과','6개월'],
+           ['청년 대상 사업 8건','만 34세까지','1년 5개월']],
      past:[['청년내일채움공제','신규 가입 종료']]},
     {m:'2027년 2월', sub:'재직 4년차 · 이직 준비',
      chg:{k:'warn', t:'이직 준비 중으로 입력하셨습니다',
@@ -577,10 +665,11 @@ worker:{
      soon:[['실업급여 신청 기한','이직일로부터','12개월']],
      past:[['청년내일채움공제','신규 가입 종료'],['재직자 대상 4건','실직으로 자격 상실']]}],
   auto:{stat:'work', biz:'no', rent:'rent'},
-  autoLabel:[['재직 상태','재직 중 · 중소기업 42인','고용보험'],
+  autoLabel:[['재직 상태','재직 중 · 중소기업 42인 · 감면 업종','고용보험'],
              ['피보험 단위기간','1,280일 · 실업급여 요건 충족','고용보험'],
-             ['사업자 보유','없음','공공 마이데이터'],
-             ['주거','월세 62만 · 무주택','직접 입력 · 공공 마이데이터']],
+             ['취업일','2022-03-02 · 취업 당시 만 29세','고용보험'],
+             ['소득 구간','연 4,100만 · 중위소득 132%','홈택스'],
+             ['주거','월세 62만 · 무주택 · 자동차 2,100만','공공 마이데이터']],
   qs:[
     {k:'leave',q:'퇴사를 계획하고 계신가요?',s:'퇴사 전에만 할 수 있는 것이 있습니다',
      a:[['no','아닙니다'],['plan','준비 중입니다'],['soon','곧 퇴사합니다']]},
@@ -595,11 +684,23 @@ worker:{
     } else {
       o.push({n:'실업급여',amt:'210일 지급',no:1,why:'재직 중에는 신청할 수 없습니다'});
     }
-    o.push({n:'중소기업 취업자 소득세 감면',amt:'5년간 90%',odds:97,rate:'신청만 하면',why:'중소기업 재직 확인 · 미신청 상태'});
+    o.push({n:'중소기업 취업자 소득세 감면',amt:'연 200만 한도 · 90%',odds:97,rate:'신청만 하면',
+      why:'청년 5년 감면 · 미신청 상태 · 경정청구로 5년 소급'});
     o.push({n:'내일배움카드',amt:'최대 500만',odds:91,rate:'요건 충족 시',why:'재직 중에도 발급 가능'});
     o.push({n:'청년도약계좌',amt:'정부기여금 월 2.4만',odds:88,rate:'소득 요건',why:'연 소득 4,100만 · 요건 충족'});
-    if(a.rent==='rent') o.push({n:'청년월세 지원',amt:'월 20만 · 12개월',odds:59,rate:'예산 범위',why:'무주택 · 부모와 분리 거주'});
-    else o.push({n:'청년월세 지원',amt:'월 20만 · 12개월',no:1,why:'임차 중이 아닙니다'});
+    if(a.rent==='rent'){
+      o.push({n:'청년월세 특별지원',amt:'월 20만 · 12개월',no:1,why:'본인 소득 중위 132% · 기준 60% 초과'});
+      o.push({n:'서울시 청년월세 지원',amt:'월 20만 · 10개월',odds:54,rate:'예산 범위 · 추첨',
+        why:'만 19~39세 · 중위 150% 이하 · 보증금 8천 이하 · 월세 60만 이하'});
+      o.push({n:'SH 청년안심주택',amt:'시세 70~85% · 최대 6년',odds:37,rate:'추첨',
+        why:'만 19~39세 무주택 · 공공지원민간임대형'});
+      o.push({n:'LH 청년 매입임대',amt:'시세 30~50%',odds:26,rate:'추첨 · 순위 경쟁',
+        why:'무주택 · 자동차 4,542만 이내 · 소득 순위는 후순위'});
+      o.push({n:'중소기업 취업 청년 전월세보증금 대출',amt:'최대 1억 · 연 1.5%',odds:83,rate:'심사',
+        why:'중소기업 재직 · 만 34세 이하 · 보증금 2억 이하'});
+    } else {
+      o.push({n:'주거 지원 전반',amt:'—',no:1,why:'임차 중이 아닙니다'});
+    }
     return o;},
   paths:[
     {n:'퇴사 전에 정리하는 경로',steps:'소득세 감면 신청 → 내일배움카드 발급 → 퇴사',
@@ -616,15 +717,36 @@ worker:{
     ['사업자 보유 여부',a.biz==='yes'?'bad':'ok',
      a.biz==='yes'?'사업자를 보유하고 계셔 휴업 처리가 선행돼야 합니다. 창구에서 반려되는 대표적 사유입니다':'해당 사항 없습니다'],
     ['워크넷 구직등록','warn','실업급여 신청 전에 등록해야 합니다'],
-    ['소득세 감면 신청','bad','재직 중임에도 미신청 상태입니다. 5년간 90% 감면을 받지 못하고 있습니다']];},
-  run:{title:'중소기업 취업자 소득세 감면', amt:'5년간 90% 감면', dday:'연말정산 전',
-    lead:'재직 중에만 신청할 수 있으며, 미신청분은 5년까지만 소급됩니다',
-    steps:[['재직 확인','고용보험 이력으로 자동 확인','now'],
-           ['감면 대상 업종 확인','업종코드로 자동 대조','now'],
+    ['소득세 감면 신청','bad','재직 중임에도 미신청 상태입니다. 연 200만 원 한도로 90%를 감면받을 수 있으며, 제도는 2026년 12월 31일 일몰 예정입니다'],
+    ['주거 소득 요건','warn','본인 소득이 중위 132%라 청년월세 특별지원(60% 이하)은 해당되지 않으나 서울시 지원은 가능합니다']];},
+  run:{title:'중소기업 취업자 소득세 감면', amt:'연 200만 한도 · 90%', dday:'제도 일몰 3개월 전',
+    lead:'제도가 2026년 12월 31일 종료 예정이라 지금 신청해야 남은 기간을 받습니다',
+    steps:[['재직 · 업종 확인','고용보험과 업종코드로 자동 대조','now'],
+           ['취업일 기준 잔여 기간 산정','2022-03-02 취업 · 청년 5년 · 2027-03-01 종료','now'],
            ['신청서 작성','회사 제출용 양식 자동 생성','wait'],
            ['회사 제출','원천징수의무자 경유 · 본인이 제출','wait'],
-           ['소급분 확인','미신청 기간에 대한 경정청구 안내','wait']],
+           ['경정청구','미신청 4년치 소급 · 최대 5년까지 가능','wait']],
     paid:0},
+  road:{label:'직장인 여정', cur:1,
+    stages:[
+      {n:'입사', d:'취업 직후', items:[
+        ['고용보험 가입','done','2022-03-02'],
+        ['중소기업 소득세 감면','now','연 200만 한도 · 미신청 · 제도 일몰 3개월 전'],
+        ['청년내일채움공제','lost','신규 가입 종료']]},
+      {n:'재직', d:'자산과 역량', items:[
+        ['청년도약계좌','todo','정부기여금 월 2.4만'],
+        ['내일배움카드','todo','최대 500만 · 재직 중 발급 가능'],
+        ['서울시 청년월세','now','월 20만 · 10개월 · 21일 남음'],
+        ['SH 청년안심주택','todo','시세 70~85% · 최대 6년']]},
+      {n:'이직 준비', d:'퇴사 전에 할 일', items:[
+        ['소득세 감면 정산','locked','재직 중에만 신청 가능'],
+        ['경정청구','locked','미신청분 5년 소급'],
+        ['퇴사 사유 확인','locked','실업급여 자격이 갈림']]},
+      {n:'재취업', d:'구직 기간', items:[
+        ['실업급여','locked','1,280일 기준 210일'],
+        ['국민취업지원제도','locked','월 50만 · 6개월'],
+        ['직업훈련','locked','내일배움카드 활용']]}],
+    later:[]},
   ask:[
    {q:'지금 내가 받을 수 있는 게 뭐야?',mode:'logic',
     a:'신청 가능한 것이 4건입니다. 그중 중소기업 취업자 소득세 감면은 재직 중임에도 미신청 상태로, 5년간 90% 감면을 받지 못하고 계십니다. 지금 신청하면 남은 기간에 대해 적용되고 미신청분은 경정청구로 소급할 수 있습니다.',
@@ -635,6 +757,94 @@ worker:{
    {q:'이직할 회사를 고를 때 뭘 보면 좋을까?',mode:'ai',
     a:'저장된 정보로는 중소기업 재직 4년차이며 소득세 감면 대상 업종에 계십니다. 이직 시 감면 잔여 기간이 승계되지 않으므로, 새 직장이 감면 대상 업종인지 먼저 확인하시는 편이 좋습니다.',
     cite:'저장된 정보를 근거로 AI가 작성 · 사실 확인이 필요합니다'}]
+},
+
+online:{
+  label:'개인사업자',
+  name:'온라인 스토어',
+  sub:'개업 2년차 · 전자상거래 47912 · 부업',
+  src:[
+    ['공공 마이데이터','사업자등록 · 납세증명 · 소득금액','신청 시점','연결됨'],
+    ['홈택스','부가세 신고 매출 · 세금계산서','신고 주기','연결됨'],
+    ['오픈마켓 정산','스마트스토어 · 쿠팡 정산 내역','매일','연결됨'],
+    ['공고 게시판','소상공인마당 · 온라인 판로 사업','매일','연결됨'],
+    ['직접 입력','폐업 계획 · 기수혜 이력','변경 시','확인 필요']],
+  mem:[
+    {g:'사업자', items:[
+      ['개업일','2024-06-03','자동','공공 마이데이터','업력 판정 · 소상공인 자금'],
+      ['업종','47912 전자상거래 소매업','자동','공공 마이데이터','통신판매업 신고 대상'],
+      ['형태','개인 · 간이과세','자동','공공 마이데이터','소상공인 기준 적용'],
+      ['통신판매업 신고','완료','자동','공공 마이데이터','온라인 판로 사업 요건']]},
+    {g:'매출', items:[
+      ['직전 연 매출','3,200만','자동','홈택스','소상공인 자금 한도'],
+      ['최근 3개월 정산','월평균 240만','자동','오픈마켓 정산','매출 추이 판정'],
+      ['국세 · 지방세 체납','없음','자동','공공 마이데이터','전 사업 공통 결격']]},
+    {g:'겸업', items:[
+      ['근로소득 병행','있음 · 중소기업 재직','자동','고용보험','실업급여 판정에 영향'],
+      ['사업 형태','온라인 · 상시 근무 불필요','직접','직접 입력','겸업 가능 여부']]}],
+  autoLabel:[['업종','47912 전자상거래 소매업','공공 마이데이터'],
+             ['개업일','2024-06-03 · 2년차','공공 마이데이터'],
+             ['직전 연 매출','3,200만 · 소상공인 기준 충족','홈택스'],
+             ['체납 · 연체','없음','공공 마이데이터']],
+  qs:[
+    {k:'close',q:'이 사업을 정리할 계획이 있으신가요?',s:'폐업 신고 전에만 받을 수 있는 지원이 있습니다',
+     a:[['no','계속 운영합니다'],['maybe','고민 중입니다'],['yes','정리하려고 합니다']]}],
+  auto:{rev:'u1', del:'no'},
+  judge(u){const a={...P.online.auto,...u}; const o=[];
+    o.push({n:'소상공인 정책자금',amt:'최대 7,000만',odds:58,rate:'예산 소진 전',why:'매출 3억 미만 · 업력 1년 이상'});
+    o.push({n:'온라인 판로 지원',amt:'최대 500만',odds:64,rate:'3 : 1',why:'통신판매업 신고 완료'});
+    o.push({n:'노란우산 소득공제',amt:'연 최대 500만',odds:95,rate:'가입 시',why:'가입만 하면 적용'});
+    if(a.close==='yes'||a.close==='maybe')
+      o.push({n:'희망리턴패키지',amt:'최대 2,000만',odds:78,rate:'상담 후',why:'폐업 신고 전에 상담을 받아야 합니다'});
+    o.push({n:'창업지원사업 전반',amt:'—',no:1,why:'소매업은 다수 창업지원사업의 제외 업종'});
+    o.push({n:'두루누리 사회보험료',amt:'월 최대 60만',no:1,why:'상시근로자가 없습니다'});
+    return o;},
+  paths:[
+    {n:'폐업 전에 먼저 받는 경로',steps:'희망리턴 상담 → 폐업 신고 → 실업급여',
+     sum:'2,000만 + 실업급여',mo:'약 2개월',best:1,
+     note:'순서가 핵심입니다. 폐업을 먼저 신고하면 희망리턴패키지를 받을 수 없고, 사업자를 유지하면 실업급여를 신청할 수 없습니다'},
+    {n:'사업을 유지하는 경로',steps:'소상공인 정책자금 → 온라인 판로 지원',
+     sum:'7,500만',mo:'약 6개월',note:'자금은 대출이라 상환 부담이 남고, 사업자 유지 시 실업급여는 받을 수 없습니다'},
+    {n:'바로 폐업하는 경로',steps:'폐업 신고 → 실업급여',
+     sum:'실업급여만',mo:'즉시',note:'희망리턴패키지 최대 2,000만 원을 받지 못하게 됩니다'}],
+  ready(u){const a={...P.online.auto,...u}; return[
+    ['사업자등록증명 · 납세증명','ok','저장된 정보로 자동 제출됩니다'],
+    ['통신판매업 신고','ok','신고 완료로 온라인 판로 사업 요건을 충족합니다'],
+    ['희망리턴 상담 이력','bad','폐업을 고민 중이라면 신고 전에 상담을 받아야 지원을 받을 수 있습니다'],
+    ['노란우산 가입','bad','미가입 상태입니다. 소득공제와 폐업 시 공제금을 받지 못합니다'],
+    ['겸업 확인','warn','근로소득과 사업소득이 함께 있어 종합소득세 신고 대상입니다']];},
+  run:{title:'희망리턴패키지', amt:'최대 2,000만', dday:'폐업 신고 전에만',
+    lead:'폐업을 신고하고 나면 신청할 수 없습니다',
+    steps:[['사전 상담 예약','소진공 지역센터 · 폐업 신고 전 필수','now'],
+           ['사업 정리 컨설팅','재고 · 임차 · 세무 정리 안내','wait'],
+           ['폐업 신고','상담 이후에 진행','wait'],
+           ['재취업 지원 연계','실업급여 자격 확인 포함','wait'],
+           ['점포 철거비 신청','해당 시 별도 지원','wait']],
+    paid:0},
+  road:{label:'온라인 판매 로드맵', cur:2,
+    stages:[
+      {n:'준비', d:'개업 전', items:[
+        ['아이템 소싱','done',''],
+        ['통신판매업 신고','done','필수 신고']]},
+      {n:'개업', d:'등록과 판매 시작', items:[
+        ['사업자등록','done','2024-06-03'],
+        ['오픈마켓 입점','done','스마트스토어 · 쿠팡'],
+        ['상표 출원','todo','브랜드 보호 · 위조품 대응','전문가']]},
+      {n:'안정', d:'매출 기반', items:[
+        ['소상공인 정책자금','now','최대 7,000만'],
+        ['온라인 판로 지원','now','최대 500만'],
+        ['노란우산 가입','todo','소득공제']]},
+      {n:'성장', d:'확장', items:[
+        ['수출바우처','locked','해외 판매'],
+        ['스마트 물류','locked','풀필먼트 지원']]}],
+    later:['정리와 전환']},
+  ask:[
+   {q:'회사 다니면서 이 사업 유지해도 되나?',mode:'logic',
+    a:'온라인 판매업은 상시 근무가 필요하지 않아 겸업 자체는 가능합니다. 다만 회사 취업규칙의 겸업 금지 조항은 별도로 확인하셔야 합니다. 그리고 사업자를 보유한 상태에서는 퇴사하더라도 실업급여를 신청할 수 없습니다.',
+    cite:'저장된 업종 · 사업 형태 · 고용보험 상태로 계산'},
+   {q:'폐업하면 뭘 받을 수 있어?',mode:'logic',
+    a:'폐업 신고 전에 희망리턴패키지 상담을 받으시면 최대 2,000만 원을 지원받을 수 있습니다. 신고를 먼저 하면 받을 수 없습니다. 상담 후 폐업하면 실업급여 신청도 가능해집니다.',
+    cite:'저장된 사업자 상태 · 고용보험 이력으로 계산'}]
 },
 
 family:{
@@ -745,6 +955,26 @@ family:{
            ['청약 신청','LH청약플러스로 연결','wait'],
            ['추첨 결과 확인','미당첨 시 다음 공고 자동 알림','wait']],
     paid:0},
+  road:{label:'가족 여정', cur:1,
+    stages:[
+      {n:'결혼', d:'혼인 신고 후', items:[
+        ['혼인신고','done','2023-05-20'],
+        ['신혼부부 전세대출','done','버팀목'],
+        ['청약통장','done','가입 4년 48회']]},
+      {n:'출산과 양육', d:'자녀 1명', items:[
+        ['임신출산 진료비','done','국민행복카드'],
+        ['첫만남이용권','lost','출생 후 1년 경과'],
+        ['부모급여','done','월 50만 수령 중'],
+        ['아동수당','done','월 10만 수령 중'],
+        ['본인부담상한제 환급','now','미신청 환급금 확인 필요']]},
+      {n:'주거', d:'내 집 마련', items:[
+        ['LH 신혼부부 매입임대','now','접수 18일 남음 · 소득 요건 충족'],
+        ['신혼부부 특별공급','todo','청약 가점 확인','전문가'],
+        ['디딤돌 대출','locked','주택 구입 시']]},
+      {n:'확장', d:'둘째와 다자녀', items:[
+        ['임신출산 진료비','locked','출산 전 신청'],
+        ['다자녀 감면 8건','locked','전기료 · 취득세 · 공공요금']]}],
+    later:['노후 준비']},
   ask:[
    {q:'우리 집이 받을 수 있는 게 뭐야?',mode:'logic',
     a:'신청 가능한 것이 5건입니다. 아동수당과 부모급여는 이미 받고 계시고, LH 신혼부부 매입임대는 소득 요건을 충족해 신청할 수 있습니다. 본인부담상한제 환급은 대상 여부를 확인해봐야 합니다.',
@@ -761,22 +991,24 @@ family:{
 
 /* ══════════ 사례 ══════════ */
 const PEOPLE=[
- {id:'d', name:'이현우', sub:'퇴사 예정 · 개인사업자 보유', tag:'직장인이면서 사업자',
-  on:['worker','solo'],
-  off:{corp:'법인 등기가 없습니다', family:'배우자와 자녀가 확인되지 않습니다'},
+ {id:'d', name:'이현우', sub:'퇴사 예정 · 온라인 스토어 운영', tag:'직장인이면서 온라인 사업자',
+  on:['worker','online'],
+  off:{corp:'법인 등기가 없습니다', solo:'오프라인 점포가 확인되지 않습니다',
+       family:'배우자와 자녀가 확인되지 않습니다'},
   cross:[
    ['실업급여 신청이 막힐 수 있습니다',
-    '개인사업자를 보유한 상태로는 실업급여를 신청할 수 없습니다. 휴업 또는 폐업 처리가 선행돼야 하며, 창구에서 반려되는 대표적 사유입니다'],
+    '온라인 스토어라 재직 중 겸업은 가능하지만, 사업자를 보유한 상태로는 실업급여를 신청할 수 없습니다. 휴업 또는 폐업 처리가 선행돼야 하며, 창구에서 반려되는 대표적 사유입니다'],
    ['폐업 순서를 잘못 잡으면 지원을 놓칩니다',
     '희망리턴패키지는 폐업 신고 전에 상담을 받아야 합니다. 실업급여를 위해 먼저 폐업하면 이 지원을 받을 수 없습니다']],
-  noti:[['실업급여 신청 전 확인','개인사업자 휴업 처리가 선행돼야 합니다','오늘','stop'],
+  noti:[['실업급여 신청 전 확인','사업자 휴업 또는 폐업 처리가 선행돼야 합니다','오늘','stop'],
         ['희망리턴패키지','폐업 신고 전에 상담을 받아야 합니다','오늘','warn'],
-        ['소득세 감면 미신청','재직 중에만 신청할 수 있습니다','3일 전','warn']]},
+        ['소득세 감면 제도 일몰','2026년 12월 31일 종료 예정 · 미신청 상태','3일 전','stop'],
+        ['서울시 청년월세','접수 21일 남았습니다','5일 전','warn']]},
 
  {id:'a', name:'오상엽', sub:'법인 대표 · 창업 2년차', tag:'법인 사업자',
   on:['corp'],
-  off:{solo:'개인사업자 등록이 없습니다', worker:'고용보험 가입 이력이 없습니다',
-       family:'배우자와 자녀가 확인되지 않습니다'},
+  off:{solo:'개인사업자 등록이 없습니다', online:'온라인 판매 사업자가 없습니다',
+       worker:'고용보험 가입 이력이 없습니다', family:'배우자와 자녀가 확인되지 않습니다'},
   cross:[],
   noti:[['초기창업패키지 마감','12일 남았습니다 · 선정 가능성 52%','오늘','warn'],
         ['창업교육 미이수','서류평가 가점 항목입니다','2일 전','warn'],
@@ -784,7 +1016,8 @@ const PEOPLE=[
 
  {id:'b', name:'김소연', sub:'카페 운영 · 자녀 1명', tag:'사업자이면서 부모',
   on:['solo','family'],
-  off:{corp:'법인 등기가 없습니다', worker:'고용보험 피보험자가 아닙니다'},
+  off:{corp:'법인 등기가 없습니다', online:'온라인 판매 사업자가 없습니다',
+       worker:'고용보험 피보험자가 아닙니다'},
   cross:[
    ['자녀 양육과 사업 운영이 겹칩니다',
     '어린이집 종일반은 취업 또는 사업자 등록이 요건입니다. 개인사업자로 확인되어 신청할 수 있습니다'],
@@ -795,7 +1028,8 @@ const PEOPLE=[
 
  {id:'c', name:'박지훈', sub:'중소기업 재직 · 자녀 1명', tag:'직장인이면서 부모',
   on:['worker','family'],
-  off:{corp:'법인 등기가 없습니다', solo:'개인사업자 등록이 없습니다'},
+  off:{corp:'법인 등기가 없습니다', solo:'개인사업자 등록이 없습니다',
+       online:'온라인 판매 사업자가 없습니다'},
   cross:[
    ['육아휴직과 소득세 감면이 함께 걸립니다',
     '육아휴직 기간에는 소득이 줄어 중소기업 취업자 소득세 감면 효과도 함께 줄어듭니다. 복직 후 잔여 기간이 이어집니다']],
@@ -820,10 +1054,10 @@ function model(){ const out=[];
   onRoles().forEach(r=>{ try{ P[r].judge(S.ans).forEach(x=>out.push({...x, role:P[r].label})); }catch(e){} });
   return out; }
 
-const S={stage:'landing', view:'state', ti:0, qi:0, ans:{}, tab:'judge', asked:[], done:false, ob:0};
+const S={stage:'landing', view:'road', ti:0, qi:0, ans:{}, tab:'judge', asked:[], done:false, ob:0};
 const $=id=>document.getElementById(id);
 const nav=$('nav'), main=$('main');
-const VIEWS=[['state','상태'],['memory','내 정보'],['judge','판정'],['run','진행'],['ask','물어보기']];
+const VIEWS=[['road','로드맵'],['state','상태'],['memory','내 정보'],['judge','판정'],['run','진행'],['ask','물어보기']];
 
 /* ══════════ 스테이지 ══════════ */
 function stage(s){
@@ -870,7 +1104,7 @@ function drawOb(){
     return;
   }
 
-  const m=me(), all=['corp','solo','worker','family'];
+  const m=me(), all=['corp','solo','online','worker','family'];
   ob.innerHTML=`
   <h2>확인된 역할</h2>
   <p class="sub">역할을 직접 고르지 않으셔도 됩니다.
@@ -901,7 +1135,7 @@ function drawOb(){
 
   <button class="btn btn-fill btn-wide btn-lg" id="ob-go">내 상태 보기</button>
   <button class="btn btn-wide" id="ob-back">다른 사람으로 다시</button>`;
-  $('ob-go').onclick=()=>{ S.view='state'; stage('app'); };
+  $('ob-go').onclick=()=>{ S.view='road'; stage('app'); };
   $('ob-back').onclick=()=>{ S.ob=0; drawOb(); };
 }
 
@@ -948,6 +1182,66 @@ $('bell').onclick=()=>{
 };
 $('sheet-x').onclick=()=>$('sheet').classList.add('hide');
 $('sheet').onclick=e=>{ if(e.target.id==='sheet') $('sheet').classList.add('hide'); };
+
+/* ───── 로드맵 ───── */
+function viewRoad(){
+  const RD=onRoles().map(r=>P[r].road).filter(Boolean);
+  return RD.map(R=>{
+    const all=R.stages.flatMap(x=>x.items);
+    const done=all.filter(x=>x[1]==='done').length;
+    const lost=all.filter(x=>x[1]==='lost').length;
+    const now=all.filter(x=>x[1]==='now').length;
+    const pct=Math.round(done/all.length*100);
+    const curS=R.stages[R.cur];
+    const rest=curS.items.filter(x=>x[1]==='now'||x[1]==='todo').length;
+
+    const icon=st=>st==='done'?'✓':st==='now'?'!':st==='lost'?'×':'';
+    const cls=st=>st==='done'?'done':st==='now'?'now':st==='lost'?'lost':st==='locked'?'lock':'todo';
+
+    return `
+    <div class="rmhead">
+      <div><p style="font-size:18px;font-weight:600;letter-spacing:-0.02em">${R.label}</p>
+        <p style="font-size:13px;color:var(--ink-2)">현재 <b style="color:var(--ink)">${curS.n}</b> 단계 ·
+          이 단계에서 남은 일 ${rest}건</p></div>
+      <div style="text-align:right"><div class="num" style="font-size:26px;font-weight:600">${pct}%</div>
+        <div style="font-size:12px;color:var(--ink-2)" class="num">${all.length}개 중 ${done}개 완료</div></div>
+    </div>
+    <div class="rmbar"><span style="width:${pct}%"></span></div>
+    <div style="display:flex;gap:14px;font-size:12.5px;color:var(--ink-2);margin-bottom:16px" class="num">
+      <span>완료 ${done}</span><span style="color:var(--ink)">진행 중 ${now}</span>
+      ${lost?`<span style="color:var(--stop)">놓침 ${lost}</span>`:''}
+    </div>
+
+    ${now?`<div class="badge-win">
+      <p style="font-size:14px;color:var(--go);font-weight:600">지금 ${now}건을 끝내면 ${curS.n} 단계가 완료됩니다</p>
+      <p style="font-size:12.5px;color:var(--go);margin-top:2px">완료하면 다음 단계의 지원사업이 열립니다</p>
+    </div>`:''}
+
+    ${R.stages.map((st,i)=>{
+      const dn=st.items.every(x=>x[1]==='done'||x[1]==='lost');
+      const cur=i===R.cur, lk=i>R.cur;
+      const c=st.items.filter(x=>x[1]==='done').length;
+      return `<div class="stg ${dn?'done':''} ${cur?'cur':''} ${lk?'lock':''}">
+        <span class="node">${dn?'✓':i+1}</span>
+        <div class="sh"><div><span class="sn">${st.n}</span>
+          <span class="sd" style="margin-left:7px">${st.d}</span></div>
+          <span class="cnt num">${c} / ${st.items.length}</span></div>
+        <div class="items">
+          ${st.items.map(x=>`<div class="it ${x[1]==='locked'?'lockrow':''} ${x[1]==='lost'?'lostrow':''}">
+            <span class="ck ${cls(x[1])}">${icon(x[1])}</span>
+            <span class="tx"><span class="tn">${x[0]}</span>
+              ${x[2]?`<div class="td">${x[2]}</div>`:''}</span>
+            ${x[3]?`<button class="btn btn-sm">${x[3]} 연결</button>`
+              :x[1]==='now'?`<span class="tag t-logic">지금</span>`:''}
+          </div>`).join('')}
+        </div>
+      </div>`;}).join('')}
+
+    ${R.later&&R.later.length?`<div class="card pad" style="margin-bottom:18px">
+      <p style="font-size:13px;color:var(--ink-2)">이후 단계는 해당 상황이 되면 나타납니다 ·
+        ${R.later.join(' · ')}</p></div>`:''}`;
+  }).join('<div style="height:26px"></div>');
+}
 
 /* ───── 상태 ───── */
 function viewState(){
@@ -1181,7 +1475,8 @@ function viewAsk(){
 
 /* ───── 렌더 ───── */
 function draw(){
-  main.innerHTML = S.view==='state' ? viewState()
+  main.innerHTML = S.view==='road' ? viewRoad()
+    : S.view==='state' ? viewState()
     : S.view==='memory' ? viewMemory()
     : S.view==='judge' ? viewJudge()
     : S.view==='run' ? viewRun() : viewAsk();
