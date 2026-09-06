@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>빠짐없이 — 내가 받을 수 있는 것을 기록하고 판정합니다</title>
+<meta name="description" content="지원금, 환급, 감면, 인증. 사람은 복지 카테고리로 살지 않습니다. 인생에 무언가 일어났을 때 그 사건으로 받을 수 있는 것 전부를 한 번에 판정합니다.">
+<link rel="stylesheet" as="style" crossorigin
+  href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root{
+  --paper:#F1F4F5; --card:#FFFFFF;
+  --ink:#1A2027; --ink-2:#5B6670; --ink-3:#8B959D;
+  --rule:#DCE1E4; --rule-2:#EDF0F2;
+  --go:#0F6E5C; --go-bg:#E7F2EF;
+  --warn:#9C5A22; --warn-bg:#FAF0E6;
+  --stop:#9E3129; --stop-bg:#FAECEA;
+  --logic:#2F4B7C; --logic-bg:#EAEFF7;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%; scroll-behavior:smooth}
+body{font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,
+  "Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  background:var(--paper); color:var(--ink); font-size:15px; line-height:1.6;
+  font-variant-numeric:tabular-nums; font-feature-settings:"tnum"}
+button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
+a{color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.hide{display:none !important}
+
+/* ════ 공통 ════ */
+.wrap{max-width:1100px; margin:0 auto; padding:0 20px}
+.btn{border:1px solid var(--ink); background:var(--card); padding:9px 17px;
+  border-radius:5px; font-size:14px; font-weight:500; transition:background .12s}
+.btn:hover{background:#E9EDEF}
+.btn-fill{background:var(--ink); color:#fff; border-color:var(--ink)}
+.btn-fill:hover{background:#2C353E}
+.btn-sm{padding:5px 11px; font-size:12.5px; border-radius:4px; border-color:var(--rule)}
+.btn-lg{padding:13px 26px; font-size:16px; border-radius:6px}
+.btn-wide{width:100%; text-align:center; margin-top:12px}
+.card{background:var(--card); border:1px solid var(--rule); border-radius:8px}
+.pad{padding:15px 17px}
+.tag{display:inline-block; font-size:11.5px; font-weight:600; padding:2px 8px; border-radius:4px; white-space:nowrap}
+.t-go{background:var(--go-bg);color:var(--go)} .t-warn{background:var(--warn-bg);color:var(--warn)}
+.t-stop{background:var(--stop-bg);color:var(--stop)} .t-logic{background:var(--logic-bg);color:var(--logic)}
+.t-mute{background:#EEF1F2;color:var(--ink-3)}
+.notice{border-radius:8px; padding:14px 17px; border:1px solid}
+.n-go{background:var(--go-bg);border-color:#BEDCD4} .n-warn{background:var(--warn-bg);border-color:#E8D2B4}
+.n-stop{background:var(--stop-bg);border-color:#EBC8C3}
+.notice h3{font-size:15px;font-weight:600;margin-bottom:3px}
+.notice p{font-size:13.5px;line-height:1.62}
+.ledger{background:var(--card); border:1px solid var(--rule); border-radius:8px; overflow:hidden}
+.lrow{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:14px; align-items:center;
+  padding:11px 17px; border-top:1px solid var(--rule-2)}
+.lrow:first-child{border-top:none}
+.lrow .t{font-size:14.5px} .lrow .d{font-size:12.5px;color:var(--ink-2);margin-top:1px}
+.lrow .r{text-align:right;font-size:13px;color:var(--ink-2);white-space:nowrap}
+.lrow .r b{display:block;font-size:15px;font-weight:600;color:var(--ink)}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px}
+:focus-visible{outline:2px solid var(--ink); outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
+
+/* ════ 랜딩 ════ */
+.lp-top{position:sticky; top:0; z-index:20; background:rgba(241,244,245,.9);
+  backdrop-filter:blur(8px); border-bottom:1px solid var(--rule)}
+.lp-top .in{display:flex; justify-content:space-between; align-items:center; padding:14px 0}
+.logo{font-size:19px; font-weight:700; letter-spacing:-0.02em}
+.hero{padding:74px 0 60px; max-width:720px}
+.hero h1{font-size:clamp(30px,5vw,46px); font-weight:700; letter-spacing:-0.035em;
+  line-height:1.22; margin-bottom:18px}
+.hero h1 em{font-style:normal; color:var(--go)}
+.hero p{font-size:17px; color:var(--ink-2); line-height:1.66; margin-bottom:26px}
+.hero .cta{display:flex; gap:9px; flex-wrap:wrap}
+.sect{padding:52px 0; border-top:1px solid var(--rule)}
+.sect h2{font-size:clamp(21px,3vw,27px); font-weight:700; letter-spacing:-0.025em; margin-bottom:8px}
+.sect .sub{font-size:15px; color:var(--ink-2); margin-bottom:22px; max-width:620px}
+.cases{display:grid; grid-template-columns:repeat(auto-fit,minmax(255px,1fr)); gap:11px}
+.case{background:var(--card); border:1px solid var(--rule); border-radius:8px; padding:17px}
+.case .q{font-size:15.5px; font-weight:600; margin-bottom:6px; line-height:1.45}
+.case .b{font-size:13.5px; color:var(--ink-2); line-height:1.6}
+.case .loss{margin-top:10px; padding-top:9px; border-top:1px dashed var(--rule);
+  font-size:13px; color:var(--stop); font-weight:600}
+.vs{display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:11px}
+.vs .col{background:var(--card); border:1px solid var(--rule); border-radius:8px; padding:17px}
+.vs .col.me{border-color:var(--ink); border-width:1.5px}
+.vs h3{font-size:15px; font-weight:600; margin-bottom:11px}
+.vs li{list-style:none; font-size:13.5px; color:var(--ink-2); padding:6px 0 6px 19px;
+  position:relative; line-height:1.55; border-top:1px solid var(--rule-2)}
+.vs li:first-of-type{border-top:none}
+.vs li::before{content:'—'; position:absolute; left:0; color:var(--ink-3)}
+.vs .col.me li::before{content:'✓'; color:var(--go); font-weight:700}
+.lp-foot{padding:42px 0 60px; border-top:1px solid var(--rule); font-size:13px; color:var(--ink-2)}
+
+/* ════ 온보딩 ════ */
+.ob{max-width:520px; margin:0 auto; padding:56px 20px 80px}
+.ob h2{font-size:23px; font-weight:700; letter-spacing:-0.025em; margin-bottom:6px}
+.ob .sub{font-size:14.5px; color:var(--ink-2); margin-bottom:22px; line-height:1.6}
+.pick{display:block; width:100%; text-align:left; padding:15px 17px; margin-bottom:8px;
+  border:1px solid var(--rule); border-radius:8px; background:var(--card); transition:border-color .12s}
+.pick:hover{border-color:var(--ink)}
+.pick b{display:block; font-size:15.5px; font-weight:600}
+.pick span{font-size:13px; color:var(--ink-2)}
+.conn{display:flex; align-items:center; gap:12px; padding:13px 0; border-top:1px solid var(--rule-2)}
+.conn:first-child{border-top:none}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--rule);flex-shrink:0}
+.dot.on{background:var(--go)}
+.dot.load{background:var(--warn); animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.conn .n{flex:1;font-size:14px}
+.conn .s{font-size:12.5px;color:var(--ink-2)}
+
+/* ════ 앱 ════ */
+.app-top{background:var(--card); border-bottom:1px solid var(--rule); position:sticky; top:0; z-index:20}
+.app-top .in{display:flex; justify-content:space-between; align-items:center; padding:12px 0; gap:14px}
+.who{display:flex; align-items:center; gap:9px}
+.who .av{width:32px;height:32px;border-radius:50%;background:var(--ink);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
+.who b{font-size:14.5px;font-weight:600;display:block;line-height:1.3}
+.who span{font-size:12px;color:var(--ink-2)}
+.bell{position:relative; padding:6px 9px; border-radius:5px}
+.bell:hover{background:var(--paper)}
+.bell .cnt{position:absolute; top:1px; right:2px; min-width:16px; height:16px; padding:0 4px;
+  border-radius:8px; background:var(--stop); color:#fff; font-size:10.5px; font-weight:700;
+  display:flex; align-items:center; justify-content:center}
+.frame{display:grid; grid-template-columns:172px minmax(0,1fr); gap:26px; padding:22px 0 70px}
+@media(max-width:760px){ .frame{grid-template-columns:1fr; gap:14px; padding-bottom:78px} }
+nav#nav{display:flex; flex-direction:column; gap:1px; align-self:start; position:sticky; top:74px}
+@media(max-width:760px){ nav#nav{position:fixed; bottom:0; left:0; right:0; top:auto; z-index:30;
+  flex-direction:row; background:var(--card); border-top:1px solid var(--rule); padding:5px 6px; gap:2px} }
+.nav-i{display:flex; justify-content:space-between; align-items:center; gap:8px;
+  padding:8px 11px; border-radius:5px; font-size:14px; color:var(--ink-2); text-align:left;
+  white-space:nowrap; transition:background .12s}
+.nav-i:hover{background:#E6EBED}
+.nav-i[aria-current="true"]{background:var(--ink); color:#fff; font-weight:600}
+@media(max-width:760px){ .nav-i{flex:1; justify-content:center; font-size:12px; padding:8px 4px} }
+h2.sec{font-size:12px; font-weight:600; color:var(--ink-2); letter-spacing:.02em;
+  padding-bottom:5px; border-bottom:1px solid var(--rule); margin:22px 0 10px}
+h2.sec:first-child{margin-top:0}
+.bar{height:5px;border-radius:3px;background:#E4E8EA;overflow:hidden;width:74px}
+.bar>span{display:block;height:100%}
+.opt{display:block;width:100%;text-align:left;padding:13px 15px;margin-bottom:7px;
+  border:1px solid var(--rule);border-radius:6px;background:var(--card);font-size:15px;
+  transition:border-color .12s,background .12s}
+.opt:hover{border-color:var(--ink);background:#FAFBFB}
+.tabs{display:flex;gap:2px;margin-bottom:12px;border-bottom:1px solid var(--rule)}
+.tab{padding:8px 14px;font-size:14px;color:var(--ink-2);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab[aria-selected="true"]{color:var(--ink);font-weight:600;border-bottom-color:var(--ink)}
+.stat{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:12px 14px}
+.stat .k{font-size:12.5px;color:var(--ink-2)}
+.stat .v{font-size:25px;font-weight:600;letter-spacing:-0.02em;line-height:1.25}
+.tl{display:flex;gap:6px;align-items:center;margin:12px 0 16px;flex-wrap:wrap}
+.tl-track{flex:1;display:flex;gap:3px;min-width:120px}
+.tl-track>span{flex:1;height:3px;border-radius:2px;background:var(--rule)}
+.tl-track>span.on{background:var(--ink)}
+.delta{display:flex;gap:7px;align-items:flex-start;font-size:13.5px;padding:3px 0}
+.delta i{font-style:normal;font-weight:700;flex-shrink:0;width:14px}
+.qa{display:flex;gap:9px;margin-bottom:14px}
+.qa input{flex:1;padding:10px 13px;border:1px solid var(--rule);border-radius:6px;
+  font:inherit;font-size:14.5px;background:var(--card)}
+.msg{border:1px solid var(--rule);border-radius:8px;background:var(--card);padding:13px 16px;margin-bottom:9px}
+.msg .w{font-size:12px;color:var(--ink-2);margin-bottom:5px;display:flex;
+  justify-content:space-between;align-items:center;gap:8px}
+.msg p{font-size:14.5px;line-height:1.68}
+.msg .cite{font-size:12.5px;color:var(--ink-2);margin-top:8px;padding-top:8px;border-top:1px dashed var(--rule)}
+
+/* 알림 패널 */
+.sheet{position:fixed; inset:0; z-index:50; display:flex; justify-content:flex-end;
+  background:rgba(26,32,39,.28)}
+.sheet .panel{width:min(400px,100%); background:var(--paper); height:100%; overflow:auto;
+  border-left:1px solid var(--rule)}
+.sheet .ph{display:flex;justify-content:space-between;align-items:center;
+  padding:16px 18px; border-bottom:1px solid var(--rule); background:var(--card);
+  position:sticky; top:0}
+.sheet .pb{padding:14px 18px}
+</style>
+</head>
+<body>
+
+<!-- ══════ 랜딩 ══════ -->
+<div id="landing">
+  <header class="lp-top"><div class="wrap in">
+    <span class="logo">빠짐없이</span>
+    <button class="btn btn-sm start">시작하기</button>
+  </div></header>
+
+  <div class="wrap">
+    <section class="hero">
+      <h1>받을 수 있는데<br>몰라서 못 받는 것들을<br><em>빠짐없이</em> 찾아드립니다</h1>
+      <p>사람은 복지 카테고리로 살지 않습니다. 인생에 무언가 일어났을 때 행정을 만납니다.
+         창업을 했거나, 직원을 뽑았거나, 실직을 했거나, 출산을 했을 때입니다.<br>
+         그때 <b>내가 할 수 있는 것과 받을 수 있는 것 전부</b>를 한 번에 판정합니다.</p>
+      <div class="cta">
+        <button class="btn btn-fill btn-lg start">내 자격 확인하기</button>
+        <a class="btn btn-lg" href="#why">왜 필요한가요</a>
+      </div>
+    </section>
+  </div>
+
+  <div class="wrap">
+    <section class="sect" id="why">
+      <h2>쉬운 정보인데 어디서 확인하는지 모릅니다</h2>
+      <p class="sub">자격 조건은 대부분 나이와 업력, 소득처럼 정량적이고 공개돼 있습니다.
+        문제는 그 규칙을 <b>내 상황에 적용해주는 곳이 없다</b>는 것입니다.</p>
+      <div class="cases">
+        <div class="case">
+          <div class="q">사업자등록을 먼저 해버렸습니다</div>
+          <div class="b">예비창업패키지는 등록 전에만 신청할 수 있습니다.
+            등록하는 순간 자격이 사라진다는 사실을 아무도 알려주지 않았습니다.</div>
+          <div class="loss">최대 1억 원 · 되돌릴 수 없음</div>
+        </div>
+        <div class="case">
+          <div class="q">실업급여를 신청하러 갔다가 돌아왔습니다</div>
+          <div class="b">개인사업자를 보유하고 있어 휴업 처리가 선행돼야 한다는 안내를
+            창구에서 처음 들었습니다. 고용노동부와 국세청은 서로 다른 기관입니다.</div>
+          <div class="loss">헛걸음 · 재방문</div>
+        </div>
+        <div class="case">
+          <div class="q">정책자금 조건을 몰라 전화를 걸었습니다</div>
+          <div class="b">만 39세 이하, 5년 미만처럼 단순한 조건인데 어디서 확인하는지 몰라
+            브로커에게 연락하게 됩니다. 정책자금은 보증료 외에 비용이 들지 않습니다.</div>
+          <div class="loss">대출금의 8~12% 수수료</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sect">
+      <h2>파일은 스냅샷이고, 여기는 상태입니다</h2>
+      <p class="sub">일반적인 AI에게 물으면 내 상황을 매번 처음부터 설명해야 합니다.
+        내보낸 파일은 내보낸 순간에서 멈춥니다.</p>
+      <div class="vs">
+        <div class="col">
+          <h3>내 정보를 파일로 정리해 AI에게 물으면</h3>
+          <ul>
+            <li>매출이 기준을 넘어도 파일은 그대로입니다</li>
+            <li>넘었다는 사실을 몰라 파일을 다시 만들 계기도 없습니다</li>
+            <li>지금 열려 있는 공고와 마감일을 모릅니다</li>
+            <li>틀려도 그럴듯하게 답합니다</li>
+            <li>자격이 사라지는 날 먼저 연락하지 못합니다</li>
+          </ul>
+        </div>
+        <div class="col me">
+          <h3>빠짐없이</h3>
+          <ul>
+            <li>한 번 연결하면 배경에서 계속 갱신됩니다</li>
+            <li>상태가 바뀌면 열린 것과 닫힌 것을 알려드립니다</li>
+            <li>공고와 마감을 매일 확인합니다</li>
+            <li>계산으로 답할 수 있는 것은 규칙으로 처리하고 근거를 공개합니다</li>
+            <li>자격이 사라지기 전에 먼저 연락드립니다</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="sect">
+      <h2>판정은 무료입니다</h2>
+      <p class="sub">자격 판정, 서류 준비, 신청서 초안, 제출 안내, 사후관리까지 요금을 받지 않습니다.
+        사람이 직접 봐야 하는 일만 선택하실 수 있고, 그마저도 정액입니다.
+        <b>정책자금처럼 글을 고쳐서 바뀌는 것이 없는 영역에는 유료 구간을 두지 않습니다.</b></p>
+      <button class="btn btn-fill btn-lg start">내 자격 확인하기</button>
+    </section>
+  </div>
+
+  <footer class="lp-foot"><div class="wrap">
+    빠짐없이 · 시연용 프로토타입입니다. 표시되는 수치와 판정은 예시입니다.
+  </div></footer>
+</div>
+
+<!-- ══════ 온보딩 ══════ -->
+<div id="onboard" class="hide"><div class="ob" id="ob-body"></div></div>
+
+<!-- ══════ 앱 ══════ -->
+<div id="app-shell" class="hide">
+  <header class="app-top"><div class="wrap in">
+    <span class="logo">빠짐없이</span>
+    <div style="display:flex;align-items:center;gap:6px">
+      <button class="bell" id="bell" aria-label="알림">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+        <span class="cnt" id="bell-cnt">0</span>
+      </button>
+      <button class="who" id="who">
+        <span class="av" id="av">이</span>
+        <span style="text-align:left"><b id="entity-name">이현우</b>
+          <span id="entity-sub">퇴사 예정 · 개인사업자 보유</span></span>
+      </button>
+    </div>
+  </div></header>
+  <div class="wrap frame">
+    <nav id="nav" aria-label="주요 화면"></nav>
+    <main id="main"></main>
+  </div>
+</div>
+
+<div id="sheet" class="sheet hide"><div class="panel">
+  <div class="ph"><b style="font-size:15px">알림</b>
+    <button class="btn btn-sm" id="sheet-x">닫기</button></div>
+  <div class="pb" id="sheet-b"></div>
+</div></div>
+
+<script>
+const P = {
+
+corp:{
+  label:'법인사업자',
+  name:'주식회사 하이프로토콜',
+  sub:'창업 2년차 · 소프트웨어 개발 62010 · 서울',
+  src:[
+    ['공공 마이데이터','사업자등록 · 법인등기 · 납세증명 · 4대보험','신청 시점','연결됨'],
+    ['홈택스','부가세 신고 매출 · 세금계산서 발행액','신고 주기','연결됨'],
+    ['키프리스','특허 · 상표 출원과 등록 상태','매일','연결됨'],
+    ['신용정보','신용점수 · 연체 이력 · 보증 여력','월 1회','연결됨'],
+    ['공고 게시판','기업마당 · K-Startup · 지자체','매일','연결됨'],
+    ['직접 입력','기수혜 이력 · 창업교육 · 계획','변경 시','확인 필요']],
+  mem:[
+    {g:'사업자', items:[
+      ['개업일','2022-01-24','자동','공공 마이데이터','업력 판정 · 모든 창업지원사업'],
+      ['업종','62010 소프트웨어 개발','자동','공공 마이데이터','제외 업종 · 신산업 여부'],
+      ['형태','법인','자동','공공 마이데이터','창업여부 기준표 적용'],
+      ['소재지','서울 동대문구','자동','공공 마이데이터','지역 제한 · 지자체 사업']]},
+    {g:'재무', items:[
+      ['직전 연 매출','8,400만','자동','홈택스','매출 구간 · 자금 한도'],
+      ['국세 · 지방세 체납','없음','자동','공공 마이데이터','전 사업 공통 결격'],
+      ['신용점수','842','자동','신용정보','정책자금 보증 심사']]},
+    {g:'고용', items:[
+      ['상시근로자','1명','자동','공공 마이데이터','고용 가점 · 두루누리'],
+      ['고용보험 가입','2026-10-01','자동','공공 마이데이터','두루누리 소급 기한']]},
+    {g:'기술', items:[
+      ['특허','출원 1건 · 등록 0건','자동','키프리스','R&D 가점 · 벤처확인'],
+      ['창업교육','미이수','직접','직접 입력','서류평가 가점']]},
+    {g:'이력', items:[
+      ['예비창업패키지','미수혜 · 자격 소멸','직접','직접 입력','중복 수혜 판정'],
+      ['대표자 생년','1988','자동','공공 마이데이터','청년 대상 사업 자격']]}],
+  tl:[
+    {m:'2026년 9월', sub:'창업 2년차 · 소프트웨어 개발 62010 · 서울', chg:null,
+     todo:[['창업교육 이수','온라인 4시간 · 서류평가 가점','12일 남음'],
+           ['초기창업패키지 신청','최대 1억 · 선정 가능성 52%','12일 남음']],
+     soon:[['초기창업패키지','업력 3년 초과까지','11개월'],['청년 대상 6건','만 39세까지','8개월']],
+     past:[['예비창업패키지','사업자등록으로 자격 소멸']]},
+    {m:'2026년 10월', sub:'창업 2년차 · 상시근로자 1명',
+     chg:{k:'go', t:'4대보험에서 상시근로자 1명 증가가 확인됐습니다',
+          up:['두루누리 사회보험료 지원이 열렸습니다 · 월 최대 60만'],
+          down:['1인 기업 대상 사업 2건이 자격에서 제외됐습니다']},
+     todo:[['두루누리 신청','채용월 포함해 신청해야 소급됩니다','9일 남음'],
+           ['워크넷 구인등록','고용창출장려금의 선행 조건','상시']],
+     soon:[['두루누리 소급 기한','채용월 기준','9일'],['초기창업패키지','업력 3년 초과까지','10개월']],
+     past:[['예비창업패키지','사업자등록으로 자격 소멸']]},
+    {m:'2027년 4월', sub:'창업 3년차 · 직전 매출 3억 초과',
+     chg:{k:'warn', t:'홈택스에서 직전 연도 매출 3억 초과가 확인됐습니다',
+          up:['중소기업 대상 자금으로 전환됩니다 · 한도가 3배로 늘어납니다'],
+          down:['소상공인 정책자금 자격이 사라졌습니다','초기창업패키지 신청 기간이 지났습니다']},
+     todo:[['창업도약패키지 준비','최대 3억 · 업력 3~7년','공고 2개월 뒤']],
+     soon:[['청년 대상 6건','만 39세까지','1개월']],
+     past:[['예비창업패키지','사업자등록으로 자격 소멸'],['초기창업패키지','업력 3년 경과로 소멸']]}],
+  auto:{reg:'y2', ksic:'62', emp:'2', cert:'ip'},
+  autoLabel:[['사업자등록','2년차 · 법인','공공 마이데이터'],
+             ['주업종','62010 소프트웨어 개발 · 제외 업종 아님','공공 마이데이터'],
+             ['상시근로자','1명','4대보험'],
+             ['지식재산권','특허 출원 1건','키프리스']],
+  qs:[
+    {k:'prev',q:'정부지원금을 받으신 적 있나요?',s:'부처별로 흩어져 있어 조회되지 않습니다. 이것만 확인이 필요합니다',
+     a:[['none','없습니다'],['pre','예비창업패키지를 받았습니다'],['other','다른 사업을 받았습니다']]},
+    {k:'hire',q:'올해 안에 직원을 더 뽑을 계획이 있나요?',s:'채용 전에만 신청할 수 있는 지원이 있습니다',
+     a:[['no','계획 없습니다'],['yes','있습니다']]}],
+  judge(u){const a={...P.corp.auto,...u}; const ex=a.ksic==='56',o=[];
+    if(a.reg==='no') o.push({n:'예비창업패키지',amt:'최대 1억',odds:ex?0:38,rate:'14 : 1',why:'예비창업자 대상'});
+    else o.push({n:'예비창업패키지',amt:'최대 1억',lost:1,why:'사업자등록으로 자격 소멸'});
+    if(a.reg==='y2') o.push({n:'초기창업패키지',amt:'최대 1억',odds:ex?0:52,rate:'9 : 1',why:'업력 3년 이내'});
+    else if(a.reg==='y5') o.push({n:'창업도약패키지',amt:'최대 3억',odds:41,rate:'12 : 1',why:'업력 3~7년'});
+    o.push({n:'창업성장 R&D',amt:'최대 2억',odds:a.cert==='none'?23:47,rate:'7 : 1',
+      why:a.cert==='none'?'기술성 증빙 부족':'지식재산권 보유 가점'});
+    o.push({n:'청년창업사관학교',amt:'최대 1억',odds:44,rate:'11 : 1',why:'만 39세 이하'});
+    if(a.hire==='yes') o.push({n:'두루누리 사회보험료',amt:'월 최대 60만',odds:85,rate:'채용 전 신청',why:'채용 계획 있음 · 채용 후에는 소급 불가'});
+    if(a.emp!=='0') o.push({n:'고용창출장려금',amt:'최대 3,600만',odds:78,rate:'요건 충족 시',why:'상시근로자 보유'});
+    else o.push({n:'고용창출장려금',amt:'최대 3,600만',no:1,why:'상시근로자 없음'});
+    if(ex) o.push({n:'대부분의 창업지원사업',amt:'—',no:1,why:'음식점업은 제외 업종 56211'});
+    return o;},
+  paths:[
+    {n:'지식재산권을 먼저 확보하는 경로',steps:'특허 등록 → 창업성장 R&D → 창업도약패키지',
+     sum:'5.0억',mo:'약 30개월',best:1,note:'가점으로 R&D 선정 가능성이 23%에서 47%로 올라갑니다'},
+    {n:'지금 바로 신청하는 경로',steps:'창업성장 R&D → 창업도약패키지',
+     sum:'5.0억',mo:'약 18개월',note:'총액은 같지만 선정 가능성이 낮아 실제 수령 기대값은 절반 수준입니다'},
+    {n:'고용을 먼저 늘리는 경로',steps:'채용 → 고용창출장려금 → 창업성장 R&D',
+     sum:'5.36억',mo:'약 24개월',note:'인건비가 먼저 나가므로 자금 여력이 있을 때만 유효합니다'}],
+  ready(u){const a={...P.corp.auto,...u}; return[
+    ['사업자등록증명 · 납세증명','ok','저장된 정보로 자동 제출됩니다'],
+    ['기술성 증빙',a.cert==='none'?'bad':'ok',
+     a.cert==='none'?'특허 · 논문 · 시제품 중 어느 것도 없습니다. 실현가능성 30점에서 감점됩니다':'지식재산권 보유로 가점이 반영됩니다'],
+    ['매출 실적 근거','warn','직전 매출 8,400만으로 시장성을 채울 수 있으나 성장 추이 증빙이 약합니다'],
+    ['고용 계획 증빙',a.emp==='0'?'warn':'ok',
+     a.emp==='0'?'채용 계획을 구체적 시점과 직무로 제시해야 합니다':'현 고용 인원으로 증빙할 수 있습니다'],
+    ['창업교육 이수','bad','K-Startup 온라인 교육을 이수하지 않았습니다. 다수 사업의 가점 항목입니다']];},
+  run:{title:'창업성장 R&D', amt:'최대 2억', dday:'마감 12일 남음',
+    lead:'감점 항목 2건을 먼저 해결하도록 순서를 잡았습니다',
+    steps:[['창업교육 이수','온라인 4시간 · 서류평가 가점','now'],
+           ['특허 등록 전환 검토','R&D 선정 가능성 23% → 47%','now'],
+           ['서류 준비','7건 중 5건은 저장된 정보로 자동 제출','wait'],
+           ['사업계획서 초안','공고의 평가 항목과 배점을 목차로 생성','wait'],
+           ['제출','입력값을 항목별로 복사 · 최종 제출은 본인이','wait'],
+           ['선정 후 관리','협약 · 집행 증빙 · 중간점검 · 최종보고','wait']],
+    paid:1},
+  ask:[
+   {q:'지금 내가 받을 수 있는 게 뭐야?',mode:'logic',
+    a:'신청 가능한 사업이 4건입니다. 그중 선정 가능성이 40% 이상인 것은 초기창업패키지와 청년창업사관학교 두 건입니다. 창업성장 R&D는 자격은 되지만 기술성 증빙이 없어 23%로 낮습니다.',
+    cite:'저장된 개업일 · 업종 · 상시근로자 · 특허 상태로 계산'},
+   {q:'직원 한 명 더 뽑으려는데 괜찮아?',mode:'logic',
+    a:'채용 전에 워크넷 구인등록을 먼저 하셔야 합니다. 등록 없이 채용하면 고용창출장려금 대상에서 제외됩니다. 두루누리는 채용월을 포함해 신청해야 소급되므로 채용 후 9일 이내에 신청하세요.',
+    cite:'저장된 고용보험 가입일 · 상시근로자 수로 계산'},
+   {q:'사업계획서에 기술 차별성을 어떻게 쓰면 좋을까?',mode:'ai',
+    a:'저장된 정보로는 특허 출원 1건과 소프트웨어 개발 업종이 확인됩니다. 기술 차별성은 실현가능성 30점에 해당하므로, 출원 중인 청구항 요지와 기존 방식 대비 개선 수치를 함께 제시하는 구성을 권합니다.',
+    cite:'저장된 정보를 근거로 AI가 작성 · 사실 확인이 필요합니다'}]
+},
+
+solo:{
+  label:'개인사업자',
+  name:'오상엽 · 우리동네 카페',
+  sub:'개업 3년차 · 음식점업 56211 · 인천 미추홀구',
+  src:[
+    ['공공 마이데이터','사업자등록 · 납세증명 · 4대보험 · 소득금액','신청 시점','연결됨'],
+    ['홈택스','부가세 신고 매출','신고 주기','연결됨'],
+    ['카드매출','일 단위 매출 추이 · 결제 건수','매일','연결됨'],
+    ['신용정보','신용점수 · 연체 이력 · 보증 여력','월 1회','연결됨'],
+    ['공고 게시판','소상공인마당 · 지자체 · 소진공','매일','연결됨'],
+    ['직접 입력','임차 조건 · 기수혜 이력','변경 시','확인 필요']],
+  mem:[
+    {g:'사업자', items:[
+      ['개업일','2023-04-11','자동','공공 마이데이터','업력 판정 · 소상공인 자금'],
+      ['업종','56211 일반음식점','자동','공공 마이데이터','창업지원 제외 업종 해당'],
+      ['형태','개인','자동','공공 마이데이터','소상공인 기준 적용'],
+      ['소재지','인천 미추홀구','자동','공공 마이데이터','지자체 사업 · 상권 구분']]},
+    {g:'매출', items:[
+      ['직전 연 매출','2억 1,000만','자동','홈택스','소상공인 자금 한도'],
+      ['최근 3개월 카드매출','월평균 1,240만','자동','카드매출','매출 감소 판정'],
+      ['전년 동기 대비','18% 감소','자동','카드매출','경영안정자금 요건 충족'],
+      ['국세 · 지방세 체납','없음','자동','공공 마이데이터','전 사업 공통 결격']]},
+    {g:'금융', items:[
+      ['신용점수','731','자동','신용정보','정책자금 보증 심사'],
+      ['연체 이력','없음','자동','신용정보','금융 결격 사유'],
+      ['기존 정책자금','없음','직접','직접 입력','중복 수혜 · 한도 산정']]},
+    {g:'고용', items:[
+      ['상시근로자','2명 · 아르바이트','자동','공공 마이데이터','두루누리 · 일자리안정']]},
+    {g:'점포', items:[
+      ['임차 형태','월세 · 보증금 3,000만','직접','직접 입력','임대료 지원 사업'],
+      ['노란우산','미가입','직접','직접 입력','폐업 시 공제금 · 소득공제']]}],
+  tl:[
+    {m:'2026년 9월', sub:'개업 3년차 · 음식점업 56211 · 인천 미추홀구', chg:null,
+     todo:[['노란우산 가입 검토','소득공제와 폐업 시 공제금','상시'],
+           ['스마트상점 기술보급 신청','최대 500만 · 키오스크 · 테이블오더','21일 남음']],
+     soon:[['소상공인 정책자금','매출 3억 초과 시 자격 상실','여유 있음']],
+     past:[['신사업창업사관학교','사업자등록으로 자격 소멸']]},
+    {m:'2026년 11월', sub:'개업 3년차 · 매출 18% 감소',
+     chg:{k:'warn', t:'카드매출에서 전년 동기 대비 18% 감소가 확인됐습니다',
+          up:['경영안정자금 요건을 충족했습니다 · 최대 7,000만','희망리턴패키지 사전 상담 대상이 됐습니다'],
+          down:[]},
+     todo:[['경영안정자금 신청','매출 감소 증빙은 자동 제출됩니다','상시'],
+           ['임대료 감면 확인','지자체 사업 · 소재지 기준','14일 남음']],
+     soon:[['경영안정자금 예산','소진 시 조기 마감','예산 62% 소진']],
+     past:[['신사업창업사관학교','사업자등록으로 자격 소멸']]},
+    {m:'2027년 3월', sub:'개업 4년차 · 폐업 검토',
+     chg:{k:'stop', t:'3개월 연속 매출 감소가 이어지고 있습니다',
+          up:['희망리턴패키지 대상입니다 · 최대 2,000만'],
+          down:['폐업 신고를 먼저 하면 일부 지원을 받을 수 없습니다']},
+     todo:[['희망리턴패키지 사전 상담','폐업 신고 전에 받아야 합니다','폐업 전 필수'],
+           ['재취업 지원 확인','폐업 후 실업급여 대상 여부','상담 시 확인']],
+     soon:[['희망리턴패키지','폐업 신고 시점에 자격 판단','신고 전']],
+     past:[['신사업창업사관학교','사업자등록으로 자격 소멸']]}],
+  auto:{rev:'u3', down:'yes', emp:'yes', del:'no'},
+  autoLabel:[['직전 연 매출','2억 1,000만 · 소상공인 기준 충족','홈택스'],
+             ['최근 매출','전년 동기 대비 18% 감소','카드매출'],
+             ['직원','2명','4대보험'],
+             ['체납 · 연체','없음','공공 마이데이터 · 신용정보']],
+  qs:[
+    {k:'close',q:'폐업을 고민하고 계신가요?',s:'폐업 신고 전에만 받을 수 있는 지원이 있습니다',
+     a:[['no','아닙니다'],['maybe','고민 중입니다'],['yes','정리하려고 합니다']]},
+    {k:'prev',q:'정책자금을 받으신 적 있나요?',s:'조회되지 않아 확인이 필요합니다. 한도 산정에 반영됩니다',
+     a:[['none','없습니다'],['yes','받은 적 있습니다']]}],
+  judge(u){const a={...P.solo.auto,...u}; if(a.close&&a.close!=='no') a.down='close'; const o=[];
+    if(a.del==='yes'){
+      o.push({n:'소상공인 정책자금',amt:'최대 7,000만',no:1,why:'체납 · 연체 해소가 선행돼야 합니다'});
+      o.push({n:'경영안정자금',amt:'최대 7,000만',no:1,why:'동일 사유'});
+    }else{
+      if(a.rev!=='o3') o.push({n:'소상공인 정책자금',amt:'최대 7,000만',odds:64,rate:'예산 소진 전',why:'매출 3억 미만'});
+      else o.push({n:'소상공인 정책자금',amt:'최대 7,000만',no:1,why:'매출 3억 초과 · 중소기업 자금으로 전환'});
+      if(a.down==='yes'||a.down==='close') o.push({n:'경영안정자금',amt:'최대 7,000만',odds:71,rate:'요건 충족 시',why:'매출 감소 증빙 자동 제출'});
+    }
+    if(a.down==='close') o.push({n:'희망리턴패키지',amt:'최대 2,000만',odds:82,rate:'상담 후',why:'폐업 신고 전 상담이 요건'});
+    o.push({n:'스마트상점 기술보급',amt:'최대 500만',odds:58,rate:'4 : 1',why:'오프라인 점포 보유'});
+    if(a.emp==='yes') o.push({n:'두루누리 사회보험료',amt:'월 최대 60만',odds:88,rate:'요건 충족 시',why:'상시근로자 보유'});
+    o.push({n:'노란우산 소득공제',amt:'연 최대 500만',odds:95,rate:'가입 시',why:'가입만 하면 적용'});
+    o.push({n:'창업지원사업 전반',amt:'—',no:1,why:'음식점업은 제외 업종 56211'});
+    return o;},
+  paths:[
+    {n:'폐업 전에 먼저 받는 경로',steps:'희망리턴 상담 → 경영안정자금 → 판단',
+     sum:'9,000만',mo:'즉시',best:1,note:'폐업 신고를 먼저 하면 희망리턴패키지 일부를 받을 수 없습니다'},
+    {n:'버티며 개선하는 경로',steps:'경영안정자금 → 스마트상점 → 온라인 판로',
+     sum:'7,500만',mo:'약 12개월',note:'자금은 대출이므로 상환 부담이 남습니다'},
+    {n:'지금 폐업하는 경로',steps:'폐업 신고 → 재취업 지원',
+     sum:'미정',mo:'즉시',note:'폐업 후에는 소상공인 대상 지원을 신청할 수 없습니다'}],
+  ready(u){const a={...P.solo.auto,...u}; return[
+    ['사업자등록증명 · 납세증명','ok','저장된 정보로 자동 제출됩니다'],
+    ['매출 감소 증빙',a.down==='no'?'warn':'ok',
+     a.down==='no'?'감소가 확인되지 않아 경영안정자금 요건을 충족하지 못합니다':'카드매출 추이로 자동 증빙됩니다'],
+    ['임차 계약서','warn','임대료 지원 신청 시 필요합니다. 직접 올려주셔야 합니다'],
+    ['노란우산 가입','bad','미가입 상태입니다. 소득공제와 폐업 시 공제금을 받지 못합니다'],
+    ['사업자 확인','ok','개인사업자로 확인되어 소상공인 기준이 적용됩니다']];},
+  run:{title:'경영안정자금', amt:'최대 7,000만', dday:'예산 62% 소진',
+    lead:'매출 감소 증빙은 저장된 카드매출로 자동 제출됩니다',
+    steps:[['매출 감소 증빙','카드매출 추이로 자동 생성','now'],
+           ['서류 준비','5건 중 4건은 저장된 정보로 자동 제출','now'],
+           ['신청','소상공인정책자금 누리집으로 연결','wait'],
+           ['보증 심사','지역신용보증재단 · 보증료 외 비용 없음','wait'],
+           ['부결 시','사유 확인 · 6개월 재신청 제한 안내','wait']],
+    paid:0},
+  ask:[
+   {q:'지금 내가 받을 수 있는 게 뭐야?',mode:'logic',
+    a:'신청 가능한 것이 4건입니다. 경영안정자금은 카드매출에서 전년 대비 18% 감소가 확인되어 요건을 충족했습니다. 다만 창업지원사업 전반은 음식점업이 제외 업종이라 해당되지 않습니다.',
+    cite:'저장된 업종 · 매출 추이 · 체납 여부로 계산'},
+   {q:'장사가 안 되는데 접어야 할까?',mode:'logic',
+    a:'폐업을 결정하시기 전에 희망리턴패키지 상담을 먼저 받으셔야 합니다. 폐업 신고를 하고 나면 일부 지원을 신청할 수 없습니다. 지금은 경영안정자금 요건도 충족하므로 두 가지를 함께 검토하실 수 있습니다.',
+    cite:'저장된 매출 추이 · 폐업 관련 제도 요건으로 계산'},
+   {q:'정책자금 상담 전화가 왔는데 수수료를 달래',mode:'logic',
+    a:'정책자금은 보증료 외에 어떤 비용도 들지 않습니다. 컨설팅 명목으로 대출금의 8~12%를 요구하고 부결되어도 청구하는 사례가 보고되고 있습니다. 제3자 부당개입 신고와 소진공 상담 1533-0100으로 확인하실 수 있습니다.',
+    cite:'정책자금 운영 규정으로 판단 · 저희도 이 영역에서 요금을 받지 않습니다'}]
+},
+
+worker:{
+  label:'직장인',
+  name:'오상엽',
+  sub:'재직 4년차 · 중소기업 · 서울 성동구',
+  src:[
+    ['공공 마이데이터','주민등록 · 소득금액 · 건강보험 자격','신청 시점','연결됨'],
+    ['고용보험','가입 이력 · 피보험 단위기간 · 이직 사유','변동 시','연결됨'],
+    ['홈택스','연말정산 · 원천징수 내역','연 1회','연결됨'],
+    ['공고 게시판','고용노동부 · 지자체 청년정책','매일','연결됨'],
+    ['직접 입력','자격증 · 교육 이수 · 이직 계획','변경 시','확인 필요']],
+  mem:[
+    {g:'신분', items:[
+      ['생년','1993','자동','공공 마이데이터','청년 대상 사업 자격'],
+      ['거주지','서울 성동구','자동','공공 마이데이터','지자체 사업 · 청년월세'],
+      ['세대 구성','1인 가구 · 부모와 분리','직접','직접 입력','주거 지원 자격']]},
+    {g:'고용', items:[
+      ['고용보험 가입','2022-03-02','자동','고용보험','실업급여 피보험 단위기간'],
+      ['피보험 단위기간','1,280일','자동','고용보험','실업급여 지급 일수 산정'],
+      ['사업장 규모','중소기업 42인','자동','고용보험','청년 대상 사업 요건'],
+      ['직전 이직','자발적 퇴사 없음','자동','고용보험','실업급여 수급 자격']]},
+    {g:'소득', items:[
+      ['연 소득','4,100만','자동','홈택스','소득 기준 사업 · 청년도약계좌'],
+      ['중소기업 재직','해당','자동','고용보험','소득세 90% 감면 대상']]},
+    {g:'주거', items:[
+      ['임차 형태','월세 62만 · 보증금 3,000만','직접','직접 입력','청년월세 · 버팀목'],
+      ['무주택 여부','무주택','자동','공공 마이데이터','주거 지원 전반']]},
+    {g:'이력', items:[
+      ['내일배움카드','미발급','직접','직접 입력','직업훈련 자격'],
+      ['청년도약계좌','미가입','직접','직접 입력','정부기여금 상실 중']]}],
+  tl:[
+    {m:'2026년 9월', sub:'재직 4년차 · 중소기업 · 서울 성동구', chg:null,
+     todo:[['중소기업 취업자 소득세 감면','5년간 90% 감면 · 미신청 상태','연말정산 전'],
+           ['청년도약계좌 가입','정부기여금 월 최대 2만 4천','상시']],
+     soon:[['청년 대상 사업 8건','만 34세까지','1년 5개월'],
+           ['소득세 감면','재직 5년 경과 시 종료','1년 2개월']],
+     past:[['청년내일채움공제','신규 가입 종료']]},
+    {m:'2027년 2월', sub:'재직 4년차 · 이직 준비',
+     chg:{k:'warn', t:'이직 준비 중으로 입력하셨습니다',
+          up:['내일배움카드로 직무 훈련을 받을 수 있습니다','국민취업지원제도 사전 확인이 가능합니다'],
+          down:['자발적 퇴사는 실업급여 대상이 아닙니다','청년도약계좌는 소득 요건 재확인이 필요합니다']},
+     todo:[['내일배움카드 발급','재직 중에도 발급됩니다','상시'],
+           ['퇴사 사유 확인','실업급여 수급 자격이 갈립니다','퇴사 전']],
+     soon:[['소득세 감면','퇴사 시 남은 기간 소멸','1년 2개월']],
+     past:[['청년내일채움공제','신규 가입 종료']]},
+    {m:'2027년 5월', sub:'실직 · 구직 중',
+     chg:{k:'stop', t:'고용보험에서 자격 상실이 확인됐습니다 · 계약 만료',
+          up:['실업급여 수급 자격이 확인됐습니다 · 1,280일 기준 210일','국민취업지원제도 신청이 가능합니다'],
+          down:['재직자 대상 사업 4건이 자격에서 제외됐습니다']},
+     todo:[['실업급여 신청','사업자 보유 시 휴업 처리가 선행돼야 합니다','12개월 이내'],
+           ['워크넷 구직등록','실업급여의 선행 조건','신청 전']],
+     soon:[['실업급여 신청 기한','이직일로부터','12개월']],
+     past:[['청년내일채움공제','신규 가입 종료'],['재직자 대상 4건','실직으로 자격 상실']]}],
+  auto:{stat:'work', biz:'no', rent:'rent'},
+  autoLabel:[['재직 상태','재직 중 · 중소기업 42인','고용보험'],
+             ['피보험 단위기간','1,280일 · 실업급여 요건 충족','고용보험'],
+             ['사업자 보유','없음','공공 마이데이터'],
+             ['주거','월세 62만 · 무주택','직접 입력 · 공공 마이데이터']],
+  qs:[
+    {k:'leave',q:'퇴사를 계획하고 계신가요?',s:'퇴사 전에만 할 수 있는 것이 있습니다',
+     a:[['no','아닙니다'],['plan','준비 중입니다'],['soon','곧 퇴사합니다']]},
+    {k:'why',q:'퇴사한다면 사유가 어떻게 되나요?',s:'실업급여 수급 자격이 여기서 갈립니다',
+     a:[['none','해당 없음'],['self','자발적 퇴사'],['end','계약 만료 또는 권고사직']]}],
+  judge(u){const a={...P.worker.auto,...u}; if(a.leave==='soon') a.stat='out'; const o=[];
+    if(a.stat==='out'){
+      if(a.why==='self') o.push({n:'실업급여',amt:'210일 지급',no:1,why:'자발적 퇴사는 수급 대상이 아닙니다'});
+      else if(a.biz==='yes') o.push({n:'실업급여',amt:'210일 지급',odds:70,rate:'요건 충족 시',why:'사업자 휴업 처리가 선행돼야 합니다'});
+      else o.push({n:'실업급여',amt:'210일 지급',odds:94,rate:'요건 충족 시',why:'피보험 단위기간 1,280일 충족'});
+      o.push({n:'국민취업지원제도',amt:'월 50만 · 6개월',odds:66,rate:'소득 요건',why:'구직 중 · 소득 기준 확인 필요'});
+    } else {
+      o.push({n:'실업급여',amt:'210일 지급',no:1,why:'재직 중에는 신청할 수 없습니다'});
+    }
+    o.push({n:'중소기업 취업자 소득세 감면',amt:'5년간 90%',odds:97,rate:'신청만 하면',why:'중소기업 재직 확인 · 미신청 상태'});
+    o.push({n:'내일배움카드',amt:'최대 500만',odds:91,rate:'요건 충족 시',why:'재직 중에도 발급 가능'});
+    o.push({n:'청년도약계좌',amt:'정부기여금 월 2.4만',odds:88,rate:'소득 요건',why:'연 소득 4,100만 · 요건 충족'});
+    if(a.rent==='rent') o.push({n:'청년월세 지원',amt:'월 20만 · 12개월',odds:59,rate:'예산 범위',why:'무주택 · 부모와 분리 거주'});
+    else o.push({n:'청년월세 지원',amt:'월 20만 · 12개월',no:1,why:'임차 중이 아닙니다'});
+    return o;},
+  paths:[
+    {n:'퇴사 전에 정리하는 경로',steps:'소득세 감면 신청 → 내일배움카드 발급 → 퇴사',
+     sum:'약 1,100만',mo:'퇴사 전 2개월',best:1,
+     note:'소득세 감면은 재직 중에만 신청할 수 있고, 미신청분은 경정청구로도 5년까지만 소급됩니다'},
+    {n:'바로 퇴사하는 경로',steps:'퇴사 → 실업급여 → 재취업',
+     sum:'약 1,400만',mo:'약 7개월',note:'자발적 퇴사면 실업급여를 받을 수 없어 금액이 크게 줄어듭니다'},
+    {n:'재직하며 준비하는 경로',steps:'내일배움카드 → 자격 취득 → 이직',
+     sum:'약 1,600만',mo:'약 12개월',note:'소득이 끊기지 않으나 시간이 오래 걸립니다'}],
+  ready(u){const a={...P.worker.auto,...u}; return[
+    ['고용보험 이력','ok','피보험 단위기간 1,280일로 실업급여 요건을 충족합니다'],
+    ['퇴사 사유 증빙',a.why==='self'?'bad':'ok',
+     a.why==='self'?'자발적 퇴사는 실업급여 수급 대상이 아닙니다':'이직확인서로 자동 확인됩니다'],
+    ['사업자 보유 여부',a.biz==='yes'?'bad':'ok',
+     a.biz==='yes'?'사업자를 보유하고 계셔 휴업 처리가 선행돼야 합니다. 창구에서 반려되는 대표적 사유입니다':'해당 사항 없습니다'],
+    ['워크넷 구직등록','warn','실업급여 신청 전에 등록해야 합니다'],
+    ['소득세 감면 신청','bad','재직 중임에도 미신청 상태입니다. 5년간 90% 감면을 받지 못하고 있습니다']];},
+  run:{title:'중소기업 취업자 소득세 감면', amt:'5년간 90% 감면', dday:'연말정산 전',
+    lead:'재직 중에만 신청할 수 있으며, 미신청분은 5년까지만 소급됩니다',
+    steps:[['재직 확인','고용보험 이력으로 자동 확인','now'],
+           ['감면 대상 업종 확인','업종코드로 자동 대조','now'],
+           ['신청서 작성','회사 제출용 양식 자동 생성','wait'],
+           ['회사 제출','원천징수의무자 경유 · 본인이 제출','wait'],
+           ['소급분 확인','미신청 기간에 대한 경정청구 안내','wait']],
+    paid:0},
+  ask:[
+   {q:'지금 내가 받을 수 있는 게 뭐야?',mode:'logic',
+    a:'신청 가능한 것이 4건입니다. 그중 중소기업 취업자 소득세 감면은 재직 중임에도 미신청 상태로, 5년간 90% 감면을 받지 못하고 계십니다. 지금 신청하면 남은 기간에 대해 적용되고 미신청분은 경정청구로 소급할 수 있습니다.',
+    cite:'저장된 고용보험 이력 · 사업장 규모 · 소득으로 계산'},
+   {q:'회사 그만두려는데 뭘 먼저 해야 해?',mode:'logic',
+    a:'퇴사 전에 두 가지를 하셔야 합니다. 소득세 감면은 재직 중에만 신청할 수 있고, 내일배움카드는 재직 중에 발급받는 편이 절차가 간단합니다. 그리고 자발적 퇴사면 실업급여를 받을 수 없으니 퇴사 사유를 먼저 확인하세요.',
+    cite:'저장된 재직 상태 · 고용보험 이력으로 계산'},
+   {q:'이직할 회사를 고를 때 뭘 보면 좋을까?',mode:'ai',
+    a:'저장된 정보로는 중소기업 재직 4년차이며 소득세 감면 대상 업종에 계십니다. 이직 시 감면 잔여 기간이 승계되지 않으므로, 새 직장이 감면 대상 업종인지 먼저 확인하시는 편이 좋습니다.',
+    cite:'저장된 정보를 근거로 AI가 작성 · 사실 확인이 필요합니다'}]
+},
+
+family:{
+  label:'가족',
+  name:'오상엽 · 3인 가구',
+  sub:'배우자 · 자녀 1명 · 경기 고양시',
+  src:[
+    ['공공 마이데이터','주민등록 · 가족관계 · 소득금액 · 건강보험','신청 시점','연결됨'],
+    ['건강보험공단','임신출산 진료비 · 본인부담상한제','분기','연결됨'],
+    ['공고 게시판','LH · SH · 지자체 · 복지로','매일','연결됨'],
+    ['직접 입력','주거 계획 · 양육 형태 · 출산 예정','변경 시','확인 필요']],
+  mem:[
+    {g:'가구', items:[
+      ['가구원 수','3명','자동','공공 마이데이터','소득 기준 · 가구원 수 기준 사업'],
+      ['자녀','1명 · 2025년생','자동','공공 마이데이터','부모급여 · 아동수당'],
+      ['거주지','경기 고양시','자동','공공 마이데이터','지자체 사업 · LH 공고'],
+      ['혼인','2023-05-20','자동','공공 마이데이터','신혼부부 대상 사업']]},
+    {g:'소득', items:[
+      ['가구 합산 소득','6,200만','자동','공공 마이데이터','중위소득 대비 118%'],
+      ['건강보험료','월 21만','자동','건강보험공단','소득 기준 판정 보조']]},
+    {g:'주거', items:[
+      ['주택 소유','무주택','자동','공공 마이데이터','청약 · 주거 지원 전반'],
+      ['임차 형태','전세 2억 4,000만','직접','직접 입력','버팀목 대출 · 전세 지원'],
+      ['청약통장','가입 4년 · 48회','직접','직접 입력','신혼부부 특별공급 가점']]},
+    {g:'양육', items:[
+      ['부모급여','수령 중 · 월 50만','자동','공공 마이데이터','만 2세까지'],
+      ['아동수당','수령 중 · 월 10만','자동','공공 마이데이터','만 8세까지'],
+      ['어린이집','미등록','직접','직접 입력','보육료 · 종일반 자격']]},
+    {g:'의료', items:[
+      ['본인부담상한제','환급 대상 확인 필요','자동','건강보험공단','미신청 환급금'],
+      ['난임 시술 지원','미사용','직접','직접 입력','지자체 지원 횟수']]}],
+  tl:[
+    {m:'2026년 9월', sub:'배우자 · 자녀 1명 · 경기 고양시', chg:null,
+     todo:[['본인부담상한제 환급 확인','미신청 환급금이 있을 수 있습니다','상시'],
+           ['신혼부부 전세임대 공고','LH · 소득 요건 충족','18일 남음']],
+     soon:[['신혼부부 대상 사업','혼인 7년까지','3년 8개월'],
+           ['부모급여','자녀 만 2세까지','1년 4개월']],
+     past:[['첫만남이용권','출생 후 1년 경과로 신청 종료']]},
+    {m:'2027년 1월', sub:'배우자 · 자녀 1명 · 소득 증가',
+     chg:{k:'warn', t:'가구 합산 소득이 중위소득 130%를 넘었습니다',
+          up:[],
+          down:['청년월세 지원 자격이 사라졌습니다','일부 지자체 사업의 소득 요건을 초과했습니다']},
+     todo:[['LH 신혼부부 매입임대 신청','소득 요건 130% 이하 유형은 마감 전','9일 남음']],
+     soon:[['소득 기준 사업 3건','다음 소득 반영 시점','3개월']],
+     past:[['첫만남이용권','출생 후 1년 경과'],['청년월세 지원','소득 초과로 자격 상실']]},
+    {m:'2027년 6월', sub:'배우자 · 자녀 2명 예정',
+     chg:{k:'go', t:'둘째 출산 예정으로 입력하셨습니다',
+          up:['임신출산 진료비 바우처 100만','다자녀 가구 기준 충족 · 지원 8건이 열립니다','부모급여가 자녀별로 각각 지급됩니다'],
+          down:[]},
+     todo:[['임신출산 진료비 신청','국민행복카드 · 출산 전 신청','임신 확인 후'],
+           ['다자녀 혜택 일괄 확인','전기료 · 자동차 취득세 · 공공요금 감면','상시']],
+     soon:[['임신출산 진료비','분만예정일 이후 2년','신청 가능']],
+     past:[['첫만남이용권','첫째 기준 종료'],['청년월세 지원','소득 초과로 자격 상실']]}],
+  auto:{kid:'1', inc:'u130', home:'no'},
+  autoLabel:[['자녀','1명 · 2025년생','공공 마이데이터'],
+             ['가구 합산 소득','6,200만 · 중위소득 118%','공공 마이데이터'],
+             ['주택 소유','무주택','공공 마이데이터'],
+             ['혼인','2023-05-20 · 신혼부부 대상','공공 마이데이터']],
+  qs:[
+    {k:'plan',q:'출산 계획이 있으신가요?',s:'출산 전에만 신청할 수 있는 지원이 있습니다',
+     a:[['no','없습니다'],['yes','있습니다 또는 임신 중']]},
+    {k:'move',q:'이사나 재계약 계획이 있으신가요?',s:'계약 전에 신청해야 하는 주거 지원이 있습니다',
+     a:[['no','없습니다'],['yes','있습니다']]}],
+  judge(u){const a={...P.family.auto,...u}; const o=[];
+    if(a.kid!=='0'){
+      o.push({n:'아동수당',amt:'월 10만 · 만 8세까지',odds:99,rate:'자동 지급',why:'자녀 보유'});
+      o.push({n:'부모급여',amt:'월 50만 · 만 2세까지',odds:99,rate:'자동 지급',why:'영아 보유'});
+    }
+    if(a.plan==='yes'){
+      o.push({n:'임신출산 진료비',amt:'100만 · 다태아 140만',odds:99,rate:'신청만 하면',why:'출산 전 신청'});
+      o.push({n:'첫만남이용권',amt:'200만',odds:99,rate:'출생 후 1년 내',why:'출생 신고 시 신청'});
+    } else if(a.kid!=='0'){
+      o.push({n:'첫만남이용권',amt:'200만',lost:1,why:'출생 후 1년이 지나 신청 기간이 끝났습니다'});
+    }
+    if(a.home==='no'){
+      if(a.inc==='o130') o.push({n:'LH 신혼부부 매입임대',amt:'전세 지원',no:1,why:'소득 130% 초과'});
+      else o.push({n:'LH 신혼부부 매입임대',amt:'전세 지원',odds:31,rate:'추첨',why:'무주택 · 소득 요건 충족'});
+      if(a.inc==='u100') o.push({n:'청년월세 지원',amt:'월 20만 · 12개월',odds:62,rate:'예산 범위',why:'소득 100% 이하'});
+      else o.push({n:'청년월세 지원',amt:'월 20만 · 12개월',no:1,why:'소득 기준 초과'});
+      o.push({n:'버팀목 전세자금대출',amt:'최대 2억',odds:86,rate:'심사',why:'무주택 · 전세 계약'});
+    } else {
+      o.push({n:'주거 지원 전반',amt:'—',no:1,why:'주택 소유'});
+    }
+    o.push({n:'본인부담상한제 환급',amt:'소득분위별',odds:74,rate:'해당 시',why:'환급 대상 여부 확인 필요'});
+    if(a.kid==='2') o.push({n:'다자녀 감면 8건',amt:'전기료 · 취득세 · 공공요금',odds:96,rate:'신청 시',why:'다자녀 기준 충족'});
+    return o;},
+  paths:[
+    {n:'출산 전에 정리하는 경로',steps:'임신출산 진료비 → 출산 → 첫만남이용권 → 다자녀 감면',
+     sum:'약 900만',mo:'출산 전후 1년',best:1,
+     note:'임신출산 진료비는 출산 전, 첫만남이용권은 출생 후 1년 이내에만 신청할 수 있습니다'},
+    {n:'주거를 먼저 해결하는 경로',steps:'LH 신혼부부 매입임대 → 버팀목 대출',
+     sum:'전세 2억 지원',mo:'약 8개월',note:'소득이 130%를 넘으면 자격이 사라지므로 소득 증가 전에 신청해야 합니다'},
+    {n:'환급부터 확인하는 경로',steps:'본인부담상한제 → 미수령 환급금 조회',
+     sum:'평균 40만',mo:'즉시',note:'이미 발생한 내 돈입니다. 5년이 지나면 소멸합니다'}],
+  ready(u){const a={...P.family.auto,...u}; return[
+    ['가족관계 · 주민등록','ok','저장된 정보로 자동 제출됩니다'],
+    ['소득 증빙',a.inc==='o130'?'bad':'ok',
+     a.inc==='o130'?'중위소득 130%를 초과해 다수 주거 지원의 자격을 충족하지 못합니다':'소득 요건을 충족합니다'],
+    ['무주택 확인',a.home==='no'?'ok':'bad',
+     a.home==='no'?'무주택으로 확인됩니다':'주택을 소유하고 계셔 주거 지원 대상이 아닙니다'],
+    ['청약통장','warn','가입 4년 48회입니다. 신혼부부 특별공급 가점에서 상위권은 아닙니다'],
+    ['임차 계약서','warn','전세 계약서를 직접 올려주셔야 대출과 지원 신청이 가능합니다']];},
+  run:{title:'LH 신혼부부 매입임대', amt:'전세 지원', dday:'접수 18일 남음',
+    lead:'소득이 130%를 넘기 전에 신청해야 합니다',
+    steps:[['소득 요건 확인','건강보험료 기준으로 자동 판정','now'],
+           ['무주택 확인','주민등록 · 재산 정보로 자동 확인','now'],
+           ['서류 준비','6건 중 5건은 저장된 정보로 자동 제출','wait'],
+           ['청약 신청','LH청약플러스로 연결','wait'],
+           ['추첨 결과 확인','미당첨 시 다음 공고 자동 알림','wait']],
+    paid:0},
+  ask:[
+   {q:'우리 집이 받을 수 있는 게 뭐야?',mode:'logic',
+    a:'신청 가능한 것이 5건입니다. 아동수당과 부모급여는 이미 받고 계시고, LH 신혼부부 매입임대는 소득 요건을 충족해 신청할 수 있습니다. 본인부담상한제 환급은 대상 여부를 확인해봐야 합니다.',
+    cite:'저장된 가구원 수 · 소득 · 주택 소유 여부로 계산'},
+   {q:'둘째를 가지려는데 미리 알아둘 게 있어?',mode:'logic',
+    a:'임신 확인 후 바로 국민행복카드로 임신출산 진료비를 신청하셔야 합니다. 출산 후에 신청하면 일부만 받게 됩니다. 그리고 자녀가 2명이 되면 다자녀 기준을 충족해 전기료와 자동차 취득세 등 8건의 감면이 추가로 열립니다.',
+    cite:'저장된 자녀 수 · 출산 계획으로 계산'},
+   {q:'전세 재계약할 때 뭘 확인해야 해?',mode:'ai',
+    a:'저장된 정보로는 전세 2억 4,000만에 거주 중이시고 무주택입니다. 재계약 시 보증금이 오르면 버팀목 대출 한도와 소득 요건을 다시 확인하셔야 하며, LH 매입임대에 당첨되면 기존 계약과 조정이 필요합니다.',
+    cite:'저장된 정보를 근거로 AI가 작성 · 사실 확인이 필요합니다'}]
+}
+};
+
+
+/* ══════════ 사례 ══════════ */
+const PEOPLE=[
+ {id:'d', name:'이현우', sub:'퇴사 예정 · 개인사업자 보유', tag:'직장인이면서 사업자',
+  on:['worker','solo'],
+  off:{corp:'법인 등기가 없습니다', family:'배우자와 자녀가 확인되지 않습니다'},
+  cross:[
+   ['실업급여 신청이 막힐 수 있습니다',
+    '개인사업자를 보유한 상태로는 실업급여를 신청할 수 없습니다. 휴업 또는 폐업 처리가 선행돼야 하며, 창구에서 반려되는 대표적 사유입니다'],
+   ['폐업 순서를 잘못 잡으면 지원을 놓칩니다',
+    '희망리턴패키지는 폐업 신고 전에 상담을 받아야 합니다. 실업급여를 위해 먼저 폐업하면 이 지원을 받을 수 없습니다']],
+  noti:[['실업급여 신청 전 확인','개인사업자 휴업 처리가 선행돼야 합니다','오늘','stop'],
+        ['희망리턴패키지','폐업 신고 전에 상담을 받아야 합니다','오늘','warn'],
+        ['소득세 감면 미신청','재직 중에만 신청할 수 있습니다','3일 전','warn']]},
+
+ {id:'a', name:'오상엽', sub:'법인 대표 · 창업 2년차', tag:'법인 사업자',
+  on:['corp'],
+  off:{solo:'개인사업자 등록이 없습니다', worker:'고용보험 가입 이력이 없습니다',
+       family:'배우자와 자녀가 확인되지 않습니다'},
+  cross:[],
+  noti:[['초기창업패키지 마감','12일 남았습니다 · 선정 가능성 52%','오늘','warn'],
+        ['창업교육 미이수','서류평가 가점 항목입니다','2일 전','warn'],
+        ['예비창업패키지','사업자등록으로 자격이 소멸했습니다','기록','stop']]},
+
+ {id:'b', name:'김소연', sub:'카페 운영 · 자녀 1명', tag:'사업자이면서 부모',
+  on:['solo','family'],
+  off:{corp:'법인 등기가 없습니다', worker:'고용보험 피보험자가 아닙니다'},
+  cross:[
+   ['자녀 양육과 사업 운영이 겹칩니다',
+    '어린이집 종일반은 취업 또는 사업자 등록이 요건입니다. 개인사업자로 확인되어 신청할 수 있습니다'],
+   ['소득 판정 기준이 다릅니다',
+    '주거 지원은 가구 합산 소득으로, 소상공인 자금은 사업 매출로 판단합니다. 한쪽이 되어도 다른 쪽은 안 될 수 있습니다']],
+  noti:[['매출 18% 감소 확인','경영안정자금 요건을 충족했습니다','오늘','go'],
+        ['본인부담상한제','미신청 환급금이 있을 수 있습니다','5일 전','warn']]},
+
+ {id:'c', name:'박지훈', sub:'중소기업 재직 · 자녀 1명', tag:'직장인이면서 부모',
+  on:['worker','family'],
+  off:{corp:'법인 등기가 없습니다', solo:'개인사업자 등록이 없습니다'},
+  cross:[
+   ['육아휴직과 소득세 감면이 함께 걸립니다',
+    '육아휴직 기간에는 소득이 줄어 중소기업 취업자 소득세 감면 효과도 함께 줄어듭니다. 복직 후 잔여 기간이 이어집니다']],
+  noti:[['LH 신혼부부 매입임대','접수 18일 남았습니다','오늘','warn'],
+        ['소득세 감면 미신청','5년간 90% 감면 대상입니다','1일 전','warn']]}
+];
+
+let PID='d';
+const me = () => PEOPLE.find(x=>x.id===PID);
+const onRoles = () => me().on;
+const R0 = () => P[onRoles()[0]];
+
+const SRCf = () => { const seen=new Set(), out=[];
+  onRoles().forEach(r=>P[r].src.forEach(x=>{ if(!seen.has(x[0])){seen.add(x[0]); out.push(x);} })); return out; };
+const MEMf = () => { if(onRoles().length===1) return P[onRoles()[0]].mem;
+  const out=[]; onRoles().forEach(r=>P[r].mem.forEach(g=>out.push({g:P[r].label+' · '+g.g, items:g.items}))); return out; };
+const TLf  = () => R0().tl;
+const QSf  = () => onRoles().flatMap(r=>P[r].qs);
+const ASKf = () => onRoles().flatMap(r=>P[r].ask).slice(0,4);
+const RUNf = () => R0().run;
+function model(){ const out=[];
+  onRoles().forEach(r=>{ try{ P[r].judge(S.ans).forEach(x=>out.push({...x, role:P[r].label})); }catch(e){} });
+  return out; }
+
+const S={stage:'landing', view:'state', ti:0, qi:0, ans:{}, tab:'judge', asked:[], done:false, ob:0};
+const $=id=>document.getElementById(id);
+const nav=$('nav'), main=$('main');
+const VIEWS=[['state','상태'],['memory','내 정보'],['judge','판정'],['run','진행'],['ask','물어보기']];
+
+/* ══════════ 스테이지 ══════════ */
+function stage(s){
+  S.stage=s;
+  $('landing').classList.toggle('hide', s!=='landing');
+  $('onboard').classList.toggle('hide', s!=='onboard');
+  $('app-shell').classList.toggle('hide', s!=='app');
+  window.scrollTo(0,0);
+  if(s==='onboard') drawOb();
+  if(s==='app'){ drawIdentity(); drawNav(); draw(); }
+}
+document.querySelectorAll('.start').forEach(b=>b.onclick=()=>{ S.ob=0; stage('onboard'); });
+
+/* ══════════ 온보딩 ══════════ */
+function drawOb(){
+  const ob=$('ob-body');
+
+  if(S.ob===0){
+    ob.innerHTML=`
+    <h2>본인 확인</h2>
+    <p class="sub">실제 서비스에서는 간편인증 한 번으로 끝납니다.
+      시연을 위해 <b>미리 준비한 네 사람 중 한 분</b>을 선택해 주세요.
+      상황에 따라 확인되는 역할과 판정 결과가 달라집니다.</p>
+    ${PEOPLE.map(p=>`<button class="pick" data-p="${p.id}">
+      <b>${p.name}</b><span>${p.sub} · ${p.tag}</span></button>`).join('')}`;
+    ob.querySelectorAll('.pick').forEach(b=>b.onclick=()=>{
+      PID=b.dataset.p; S.ti=0; S.qi=0; S.ans={}; S.done=false; S.tab='judge'; S.asked=[];
+      S.ob=1; drawOb(); runConnect();
+    });
+    return;
+  }
+
+  if(S.ob===1){
+    ob.innerHTML=`
+    <h2>정보를 가져오는 중입니다</h2>
+    <p class="sub">한 번만 인증하면 이후에는 배경에서 갱신됩니다.
+      항목별로 연결을 끊거나 다시 이을 수 있습니다.</p>
+    <div class="card pad" id="conn-list">
+      ${SRCf().map((x,i)=>`<div class="conn" data-i="${i}">
+        <span class="dot"></span>
+        <span class="n">${x[0]}<div class="s">${x[1]}</div></span>
+        <span class="s" data-st="${i}">대기</span></div>`).join('')}
+    </div>`;
+    return;
+  }
+
+  const m=me(), all=['corp','solo','worker','family'];
+  ob.innerHTML=`
+  <h2>확인된 역할</h2>
+  <p class="sub">역할을 직접 고르지 않으셔도 됩니다.
+    연결된 정보로 <b>해당되는 역할이 자동으로 정해집니다.</b> 상황이 바뀌면 역할도 함께 바뀝니다.</p>
+  <div class="ledger">
+    ${all.map(r=>{ const on=m.on.includes(r);
+      const cnt=on?P[r].mem.flatMap(g=>g.items).length:0;
+      return `<div class="lrow">
+        <div><div class="t" style="${on?'':'color:var(--ink-2)'}">${P[r].label}</div>
+          <div class="d">${on?P[r].sub:m.off[r]}</div></div>
+        <div class="r">${on?`<span class="tag t-go">해당</span>
+          <div style="font-size:11.5px;margin-top:3px" class="num">항목 ${cnt}개</div>`
+          :`<span class="tag t-mute">해당 없음</span>`}</div></div>`;}).join('')}
+  </div>
+  <p style="font-size:12.5px;color:var(--ink-2);margin-top:8px">
+    해당되지 않는 역할도 이유와 함께 남겨둡니다. 상황이 바뀌면 그때 알려드립니다.</p>
+
+  ${m.cross.length?`
+  <div class="notice n-warn" style="margin-top:18px">
+    <h3>역할이 겹쳐 생기는 문제가 ${m.cross.length}건 있습니다</h3>
+    <p>한 사람이 여러 역할을 가지면 제도끼리 충돌합니다. 기관은 자기 소관만 보므로 이 부분을 알려주지 않습니다.</p>
+  </div>
+  <div class="ledger" style="margin-top:9px">
+    ${m.cross.map(x=>`<div class="lrow">
+      <div><div class="t">${x[0]}</div><div class="d">${x[1]}</div></div>
+      <div class="r"><span class="tag t-warn">주의</span></div></div>`).join('')}
+  </div>`:''}
+
+  <button class="btn btn-fill btn-wide btn-lg" id="ob-go">내 상태 보기</button>
+  <button class="btn btn-wide" id="ob-back">다른 사람으로 다시</button>`;
+  $('ob-go').onclick=()=>{ S.view='state'; stage('app'); };
+  $('ob-back').onclick=()=>{ S.ob=0; drawOb(); };
+}
+
+function runConnect(){
+  const n=SRCf().length; let i=0;
+  const step=()=>{
+    const list=$('conn-list'); if(!list) return;
+    if(i>0){ const d=list.querySelector(`.conn[data-i="${i-1}"] .dot`);
+      const s=list.querySelector(`[data-st="${i-1}"]`);
+      if(d){d.className='dot on';} if(s){s.textContent='완료';} }
+    if(i<n){ const d=list.querySelector(`.conn[data-i="${i}"] .dot`);
+      const s=list.querySelector(`[data-st="${i}"]`);
+      if(d){d.className='dot load';} if(s){s.textContent='가져오는 중';}
+      i++; setTimeout(step, 460); }
+    else { setTimeout(()=>{ S.ob=2; drawOb(); }, 320); }
+  };
+  setTimeout(step, 320);
+}
+
+/* ══════════ 앱 셸 ══════════ */
+function drawIdentity(){
+  $('entity-name').textContent=me().name;
+  $('entity-sub').textContent=me().sub;
+  $('av').textContent=me().name.charAt(0);
+  $('bell-cnt').textContent=me().noti.length;
+}
+function drawNav(){
+  nav.innerHTML=VIEWS.map(([k,l])=>
+    `<button class="nav-i" data-v="${k}" aria-current="${S.view===k}"><span>${l}</span></button>`).join('');
+  nav.querySelectorAll('.nav-i').forEach(b=>b.onclick=()=>{ S.view=b.dataset.v; drawNav(); draw(); });
+}
+$('who').onclick=()=>{ S.ob=0; stage('onboard'); };
+$('bell').onclick=()=>{
+  const m=me();
+  $('sheet-b').innerHTML=`
+    <div class="ledger">
+      ${m.noti.map(x=>`<div class="lrow">
+        <div><div class="t">${x[0]}</div><div class="d">${x[1]}</div></div>
+        <div class="r"><span class="tag t-${x[3]}">${x[2]}</span></div></div>`).join('')}
+    </div>
+    <p style="font-size:12.5px;color:var(--ink-2);margin-top:10px">
+      상태가 바뀌거나 자격이 사라지기 전에 먼저 알려드립니다.</p>`;
+  $('sheet').classList.remove('hide');
+};
+$('sheet-x').onclick=()=>$('sheet').classList.add('hide');
+$('sheet').onclick=e=>{ if(e.target.id==='sheet') $('sheet').classList.add('hide'); };
+
+/* ───── 상태 ───── */
+function viewState(){
+  const d=TLf()[S.ti];
+  const chg = d.chg ? `
+    <div class="notice n-${d.chg.k==='stop'?'stop':d.chg.k}">
+      <h3>상태가 바뀌었습니다</h3><p>${d.chg.t}</p>
+      <div style="margin-top:8px">
+        ${d.chg.up.map(x=>`<div class="delta"><i style="color:var(--go)">↑</i><span>${x}</span></div>`).join('')}
+        ${d.chg.down.map(x=>`<div class="delta"><i style="color:var(--stop)">↓</i><span>${x}</span></div>`).join('')}
+      </div></div>`
+  : `<div class="card pad"><p style="font-size:13.5px;color:var(--ink-2)">
+       변화 없음 · 연결된 곳을 계속 확인하고 있습니다</p></div>`;
+  return `
+  <div class="tl">
+    <button class="btn btn-sm" id="tl-prev">이전</button>
+    <div class="tl-track">${TLf().map((_,n)=>`<span class="${n<=S.ti?'on':''}"></span>`).join('')}</div>
+    <button class="btn btn-sm" id="tl-next">다음</button>
+    <span class="num" style="font-size:13px;color:var(--ink-2)">${d.m}</span>
+  </div>
+  ${chg}
+  <h2 class="sec">지금 해야 할 것</h2>
+  <div class="ledger">${d.todo.map(x=>`<div class="lrow">
+    <div><div class="t">${x[0]}</div><div class="d">${x[1]}</div></div>
+    <div class="r"><b class="num">${x[2]}</b></div></div>`).join('')}</div>
+  <h2 class="sec">곧 사라지는 자격</h2>
+  <div class="ledger">${d.soon.map(x=>`<div class="lrow">
+    <div><div class="t">${x[0]}</div><div class="d">${x[1]}</div></div>
+    <div class="r"><b class="num" style="color:var(--warn)">${x[2]}</b></div></div>`).join('')}</div>
+  <h2 class="sec">이미 지나간 것</h2>
+  <div class="ledger">${d.past.map(x=>`<div class="lrow">
+    <div><div class="t" style="color:var(--ink-2)">${x[0]}</div><div class="d">${x[1]}</div></div>
+    <div class="r"><span class="tag t-mute">소멸</span></div></div>`).join('')}</div>`;
+}
+
+/* ───── 내 정보 ───── */
+function viewMemory(){
+  const all=MEMf().flatMap(g=>g.items), auto=all.filter(x=>x[2]==='자동').length;
+  return `
+  <div class="notice n-go">
+    <h3>한 번 연결하면 계속 갱신됩니다</h3>
+    <p>${all.length}개 항목 중 ${auto}개가 자동으로 갱신됩니다.
+       소득이 바뀌거나 가족이 늘거나 자격 요건이 달라지면 그 사실이 여기에 반영되고,
+       그에 따라 열리거나 닫히는 자격을 알려드립니다.</p>
+  </div>
+  <h2 class="sec">연결된 곳</h2>
+  <div class="ledger">${SRCf().map(x=>`<div class="lrow">
+    <div><div class="t">${x[0]}</div><div class="d">${x[1]}</div></div>
+    <div class="r"><span class="tag ${x[3]==='연결됨'?'t-go':'t-warn'}">${x[3]}</span>
+      <div style="font-size:11.5px;margin-top:3px">갱신 ${x[2]}</div></div></div>`).join('')}</div>
+  ${MEMf().map(g=>`
+    <h2 class="sec">${g.g}</h2>
+    <div class="ledger">${g.items.map(x=>`<div class="lrow">
+      <div><div class="t">${x[0]} · <span style="color:var(--ink-2)">${x[1]}</span></div>
+        <div class="d">${x[4]}</div></div>
+      <div class="r"><span class="tag ${x[2]==='자동'?'t-go':'t-mute'}">${x[2]}</span>
+        <div style="font-size:11.5px;margin-top:3px">${x[3]}</div></div></div>`).join('')}</div>`).join('')}
+  <h2 class="sec">내려받기</h2>
+  <div class="card pad">
+    <p style="font-size:14px;line-height:1.7">
+      저장된 정보를 언제든 파일로 내려받아 다른 곳에서 쓸 수 있습니다. 막지 않습니다.<br>
+      다만 파일은 내려받은 시점에서 멈춥니다. 자격이 사라지는 날, 그 사실을 파일이 알려주지는 않습니다.</p>
+    <button class="btn btn-sm" style="margin-top:9px">전체 내려받기</button>
+  </div>
+  <h2 class="sec">계산과 작성을 나누는 이유</h2>
+  <div class="card pad">
+    <p style="font-size:14px;line-height:1.7">
+      저장된 정보로 계산할 수 있는 것은 <span class="tag t-logic">규칙</span>으로 즉시 처리합니다.
+      자격 판정, 기한 계산, 중복 수혜 확인, 가점 집계가 여기에 해당합니다.
+      글을 쓰거나 전략을 제안하는 일만 <span class="tag t-mute">AI</span>가 맡습니다.<br>
+      모든 질문을 AI에 넘기면 이용자가 늘수록 비용이 늘어 무료로 유지할 수 없습니다.</p>
+  </div>`;
+}
+
+/* ───── 판정 ───── */
+function viewJudge(){
+  const L=QSf();
+  if(!S.done){
+    const q=L[S.qi], AL=onRoles().flatMap(r=>P[r].autoLabel||[]);
+    return `
+    <div class="notice n-go" style="margin-bottom:12px">
+      <h3>${AL.length}개 항목은 이미 확인됐습니다</h3>
+      <p>연동된 정보로 자동 반영했습니다. <b>연동으로 알 수 없는 것만 여쭤봅니다.</b></p></div>
+    <div class="ledger" style="margin-bottom:14px">
+      ${AL.map(x=>`<div class="lrow">
+        <div><div class="t">${x[0]} · <span style="color:var(--ink-2)">${x[1]}</span></div></div>
+        <div class="r"><span class="tag t-go">자동</span>
+          <div style="font-size:11.5px;margin-top:3px">${x[2]}</div></div></div>`).join('')}</div>
+    <div class="tl"><div class="tl-track">${L.map((_,n)=>`<span class="${n<=S.qi?'on':''}"></span>`).join('')}</div>
+      <span class="num" style="font-size:13px;color:var(--ink-2)">${S.qi+1} / ${L.length}</span></div>
+    <h2 class="sec">연동으로 알 수 없는 것</h2>
+    <p style="font-size:19px;font-weight:600;letter-spacing:-0.01em">${q.q}</p>
+    <p style="font-size:13.5px;color:var(--ink-2);margin:3px 0 13px">${q.s}</p>
+    ${q.a.map(([v,l])=>`<button class="opt" data-v="${v}">${l}</button>`).join('')}`;
+  }
+
+  const it=model(), ok=it.filter(x=>!x.lost&&!x.no), lost=it.filter(x=>x.lost),
+        no=it.filter(x=>x.no), strong=ok.filter(x=>x.odds>=40), multi=onRoles().length>1;
+  let panel='';
+  if(S.tab==='judge'){
+    const col=o=>o>=40?'var(--go)':o>=25?'var(--warn)':'var(--stop)';
+    panel=`
+    ${lost.length?`<div class="notice n-stop" style="margin-bottom:11px">
+      <h3>이미 놓친 것 ${lost.length}건</h3>
+      ${lost.map(x=>`<p>${x.n} · ${x.amt} — ${x.why}</p>`).join('')}</div>`:''}
+    <div class="ledger">${ok.map(x=>`<div class="lrow">
+      <div><div class="t">${x.n}${multi?` <span class="tag t-mute" style="margin-left:3px">${x.role}</span>`:''}</div>
+        <div class="d">${x.why} · ${x.rate}</div></div>
+      <div class="r"><b>${x.amt}</b>
+        <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;margin-top:4px">
+          <span class="bar"><span style="width:${x.odds}%;background:${col(x.odds)}"></span></span>
+          <span class="num" style="font-size:12.5px">${x.odds}%</span></div></div></div>`).join('')}</div>
+    ${no.length?`<h2 class="sec">자격이 안 되는 것 ${no.length}건</h2>
+      <div class="ledger">${no.map(x=>`<div class="lrow">
+        <div><div class="t" style="color:var(--ink-2)">${x.n}</div><div class="d">${x.why}</div></div>
+        <div class="r"><span class="tag t-mute">불가</span></div></div>`).join('')}</div>`:''}
+    <p style="font-size:12.5px;color:var(--ink-2);margin-top:9px">
+      선정 가능성은 작년 선정 분포와 대조한 추정값입니다.</p>`;
+  }
+  else if(S.tab==='path'){
+    panel=`<p style="font-size:14px;margin-bottom:11px">
+      같은 조건이라도 <b>순서에 따라 총액과 가능성이 달라집니다.</b></p>
+    ${R0().paths.map(p=>`<div class="card pad" style="margin-bottom:9px;${p.best?'border-color:var(--ink);border-width:1.5px':''}">
+      ${p.best?'<span class="tag t-go" style="margin-bottom:5px">추천</span>':''}
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
+        <span style="font-size:15.5px;font-weight:600">${p.n}</span>
+        <span class="num" style="font-size:19px;font-weight:600">${p.sum}</span></div>
+      <div style="font-size:13px;color:var(--ink-2);margin:3px 0 7px">${p.steps} · ${p.mo}</div>
+      <div style="font-size:13px;color:var(--ink-2);border-top:1px dashed var(--rule);padding-top:7px">${p.note}</div>
+    </div>`).join('')}`;
+  }
+  else{
+    const CK=R0().ready(S.ans), bad=CK.filter(x=>x[1]==='bad').length;
+    const mark={ok:['t-go','충족'],warn:['t-warn','보완'],bad:['t-stop','감점']};
+    panel=`<div class="notice n-warn" style="margin-bottom:11px">
+      <h3>지금 신청하면 걸릴 항목이 ${bad}건 있습니다</h3>
+      <p>먼저 해결할 수 있는 것부터 위에 두었습니다.</p></div>
+    <div class="ledger">${CK.map(x=>`<div class="lrow">
+      <div><div class="t">${x[0]}</div><div class="d">${x[2]}</div></div>
+      <div class="r"><span class="tag ${mark[x[1]][0]}">${mark[x[1]][1]}</span></div></div>`).join('')}</div>`;
+  }
+  return `
+  <div class="grid3" style="margin-bottom:14px">
+    <div class="stat"><div class="k">신청 가능</div><div class="v num">${ok.length}건</div></div>
+    <div class="stat"><div class="k">그중 유리한 것</div>
+      <div class="v num" style="color:var(--go)">${strong.length}건</div></div>
+    <div class="stat"><div class="k">검토한 제도</div><div class="v num">${it.length}건</div></div>
+  </div>
+  ${multi?`<div class="notice n-warn" style="margin-bottom:12px">
+    <h3>${onRoles().map(r=>P[r].label).join('과 ')}에 동시에 해당합니다</h3>
+    <p>두 역할의 제도를 함께 판정했습니다. 각 항목에 어느 역할에서 나온 것인지 표시했습니다.</p></div>`:''}
+  <div class="tabs" role="tablist">
+    ${[['judge','판정'],['path','경로 비교'],['ready','준비 상태']]
+      .map(([k,l])=>`<button class="tab" role="tab" data-k="${k}" aria-selected="${S.tab===k}">${l}</button>`).join('')}
+  </div>
+  ${panel}
+  <button class="btn btn-fill btn-wide" id="to-run">준비 시작하기</button>
+  <button class="btn btn-wide" id="re-q">문답 다시 하기</button>`;
+}
+
+/* ───── 진행 ───── */
+function viewRun(){
+  const R=RUNf();
+  const paid = R.paid ? `
+  <h2 class="sec">여기까지는 전부 무료입니다</h2>
+  <div class="card pad">
+    <p style="font-size:14px;line-height:1.7">
+      판정, 서류 준비, 초안 작성, 제출, 사후관리까지 요금을 받지 않습니다.
+      초안을 받아본 뒤 손봐야겠다고 판단할 때만 심사위원 검수를 선택하시면 됩니다.</p>
+    <div class="grid3" style="margin-top:11px">
+      ${[['검수','30만','항목별 코멘트와 보완 지점','반나절'],
+         ['검수와 수정','150만','본문을 직접 고쳐 돌려드립니다','1~2일'],
+         ['완결과 미팅','500만','발표 준비까지 함께합니다','수일']]
+        .map((x,i)=>`<div class="card pad" style="${i===0?'border-color:var(--ink);border-width:1.5px':''}">
+          ${i===0?'<span class="tag t-go" style="margin-bottom:4px">가장 많이 선택</span>':''}
+          <div style="font-size:13.5px">${x[0]}</div>
+          <div class="num" style="font-size:22px;font-weight:600;letter-spacing:-0.02em">${x[1]}</div>
+          <div style="font-size:12.5px;color:var(--ink-2);line-height:1.5;margin-top:2px">${x[2]}<br>${x[3]}</div>
+        </div>`).join('')}</div>
+    <p style="font-size:12.5px;color:var(--ink-2);margin-top:10px">
+      정액 요금이며 성공보수를 받지 않습니다. 검수는 해당 분야 심사 경험이 있는 전문가가 맡습니다.</p>
+  </div>` : `
+  <h2 class="sec">이 영역에는 유료 구간이 없습니다</h2>
+  <div class="notice n-stop">
+    <h3>심사 대상이 자격 요건이라 글을 고쳐서 바뀌는 것이 없습니다</h3>
+    <p>정책자금은 보증료 외에 어떤 비용도 들지 않습니다.
+       컨설팅 명목으로 대출금의 8~12%를 요구하고 부결되어도 청구하는 사례가 보고되고 있습니다.
+       허위 매출증명을 만든 브로커가 형사 고소된 사례도 있으며, 부정수급이 늘수록 정상 신청자의 승인율이 낮아집니다.
+       이 화면에는 광고도 넣지 않습니다.</p>
+    <div style="display:flex;gap:8px;margin-top:9px;flex-wrap:wrap">
+      <button class="btn btn-sm">제3자 부당개입 신고</button>
+      <button class="btn btn-sm">상담 1533-0100</button></div>
+  </div>`;
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">
+    <div><p style="font-size:18px;font-weight:600">${R.title}</p>
+      <p style="font-size:13.5px;color:var(--ink-2)">${R.amt} · ${R.lead}</p></div>
+    <span class="num" style="font-size:14px;color:var(--warn)">${R.dday}</span>
+  </div>
+  <h2 class="sec">진행 단계</h2>
+  <div class="ledger">${R.steps.map(x=>`<div class="lrow">
+    <div><div class="t">${x[0]} ${x[2]==='now'?'<span class="tag t-logic" style="margin-left:4px">지금</span>':''}</div>
+      <div class="d">${x[1]}</div></div>
+    <div class="r"><span class="tag t-go">무료</span></div></div>`).join('')}</div>
+  ${paid}`;
+}
+
+/* ───── 물어보기 ───── */
+function viewAsk(){
+  const A=ASKf();
+  return `
+  <div class="notice n-go" style="margin-bottom:13px">
+    <h3>내 정보를 다시 설명하지 않아도 됩니다</h3>
+    <p>저장된 ${MEMf().flatMap(g=>g.items).length}개 항목을 근거로 답합니다.
+       계산으로 답할 수 있는 것은 규칙으로 즉시 처리하고, 글과 전략만 AI가 맡습니다.</p></div>
+  <div class="qa">
+    <input id="ask-in" placeholder="예 · 지금 내가 받을 수 있는 게 뭐야?" aria-label="질문 입력">
+    <button class="btn btn-fill" id="ask-go">묻기</button></div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+    ${A.map((x,i)=>`<button class="btn btn-sm ask-sample" data-i="${i}">${x.q}</button>`).join('')}</div>
+  <div id="thread">
+    ${S.asked.length?S.asked.map(i=>{const x=A[i]; if(!x) return ''; return `
+      <div class="msg" style="background:#F7F9FA"><div class="w">질문</div><p>${x.q}</p></div>
+      <div class="msg"><div class="w"><span>답변</span>
+        <span class="tag ${x.mode==='logic'?'t-logic':'t-mute'}">${x.mode==='logic'?'규칙으로 계산':'AI가 작성'}</span></div>
+        <p>${x.a}</p><div class="cite">근거 · ${x.cite}</div></div>`;}).join('')
+    :`<div class="card pad"><p style="font-size:13.5px;color:var(--ink-2)">
+        위의 예시를 눌러보시면 어떻게 답하는지 확인할 수 있습니다.</p></div>`}
+  </div>`;
+}
+
+/* ───── 렌더 ───── */
+function draw(){
+  main.innerHTML = S.view==='state' ? viewState()
+    : S.view==='memory' ? viewMemory()
+    : S.view==='judge' ? viewJudge()
+    : S.view==='run' ? viewRun() : viewAsk();
+  bind();
+}
+function bind(){
+  const p=$('tl-prev'), n=$('tl-next');
+  if(p) p.onclick=()=>{ S.ti=(S.ti-1+TLf().length)%TLf().length; draw(); };
+  if(n) n.onclick=()=>{ S.ti=(S.ti+1)%TLf().length; draw(); };
+  main.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{
+    const L=QSf(); S.ans[L[S.qi].k]=b.dataset.v;
+    if(S.qi<L.length-1) S.qi++; else S.done=true; draw(); });
+  main.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{ S.tab=b.dataset.k; draw(); });
+  const r=$('re-q'); if(r) r.onclick=()=>{ S.qi=0; S.ans={}; S.done=false; S.tab='judge'; draw(); };
+  const tr=$('to-run'); if(tr) tr.onclick=()=>{ S.view='run'; drawNav(); draw(); };
+  main.querySelectorAll('.ask-sample').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.i; if(!S.asked.includes(i)) S.asked.push(i); draw(); });
+  const ag=$('ask-go'); if(ag) ag.onclick=()=>{ if(!S.asked.includes(0)) S.asked.push(0); draw(); };
+}
+
+stage('landing');
+</script>
+</body>
+</html>
