@@ -16,7 +16,7 @@ const BLANK={
   credit:{score:800, drop:0, arrears:0, multi:false, dsr:20},
   refund:{tax:0, local:0, medical:0, dormant:0, pension:0},
   event:{death:false, deathDays:0},
-  admin:{idLatest:true, cert:true, moving:false},
+  admin:{idLatest:true, cert:true, moving:false, passport:0, license:false, licenseDue:99, carCheck:99},
   misc:{disabled:false, single:false, farm:false, welfare:false, chronic:false, care:false,
         unpaid:false, arrear:false, grants:[]}
 };
@@ -29,6 +29,7 @@ const CTX={
    biz:{on:true, kind:'corp', label:'법인', ksic:'62010 소프트웨어 개발', years:2, rev:8400,
         emp:1, opened:'2022-01-24', ip:'특허 출원 1건'},
    home:{rent:true, deposit:5000, monthly:75, incomeRate:145},
+   admin:{passport:4, license:true, licenseDue:14},
    credit:{score:842, dsr:18},
    refund:{tax:37, local:4, dormant:12, pension:0}}),
 
@@ -37,6 +38,7 @@ const CTX={
         revDown:true, emp:2, opened:'2023-04-11'},
    home:{rent:true, deposit:8000, incomeRate:112, car:1800},
    fam:{married:true, kids:1, infant:true},
+   admin:{passport:22, license:true, licenseDue:4, carCheck:2},
    credit:{score:684, drop:-58, multi:true, dsr:62},
    refund:{tax:0, local:8, medical:41, dormant:0, pension:0},
    misc:{medicalHigh:true, chronic:false}}),
@@ -45,6 +47,7 @@ const CTX={
    work:{on:true, sme:true, smeType:true, insured:1620, hired:'2021-08-16', taxRelief:true},
    home:{rent:true, deposit:24000, incomeRate:118, car:2600},
    fam:{married:true, kids:1, infant:true},
+   admin:{passport:38, license:true, licenseDue:31, carCheck:9},
    credit:{score:871, dsr:24},
    refund:{tax:12, local:0, medical:0, dormant:6, pension:0}}),
 
@@ -54,6 +57,7 @@ const CTX={
    biz:{on:true, kind:'online', label:'온라인 스토어', ksic:'47912 전자상거래 소매업',
         years:2, rev:3200, opened:'2024-06-03', tongsin:true},
    home:{rent:true, deposit:3000, monthly:62, incomeRate:132, car:2100},
+   admin:{passport:3, license:true, licenseDue:26, carCheck:7},
    credit:{score:812, dsr:31},
    refund:{tax:28, local:3, dormant:0, pension:0}}),
 
@@ -61,6 +65,7 @@ const CTX={
    work:{on:true, sme:true, smeType:true, insured:900, hired:'2024-01-15'},
    home:{rent:true, deposit:3000, monthly:35, incomeRate:55, car:900},
    fam:{married:false, kids:2},
+   admin:{passport:0, license:true, licenseDue:19},
    credit:{score:722, drop:-11, dsr:38},
    refund:{tax:19, local:0, medical:27, dormant:0, pension:0},
    misc:{single:true, medicalHigh:true}}),
@@ -68,6 +73,7 @@ const CTX={
  f:mk({name:'한복순', sub:'만 68세 · 자가 거주 · 배우자와 2인', tag:'노년 가구', age:68, region:'대구 달서구',
    home:{own:true, incomeRate:45},
    fam:{married:true},
+   admin:{passport:0, license:true, licenseDue:2},
    credit:{score:790, dsr:5},
    refund:{tax:0, local:2, medical:63, dormant:41, pension:180},
    misc:{medicalHigh:true, chronic:true, care:true}}),
@@ -86,13 +92,14 @@ const CTX={
    home:{rent:true, deposit:2000, monthly:55, incomeRate:58},
    credit:{score:758, dsr:22},
    refund:{tax:64, local:0, dormant:9, pension:0},
-   admin:{idLatest:false, cert:false}}),
+   admin:{idLatest:false, cert:false, passport:5, license:false, licenseDue:99}}),
 
  i:mk({name:'신재호', sub:'부친 사망 · 상속 절차 진행 중 · 직장인', tag:'직장인 · 상속인',
    age:52, region:'대전 서구',
    work:{on:true, sme:false, insured:4200, hired:'2012-05-02'},
    home:{own:true, incomeRate:155},
    fam:{married:true, kids:1, college:true},
+   admin:{passport:9, license:true, licenseDue:22},
    credit:{score:855, dsr:29},
    refund:{tax:0, local:0, medical:0, dormant:23, pension:0},
    event:{death:true, deathDays:38}}),
@@ -102,7 +109,7 @@ const CTX={
    home:{rent:true, deposit:1000, monthly:48, incomeRate:52},
    credit:{score:740, dsr:12},
    refund:{tax:0, local:0, dormant:0, pension:0},
-   admin:{idLatest:true, cert:false, moving:true}})
+   admin:{idLatest:true, cert:false, moving:true, passport:0, license:true, licenseDue:8}})
 };
 
 /* ── 역할 ── */
@@ -325,7 +332,7 @@ const ASK={
    a:'안심상속 원스톱 서비스로 고인의 재산과 채무를 먼저 조회하셔야 합니다. 그래야 상속포기 여부를 판단할 수 있습니다. 사망 후 1개월 이내에만 신청할 수 있어 기간을 확인하셔야 합니다.',
    cite:'저장된 사망일 · 경과 일수로 계산'},
   {q:'빚이 더 많으면 어떻게 해?',mode:'logic',
-   a:'상속포기 또는 한정승인을 사망일로부터 3개월 이내에 가정법원에 신청하셔야 합니다. 기한이 지나면 단순승인으로 간주되어 채무를 그대로 승계합니다. 법률구조공단에서 무료로 지원받으실 수 있습니다.',
+   a:'상속포기 또는 한정승인을 사망일로부터 3개월 이내에 가정법원에 신청하셔야 합니다. 기한이 지나면 단순승인으로 간주되어 채무를 그대로 승계합니다. 법률구조공단에서 지원받으실 수 있습니다.',
    cite:'저장된 사망일 · 소득 요건으로 계산'}]
 };
 
@@ -382,7 +389,7 @@ const RUN={
    steps:[['수급 자격 확인','자동 확인','now'],
           ['신청','주민센터 또는 복지로','wait'],
           ['연계 지원 확인','문화누리 · 통신 · 전기요금 감면','wait']], paid:0},
- heir:{title:'안심상속 원스톱 서비스', amt:'무료', dday:'신청 기간 경과',
+ heir:{title:'안심상속 원스톱 서비스', amt:'수수료 없음', dday:'신청 기간 경과',
    lead:'고인의 재산과 채무를 한 번에 조회하는 절차입니다',
    steps:[['사망신고 확인','완료','done'],
           ['안심상속 신청','사망 후 1개월 이내 · 기간 경과','now'],

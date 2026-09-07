@@ -19,7 +19,7 @@ function ctx(){ const c=JSON.parse(JSON.stringify(me())), a=S.ans;
   if(a.moving==='yes') c.admin.moving=true;
   return c; }
 function judgeAll(){ const c=ctx();
-  return SECTORS.map(s=>({...s, res:s.items.map(it=>({n:it.n, where:it.where, visit:it.visit, ...it.f(c)}))})); }
+  return SECTORS.map(s=>({...s, res:s.items.map(it=>({n:it.n, type:it.type||'cash', where:it.where, visit:it.visit, ...it.f(c)}))})); }
 
 /* 계획 문답 — 연동으로 알 수 없는 것만 */
 const PLANQ=[
@@ -255,19 +255,53 @@ function viewCheck(){
   if(c.age<=34) dl.push(['청년 대상 사업','만 35세까지',(35-c.age)+'년','']);
   else if(c.age<=39) dl.push(['청년 대상 사업','만 40세까지',(40-c.age)+'년','warn']);
   if(c.admin.moving) dl.push(['전입신고 · 확정일자','이사 후 14일','14일','warn']);
+  if(c.admin.passport&&c.admin.passport<6) dl.push(['여권 갱신','잔여 6개월 미만',c.admin.passport+'개월','warn']);
+  if(c.admin.license&&c.admin.licenseDue<6) dl.push(['운전면허 갱신','기한 경과 시 과태료',c.admin.licenseDue+'개월','warn']);
+  if(c.home.car&&c.admin.carCheck<3) dl.push(['자동차 정기검사','기한 경과 시 과태료',c.admin.carCheck+'개월','warn']);
 
   const sig=c.credit.arrears>0||c.credit.drop<-40||c.credit.dsr>70||c.credit.multi;
 
+  const TY={cash:'현금으로 받는 것',save:'감면으로 아끼는 것',loan:'빌릴 수 있는 한도',
+            compete:'선발되어야 받는 것',admin:'해두면 좋은 것'};
+  const byType={}; ok.forEach(x=>{(byType[x.type]=byType[x.type]||[]).push(x)});
+  const cashSum=money(byType.cash||[]), saveSum=money(byType.save||[]),
+        loanSum=money(byType.loan||[]), compSum=money(byType.compete||[]);
+
+  const facts=[`만 ${c.age}세`, c.region.split(' ')[0],
+    c.work.on?'재직 중':c.work.freelance?'프리랜서':c.work.insured>0?'구직 중':null,
+    c.biz.on?c.biz.label:null,
+    c.fam.married?'기혼':null, c.fam.kids?`자녀 ${c.fam.kids}명`:null,
+    c.misc.single?'한부모':null, c.misc.welfare?'수급 가구':null,
+    c.home.own?'자가':'무주택', `중위소득 ${c.home.incomeRate}%`].filter(Boolean);
+
   return `
+  <div class="card pad" style="margin-bottom:12px">
+    <div style="font-size:12px;color:var(--ink-2);margin-bottom:6px">이 조건으로 판정했습니다</div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap">
+      ${facts.map(f=>`<span class="tag t-mute" style="font-size:12.5px;padding:3px 10px">${f}</span>`).join('')}
+    </div>
+  </div>
+
   <div class="viz">
-    <h3>지금 받을 수 있는 것</h3>
-    <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap">
-      <div><div class="hero-num num" style="color:var(--go)">${won(sum)}</div>
-        <div style="font-size:13px;color:var(--ink-2)">${ok.length}건 합계 · 금액이 명시된 항목만</div></div>
+    <h3>성격이 다른 것을 나누어 보여드립니다</h3>
+    <div style="display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;margin-bottom:14px">
+      <div><div class="hero-num num" style="color:var(--go)">${won(cashSum)}</div>
+        <div style="font-size:13px;color:var(--ink-2)">현금으로 받는 것 ${(byType.cash||[]).length}건 · 신청하면 지급됩니다</div></div>
       ${lost.length?`<div style="padding-left:16px;border-left:1px solid var(--rule)">
-        <div class="num" style="font-size:26px;font-weight:600;color:var(--stop)">−${won(lostSum)}</div>
+        <div class="num" style="font-size:24px;font-weight:600;color:var(--stop)">−${won(lostSum)}</div>
         <div style="font-size:12.5px;color:var(--stop)">이미 놓친 ${lost.length}건</div></div>`:''}
     </div>
+    <div class="ledger">
+      ${['save','loan','compete','admin'].filter(t=>byType[t]&&byType[t].length).map(t=>{
+        const v=t==='save'?saveSum:t==='loan'?loanSum:t==='compete'?compSum:0;
+        const note={save:'세금과 공과금에서 줄어듭니다', loan:'받는 돈이 아니라 빌리는 돈입니다',
+                    compete:'경쟁을 거쳐 선정돼야 받습니다', admin:'금액은 없지만 해두면 다른 자격이 열립니다'}[t];
+        return `<div class="lrow"><div><div class="t">${TY[t]}</div><div class="d">${note}</div></div>
+          <div class="r"><b>${v?won(v):byType[t].length+'건'}</b>
+            ${v?`<div style="font-size:11.5px;margin-top:2px">${byType[t].length}건</div>`:''}</div></div>`;}).join('')}
+    </div>
+    <p style="font-size:12.5px;color:var(--ink-2);margin-top:9px">
+      성격이 다른 금액을 합치면 실제보다 커 보입니다. 그래서 나누어 표시합니다.</p>
   </div>
 
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:12px;margin-bottom:12px">
@@ -298,9 +332,9 @@ function viewCheck(){
     <p>신용정보에서 ${[c.credit.arrears>0?`연체 ${c.credit.arrears}일`:null,
       c.credit.drop<-40?`신용점수 ${Math.abs(c.credit.drop)}점 하락`:null,
       c.credit.dsr>70?`상환 부담 ${c.credit.dsr}%`:null, c.credit.multi?'다중 채무':null].filter(Boolean).join(' · ')}이
-      확인되어 함께 살펴봤습니다. <b>신용회복위원회 상담과 신청은 무료</b>이고, 중위소득 125% 이하이면
-      법률구조공단에서 회생 신청서 작성까지 무료로 지원받으실 수 있습니다.
-      법무법인 수임료 200~300만 원이 드는 절차입니다.<br>
+      확인되어 함께 살펴봤습니다. <b>신용회복위원회 상담과 신청은 비용이 들지 않고</b>, 중위소득 125% 이하이면
+      법률구조공단에서 회생 신청서 작성까지 지원받으실 수 있습니다.
+      법무법인에 맡기면 수임료 200~300만 원이 드는 절차입니다.<br>
       이 판단은 저장된 신용정보만으로 계산했으며 외부에 알리지 않습니다.</p></div>`:''}
 
   ${left.length?`<div class="notice n-warn" style="margin-bottom:12px">
@@ -424,8 +458,8 @@ function viewTodo(){
 function runBlock(R){
   const paid=R.paid?`
   <div class="card pad">
-    <p style="font-size:14px;line-height:1.7">판정, 서류 준비, 초안 작성, 제출, 사후관리까지 요금을 받지 않습니다.
-      초안을 받아본 뒤 손봐야겠다고 판단할 때만 전문가 검수를 선택하시면 됩니다.</p>
+    <p style="font-size:14px;line-height:1.7">판정과 서류 준비, 초안 작성, 제출 안내, 사후관리는 서비스가 합니다.
+      초안을 받아보신 뒤 손봐야겠다고 판단하실 때만 전문가 검수를 선택하시면 됩니다.</p>
     <div class="grid3" style="margin-top:11px">
       ${[['검수','30만','항목별 코멘트와 보완 지점','반나절'],
          ['검수와 수정','150만','본문을 직접 고쳐 돌려드립니다','1~2일'],
@@ -439,8 +473,8 @@ function runBlock(R){
     <p style="font-size:12.5px;color:var(--ink-2);margin-top:10px">
       정액 요금이며 성공보수를 받지 않습니다. 해당 분야 심사 경험이 있는 전문가가 맡습니다.</p></div>`
   :`<div class="notice n-stop">
-    <h3>이 영역에는 유료 구간이 없습니다</h3>
-    <p>심사 대상이 자격 요건이라 글을 고쳐서 바뀌는 것이 없습니다.
+    <h3>이 영역에는 전문가 검수를 두지 않습니다</h3>
+    <p>심사 대상이 자격 요건이라 글을 고쳐서 바뀌는 것이 없기 때문입니다.
        정책자금은 보증료 외에 어떤 비용도 들지 않습니다.
        컨설팅 명목으로 대출금의 8~12%를 요구하고 부결되어도 청구하는 사례가 보고되고 있으며,
        허위 매출증명을 만든 브로커가 형사 고소된 사례도 있습니다. 이 화면에는 광고도 넣지 않습니다.</p>
@@ -456,7 +490,7 @@ function runBlock(R){
   <div class="ledger" style="margin-bottom:12px">${R.steps.map(x=>`<div class="lrow">
     <div><div class="t">${x[0]} ${x[2]==='now'?'<span class="tag t-logic" style="margin-left:4px">지금</span>':''}</div>
       <div class="d">${x[1]}</div></div>
-    <div class="r"><span class="tag t-go">무료</span></div></div>`).join('')}</div>
+    <div class="r"><span class="tag t-mute">${x[2]==='done'?'완료':x[2]==='now'?'진행':'대기'}</span></div></div>`).join('')}</div>
   ${paid}`;
 }
 
@@ -490,7 +524,10 @@ function viewMe(){
   if(rf.length) F.push(['조회된 미수령액',rf]);
   if(c.event.death) F.push(['사건',[['부친 사망',`${c.event.deathDays}일 경과`]]]);
   F.push(['행정',[['모바일 주민등록증',c.admin.idLatest?'발급 가능':'실물 재발급 필요'],
-    ['공동인증서',c.admin.cert?'보유':'미발급']]]);
+    ['공동인증서',c.admin.cert?'보유':'미발급'],
+    ['여권', c.admin.passport?`만료까지 ${c.admin.passport}개월`:'미보유'],
+    ...(c.admin.license?[['운전면허',`갱신까지 ${c.admin.licenseDue}개월`]]:[]),
+    ...(c.home.car?[['자동차 검사',`기한까지 ${c.admin.carCheck}개월`]]:[])]]);
 
   const total=F.flatMap(x=>x[1]).length;
   return `
@@ -499,12 +536,6 @@ function viewMe(){
     <p>${total}개 항목을 <b>연결 가능한 모든 곳에서 조회</b>했습니다.
        상태가 바뀌면 그에 따라 열리거나 닫히는 자격을 알려드립니다.
        내려받은 파일은 내려받은 순간에서 멈추지만, 여기 기록은 오늘 상태입니다.</p></div>
-
-  <h2 class="sec">연결된 곳</h2>
-  <div class="ledger">${SRC_ALL.map(x=>`<div class="lrow">
-    <div><div class="t">${x[0]}</div><div class="d">${x[1]}</div></div>
-    <div class="r"><span class="tag t-go">연결됨</span>
-      <div style="font-size:11.5px;margin-top:3px">갱신 ${x[2]}</div></div></div>`).join('')}</div>
 
   ${F.map(([g,items])=>`<h2 class="sec">${g}</h2><div class="ledger">
     ${items.map(x=>`<div class="lrow">
@@ -519,8 +550,16 @@ function viewMe(){
     <p style="font-size:14px;line-height:1.7;margin-top:9px">
       저장된 정보로 계산할 수 있는 것은 <span class="tag t-logic">규칙</span>으로 즉시 처리하고,
       글을 쓰거나 전략을 제안하는 일만 <span class="tag t-mute">AI</span>가 맡습니다.
-      모든 질문을 AI에 넘기면 이용자가 늘수록 비용이 늘어 무료로 유지할 수 없습니다.</p>
-    <button class="btn btn-sm" style="margin-top:9px">전체 내려받기</button></div>`;
+      모든 질문을 AI에 넘기면 이용자가 늘수록 비용이 늘어 지금의 요금 구조를 유지할 수 없습니다.</p>
+    <button class="btn btn-sm" style="margin-top:9px">전체 내려받기</button></div>
+
+  <h2 class="sec">연결된 곳</h2>
+  <div class="ledger">${SRC_ALL.map(x=>`<div class="lrow">
+    <div><div class="t">${x[0]}</div><div class="d">${x[1]}</div></div>
+    <div class="r"><span class="tag t-go">연결됨</span>
+      <div style="font-size:11.5px;margin-top:3px">갱신 ${x[2]}</div></div></div>`).join('')}</div>
+  <p style="font-size:12.5px;color:var(--ink-2);margin-top:8px">
+    처음 한 번만 인증하면 나머지는 배경에서 갱신됩니다. 항목별로 연결을 끊거나 다시 이을 수 있습니다.</p>`;
 }
 
 /* ═══════════ 물어보기 ═══════════ */
