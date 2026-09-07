@@ -88,35 +88,7 @@ function drawOb(){ const ob=$('ob-body');
 
   if(S.ob===3){ ob.innerHTML=formHTML(); bindForm(); return; }
 
-  const c=me(), on=roles(), cross=(PID==='me'?[]:CROSS[PID])||[];
-  const found=[];
-  if(c.refund.tax) found.push(['국세 미환급금', c.refund.tax+'만']);
-  if(c.refund.local) found.push(['지방세 미환급금', c.refund.local+'만']);
-  if(c.refund.medical) found.push(['본인부담상한제 환급금', c.refund.medical+'만']);
-  if(c.refund.dormant) found.push(['휴면예금 · 미청구 보험금', c.refund.dormant+'만']);
-  if(c.refund.pension) found.push(['미청구 연금', c.refund.pension+'만']);
-
-  ob.innerHTML=`<h2>확인된 역할</h2>
-  <p class="sub">역할을 직접 고르지 않으셔도 됩니다. <b>연결된 정보로 자동으로 정해집니다.</b></p>
-  <div class="ledger">
-    ${Object.entries(ROLE).map(([k,r])=>{const o=on.includes(k);
-      return `<div class="lrow"><div><div class="t" style="${o?'':'color:var(--ink-2)'}">${r.n}</div>
-        <div class="d">${o?'해당됩니다':r.off}</div></div>
-        <div class="r"><span class="tag ${o?'t-go':'t-mute'}">${o?'해당':'해당 없음'}</span></div></div>`;}).join('')}
-  </div>
-  ${found.length?`<div class="notice n-go" style="margin-top:16px">
-    <h3>조회 중 미수령 금액 ${found.length}건을 찾았습니다</h3>
-    <p>${found.map(f=>`${f[0]} ${f[1]}`).join(' · ')}</p></div>`:''}
-  ${cross.length?`<div class="notice n-warn" style="margin-top:14px">
-    <h3>역할이 겹쳐 생기는 문제가 ${cross.length}건 있습니다</h3>
-    <p>기관은 자기 소관만 보므로 이 부분을 알려주지 않습니다.</p></div>
-  <div class="ledger" style="margin-top:9px">
-    ${cross.map(x=>`<div class="lrow"><div><div class="t">${x[0]}</div><div class="d">${x[1]}</div></div>
-      <div class="r"><span class="tag t-warn">주의</span></div></div>`).join('')}</div>`:''}
-  <button class="btn btn-fill btn-wide btn-lg" id="ob-go">결과 보기</button>
-  <button class="btn btn-wide" id="ob-back">다시 선택</button>`;
-  $('ob-go').onclick=()=>{ S.view='check'; stage('app'); };
-  $('ob-back').onclick=()=>{ S.ob=0; drawOb(); }; }
+}
 
 function runConnect(){ const n=SRC_ALL.length; let i=0;
   const step=()=>{ const L=$('conn-list'); if(!L) return;
@@ -124,7 +96,7 @@ function runConnect(){ const n=SRC_ALL.length; let i=0;
       if(d)d.className='dot on'; if(s)s.textContent='완료'; }
     if(i<n){ const d=L.querySelector(`.conn[data-i="${i}"] .dot`), s=L.querySelector(`[data-st="${i}"]`);
       if(d)d.className='dot load'; if(s)s.textContent='조회 중'; i++; setTimeout(step,330); }
-    else setTimeout(()=>{ S.ob=2; drawOb(); },280); };
+    else setTimeout(()=>{ S.view='check'; stage('app'); },260); };
   setTimeout(step,260); }
 
 /* ═══════════ 직접 입력 ═══════════ */
@@ -274,13 +246,33 @@ function viewCheck(){
     c.misc.single?'한부모':null, c.misc.welfare?'수급 가구':null,
     c.home.own?'자가':'무주택', `중위소득 ${c.home.incomeRate}%`].filter(Boolean);
 
+  const rn=roles().map(r=>ROLE[r].n);
+  const cross=(PID==='me'?[]:CROSS[PID])||[];
+  const found=[];
+  if(c.refund.tax) found.push(['국세 미환급금', c.refund.tax+'만']);
+  if(c.refund.local) found.push(['지방세 미환급금', c.refund.local+'만']);
+  if(c.refund.medical) found.push(['본인부담상한제 환급금', c.refund.medical+'만']);
+  if(c.refund.dormant) found.push(['휴면예금 · 미청구 보험금', c.refund.dormant+'만']);
+  if(c.refund.pension) found.push(['미청구 연금', c.refund.pension+'만']);
+
   return `
   <div class="card pad" style="margin-bottom:12px">
-    <div style="font-size:12px;color:var(--ink-2);margin-bottom:6px">이 조건으로 판정했습니다</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:7px">
+      <span style="font-size:12px;color:var(--ink-2)">이 조건으로 판정했습니다</span>
+      <span style="font-size:12.5px;color:var(--ink-2)">확인된 역할 · <b style="color:var(--ink)">${rn.join(' + ')}</b></span>
+    </div>
     <div style="display:flex;gap:5px;flex-wrap:wrap">
       ${facts.map(f=>`<span class="tag t-mute" style="font-size:12.5px;padding:3px 10px">${f}</span>`).join('')}
     </div>
   </div>
+
+  ${found.length?`<div class="notice n-go" style="margin-bottom:12px">
+    <h3>조회 중 미수령 금액 ${found.length}건을 찾았습니다</h3>
+    <p>${found.map(f=>`${f[0]} <b>${f[1]}</b>`).join(' · ')}</p></div>`:''}
+
+  ${cross.length?`<div class="notice n-warn" style="margin-bottom:12px">
+    <h3>역할이 겹쳐 생기는 문제 ${cross.length}건</h3>
+    ${cross.map(x=>`<p style="margin-top:5px"><b>${x[0]}</b><br>${x[1]}</p>`).join('')}</div>`:''}
 
   <div class="viz">
     <h3>성격이 다른 것을 나누어 보여드립니다</h3>
