@@ -20,7 +20,8 @@ function ctx(){ const c=JSON.parse(JSON.stringify(me())), a=S.ans;
   if(a.startup==='yes') c.biz.plan=true;
   return c; }
 function judgeAll(){ const c=ctx();
-  return SECTORS.map(s=>({...s, res:s.items.map(it=>({n:it.n, type:it.type||'cash', where:it.where, visit:it.visit, chk:it.chk||null, base:it.base||null, bonus:it.bonus||null, guide:it.guide||null, ...it.f(c)}))})); }
+  return SECTORS.map(s=>({...s, res:s.items.map(it=>({n:it.n, type:it.type||'cash', where:it.where, visit:it.visit,
+    chk:it.chk?SOURCES[it.chk]||null:null, base:it.base||null, bonus:it.bonus||null, guide:it.guide||null, ...it.f(c)}))})); }
 
 /* 상세 · 준비물과 절차 · 뎁스 하나 아래 */
 const DOCK={auto:['자동','저장된 정보로 제출됩니다'], self:['본인','직접 준비하셔야 합니다'],
@@ -42,7 +43,15 @@ function guideBlock(r){ const g=r.guide;
       ${g.how.map((x,i)=>`<div class="gstep"><span class="gnum">${i+1}</span><span>${x}</span></div>`).join('')}
     </div>
     ${g.warn?`<div class="gwarn">${g.warn}</div>`:''}
-    <div class="gfoot">${g.time?`처리 기간 ${g.time} · `:''}확인 ${g.d} · <a href="${g.u}" target="_blank" rel="noopener">출처</a></div>
+    ${(()=>{const S1=r.chk, S2=g.s?SOURCES[g.s]:null;
+      const list=[]; if(S1&&S1.facts&&S1.facts.length) list.push(S1);
+      if(S2&&S2!==S1&&S2.facts&&S2.facts.length) list.push(S2);
+      return list.length?`<div class="gsec">
+        <div class="gh">이 판단의 근거 · 출처에서 읽은 내용</div>
+        ${list.map(S=>`<div class="gsrc">${S.facts.map(f=>`<div class="gfact">${f}</div>`).join('')}
+          <div class="gfrom">${S.t} · 확인 ${S.d} · <a href="${S.u}" target="_blank" rel="noopener">원문</a></div></div>`).join('')}
+      </div>`:'';})()}
+    <div class="gfoot">${g.time?`처리 기간 ${g.time}`:''}${g.s&&SOURCES[g.s]?` · 절차 출처 ${SOURCES[g.s].t}`:''}</div>
   </div>`; }
 
 /* 경쟁 선발형 · 확률 대신 선정 규모와 공고문 가점표를 보여줍니다 */
@@ -68,8 +77,8 @@ function compLine(r,c){ if(r.type!=='compete'||r.s!=='ok') return '';
 const srcLine=r=> !r.chk
   ? `<div class="src nochk">출처 미확인 · 금액과 요건을 다시 확인해야 합니다</div>`
   : r.chk.lvl==='org'
-  ? `<div class="src part">소관 기관만 확인 · 금액과 요건은 아직 대조하지 않았습니다 · <a href="${r.chk.u}" target="_blank" rel="noopener">${r.chk.src}</a></div>`
-  : `<div class="src">확인 ${r.chk.d} · <a href="${r.chk.u}" target="_blank" rel="noopener">${r.chk.src}</a></div>`;
+  ? `<div class="src part">소관 기관만 확인 · 금액과 요건은 아직 대조하지 않았습니다 · <a href="${r.chk.u}" target="_blank" rel="noopener">${r.chk.t}</a></div>`
+  : `<div class="src">확인 ${r.chk.d} · <a href="${r.chk.u}" target="_blank" rel="noopener">${r.chk.t}</a> · 읽은 내용 ${r.chk.facts.length}줄</div>`;
 
 /* 계획 문답 — 연동으로 알 수 없는 것만 */
 const PLANQ=[
