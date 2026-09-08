@@ -17,17 +17,22 @@ function ctx(){ const c=JSON.parse(JSON.stringify(me())), a=S.ans;
   if(a.hire==='yes') c.biz.hire=true;
   if(a.plan==='yes') c.fam.pregnant=true;
   if(a.moving==='yes') c.admin.moving=true;
+  if(a.startup==='yes') c.biz.plan=true;
   return c; }
 function judgeAll(){ const c=ctx();
   return SECTORS.map(s=>({...s, res:s.items.map(it=>({n:it.n, type:it.type||'cash', where:it.where, visit:it.visit, chk:it.chk||null, ...it.f(c)}))})); }
 
 /* 출처 한 줄 · 확인한 것과 확인하지 않은 것을 구분해 보여줍니다 */
-const srcLine=r=> r.chk
-  ? `<div class="src">확인 ${r.chk.d} · <a href="${r.chk.u}" target="_blank" rel="noopener">${r.chk.src}</a></div>`
-  : `<div class="src nochk">출처 미확인 · 금액과 요건을 다시 확인해야 합니다</div>`;
+const srcLine=r=> !r.chk
+  ? `<div class="src nochk">출처 미확인 · 금액과 요건을 다시 확인해야 합니다</div>`
+  : r.chk.lvl==='org'
+  ? `<div class="src part">소관 기관만 확인 · 금액과 요건은 아직 대조하지 않았습니다 · <a href="${r.chk.u}" target="_blank" rel="noopener">${r.chk.src}</a></div>`
+  : `<div class="src">확인 ${r.chk.d} · <a href="${r.chk.u}" target="_blank" rel="noopener">${r.chk.src}</a></div>`;
 
 /* 계획 문답 — 연동으로 알 수 없는 것만 */
 const PLANQ=[
+ {k:'startup', need:c=>!c.biz.on&&c.age<=60, q:'창업을 준비하고 계신가요?',
+  s:'사업자등록 전에만 신청할 수 있는 지원이 있습니다', a:[['no','아닙니다'],['yes','준비 중입니다']]},
  {k:'hire', need:c=>c.biz.on, q:'올해 안에 직원을 뽑을 계획이 있나요?',
   s:'채용 전에만 신청할 수 있는 지원이 있습니다', a:[['no','없습니다'],['yes','있습니다']]},
  {k:'close', need:c=>c.biz.on, q:'사업을 정리할 계획이 있으신가요?',
@@ -36,7 +41,7 @@ const PLANQ=[
   s:'퇴사 전에만 할 수 있는 것이 있습니다', a:[['no','아닙니다'],['plan','준비 중입니다'],['soon','곧 퇴사합니다']]},
  {k:'why', need:c=>c.work.on||c.work.insured>0, q:'퇴사한다면 사유가 어떻게 되나요?',
   s:'실업급여 수급 자격이 여기서 갈립니다', a:[['none','해당 없음'],['self','자발적 퇴사'],['end','계약 만료 또는 권고사직']]},
- {k:'plan', need:c=>c.fam.married||c.age<45, q:'출산 계획이 있으신가요?',
+ {k:'plan', need:c=>c.age<=45, q:'출산 계획이 있으신가요?',
   s:'출산 전에만 신청할 수 있는 지원이 있습니다', a:[['no','없습니다'],['yes','있습니다 또는 임신 중']]},
  {k:'moving', need:c=>c.home.rent, q:'이사나 재계약 계획이 있으신가요?',
   s:'계약 전에 확인해야 하는 것이 있습니다', a:[['no','없습니다'],['yes','있습니다']]}
@@ -345,7 +350,8 @@ function viewCheck(){
           <div class="d">${x.why||''} · <span style="color:var(--ink-3)">${x.where||''}</span>
             ${k?`<br>민간 최저 ${k.rival.n} 대비 · 한도 ${won(k.amt)} 기준 5년 <b style="color:var(--go)">${k.gap.toLocaleString()}만 절약</b>`:''}</div></div>
         <div class="r"><b>${x.amt}</b>
-          <div style="font-size:12px;margin-top:2px;color:var(--go)">${x.pl&&x.pl.rate?`연 ${x.pl.rate}%`:'금리 없음'}</div></div></div>`;}).join('')}
+          <div style="font-size:12px;margin-top:2px;color:var(--go)">${
+            x.pl ? (x.pl.rate?`연 ${x.pl.rate}%`:(x.pl.note||'금리 변동')) : '금리 미확인'}</div></div></div>`;}).join('')}
     </div>
     ${priv.length?`
     <div style="font-size:12.5px;color:var(--ink-2);margin:0 0 6px 2px">참고 · 민간 대출 · 같은 용도끼리만 비교했습니다</div>
@@ -430,13 +436,15 @@ function viewCheck(){
       0으로 표시된 분야도 검토는 끝났습니다. 눌러서 안 되는 이유를 보실 수 있습니다.</p></div>
 
   <h2 class="sec">분야별 상세 · 눌러서 펼치기</h2>
-  ${(()=>{const pct=Math.round(CHECK_COUNT/RULE_COUNT*100);return `
+  ${(()=>{const pct=Math.round(CHECK_COUNT/RULE_COUNT*100), org=Math.round(ORG_COUNT/RULE_COUNT*100);
+    const none=RULE_COUNT-CHECK_COUNT-ORG_COUNT; return `
   <div class="card pad" style="margin-bottom:8px">
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap">
-      <div><div style="font-size:14px">제도 ${RULE_COUNT}건 중 <b>${CHECK_COUNT}건</b>은 기관 자료로 금액과 요건을 확인했습니다</div>
-        <div style="font-size:12.5px;color:var(--ink-2)">최근 확인 ${CHECK_LATEST} · 나머지 ${RULE_COUNT-CHECK_COUNT}건은 각 항목에 <span style="color:var(--warn)">출처 미확인</span>으로 표시했습니다</div></div>
+      <div><div style="font-size:14px">제도 ${RULE_COUNT}건 중 <b>${CHECK_COUNT}건</b>은 금액과 요건까지 기관 자료로 대조했습니다</div>
+        <div style="font-size:12.5px;color:var(--ink-2)">최근 확인 ${CHECK_LATEST} · <span style="color:var(--warn)">${ORG_COUNT}건은 소관 기관만 확인</span>했고 수치는 아직 대조하지 않았습니다${none?` · ${none}건은 출처 미확인`:''}</div></div>
       <div class="num" style="font-size:22px;font-weight:600">${pct}%</div></div>
-    <div class="rmbar" style="margin-bottom:0"><span style="width:${pct}%"></span></div>
+    <div class="rmbar" style="margin-bottom:0;display:flex">
+      <span style="width:${pct}%"></span><span style="width:${org}%;background:var(--warn)"></span></div>
   </div>`;})()}
   ${J.map(sec=>{
     const o=sec.res.filter(x=>x.s==='ok').length, k=sec.res.filter(x=>x.s==='chk').length;
