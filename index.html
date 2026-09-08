@@ -241,6 +241,19 @@ h2.sec:first-child{margin-top:0}
 .form-row label{font-size:13.5px;color:var(--ink-2)}
 .form-row input,.form-row select{width:100%;padding:8px 11px;border:1px solid var(--rule);
   border-radius:5px;font:inherit;font-size:14px;background:var(--card)}
+.rrow{position:relative;padding-left:20px !important}
+.rrow::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px}
+.rrow.r-ok::before{background:var(--go)}
+.rrow.r-chk::before{background:var(--warn)}
+.rrow.r-lost::before{background:var(--stop)}
+.rrow.r-no::before{background:transparent}
+.rrow.r-ok{background:#E4F1ED}
+.rrow.r-chk{background:#FBF2E6}
+.rrow.r-lost{background:#F9E9E7}
+.rrow.r-no{background:#F7F8F9}
+.rrow.r-ok .t{font-weight:600}
+.rrow.r-no .t,.rrow.r-no .d{color:var(--ink-3)}
+.rrow.r-no .r b{color:var(--ink-3);font-weight:500}
 .chips{display:flex;gap:5px;flex-wrap:wrap}
 .chip{padding:6px 12px;border:1px solid var(--rule);border-radius:16px;font-size:13px;
   background:var(--card);color:var(--ink-2)}

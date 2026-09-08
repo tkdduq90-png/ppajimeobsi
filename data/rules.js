@@ -9,6 +9,18 @@ const NO=why=>({s:'no',why});
 const LOST=(amt,why)=>({s:'lost',amt,why});
 const CHK=(amt,why)=>({s:'chk',amt,why});
 
+/* 민간 대출 · 비교용으로만 조회합니다. 연결해도 수수료를 받지 않습니다 */
+const PRIV=[
+ {n:'시중은행 사업자 신용대출', rate:7.8, max:5000, need:c=>c.biz.on, where:'각 은행'},
+ {n:'인터넷은행 사업자대출', rate:6.9, max:3000, need:c=>c.biz.on, where:'토스뱅크 · 케이뱅크'},
+ {n:'카드사 사업자 대출', rate:11.2, max:3000, need:c=>c.biz.on, where:'각 카드사'},
+ {n:'시중은행 신용대출', rate:6.4, max:8000, need:c=>c.work.on, where:'각 은행'},
+ {n:'인터넷은행 신용대출', rate:5.9, max:5000, need:c=>c.work.on, where:'카카오뱅크 · 토스뱅크'},
+ {n:'전세자금 민간대출', rate:4.6, max:20000, need:c=>c.home.rent&&!c.home.own, where:'각 은행'}
+];
+const POLICY_RATE={'소상공인 정책자금':2.0,'경영안정자금':2.5,'중기청 전월세보증금 대출':1.5,
+ '버팀목 전세자금대출':2.7,'새출발기금':3.0,'주택연금':0};
+
 const SECTORS=[
 {k:'house', n:'주거', items:[
   {n:'청년월세 특별지원', type:'cash', where:'복지로 · 주민센터', visit:'online',
@@ -363,12 +375,12 @@ const SECTORS=[
     : CHK('요건별 감면','1가구 1주택 상속 등 요건을 확인해야 합니다')}]},
 
 {k:'admin', n:'행정 절차', items:[
-  {n:'모바일 주민등록증', type:'admin', where:'주민센터 방문 필요', visit:'center',
-   f:c=> c.admin.idLatest ? OK('수수료 없음','소지한 실물 주민등록증이 최신 발급본입니다',95,'방문 신청')
-    : NO('소지한 실물이 최신 재발급본이 아닙니다 · 재발급 후 신청 가능')},
   {n:'공동인증서 발급', type:'admin', where:'은행 방문 또는 비대면', visit:'bank',
-   f:c=> c.admin.cert ? NO('이미 발급받으셨습니다')
-    : OK('수수료 없음','다수 행정·금융 절차의 선행 조건입니다',95,'발급 시')},
+   f:c=> c.admin.cert ? NO('이미 보유하고 계십니다')
+    : OK('수수료 없음','온라인으로 신청할 항목이 있는데 인증서가 없어 진행이 막힙니다',95,'선행 조건')},
+  {n:'모바일 주민등록증', type:'admin', where:'주민센터 방문', visit:'center',
+   f:c=> !c.admin.idLatest ? NO('소지한 실물이 최신 재발급본이 아닙니다 · 재발급이 선행돼야 합니다')
+    : NO('필요하실 때 신청하시면 됩니다 · 기한이 정해진 항목이 아닙니다')},
   {n:'전입신고 · 확정일자', type:'admin', where:'주민센터 · 정부24', visit:'center',
    f:c=> !c.admin.moving ? NO('이사 예정이 확인되지 않습니다')
     : OK('수수료 없음','전입 후 14일 이내 · 확정일자는 보증금 보호의 전제',99,'14일 이내')},

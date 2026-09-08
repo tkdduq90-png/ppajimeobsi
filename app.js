@@ -1,7 +1,7 @@
 /* ═══════════ 상태 ═══════════ */
 let PID='d';
 let MINE=null;                       /* 직접 입력한 사람 */
-const S={stage:'landing', view:'check', ans:{}, ob:0, open:{}, sec:{}, asked:[], ti:0};
+const S={stage:'landing', view:'check', ans:{}, ob:0, open:{}, sec:{}, asked:[], ti:0, type:null};
 const $=id=>document.getElementById(id);
 const nav=$('nav'), main=$('main');
 const VIEWS=[['check','점검'],['todo','할 일'],['me','내 정보'],['ask','물어보기']];
@@ -235,7 +235,7 @@ function viewCheck(){
 
   const TY={cash:'현금으로 받는 것',save:'감면으로 아끼는 것',loan:'빌릴 수 있는 한도',
             compete:'선발되어야 받는 것',admin:'해두면 좋은 것'};
-  const byType={}; ok.forEach(x=>{(byType[x.type]=byType[x.type]||[]).push(x)});
+  const byType={}; J.forEach(sc=>sc.res.filter(x=>x.s==='ok').forEach(x=>{(byType[x.type]=byType[x.type]||[]).push({...x, sec:sc.n})}));
   const cashSum=money(byType.cash||[]), saveSum=money(byType.save||[]),
         loanSum=money(byType.loan||[]), compSum=money(byType.compete||[]);
 
@@ -287,14 +287,60 @@ function viewCheck(){
       ${['save','loan','compete','admin'].filter(t=>byType[t]&&byType[t].length).map(t=>{
         const v=t==='save'?saveSum:t==='loan'?loanSum:t==='compete'?compSum:0;
         const note={save:'세금과 공과금에서 줄어듭니다', loan:'받는 돈이 아니라 빌리는 돈입니다',
-                    compete:'경쟁을 거쳐 선정돼야 받습니다', admin:'금액은 없지만 해두면 다른 자격이 열립니다'}[t];
-        return `<div class="lrow"><div><div class="t">${TY[t]}</div><div class="d">${note}</div></div>
+                    compete:'경쟁을 거쳐 선정돼야 받습니다', admin:'해두면 다른 자격이 열립니다'}[t];
+        return `<button class="lrow typebtn" data-t="${t}" style="width:100%;text-align:left">
+          <div><div class="t">${TY[t]}</div><div class="d">${note}</div></div>
           <div class="r"><b>${v?won(v):byType[t].length+'건'}</b>
-            ${v?`<div style="font-size:11.5px;margin-top:2px">${byType[t].length}건</div>`:''}</div></div>`;}).join('')}
+            <div style="font-size:11.5px;margin-top:2px">${v?byType[t].length+'건 · 보기':'보기'} ›</div></div></button>`;}).join('')}
     </div>
-    <p style="font-size:12.5px;color:var(--ink-2);margin-top:9px">
-      성격이 다른 금액을 합치면 실제보다 커 보입니다. 그래서 나누어 표시합니다.</p>
   </div>
+
+  ${S.type==='loan'?(()=>{
+    const pol=(byType.loan||[]).map(x=>({...x, rate:POLICY_RATE[x.n]}));
+    const priv=PRIV.filter(x=>x.need(c));
+    const bestPol=pol.filter(x=>x.rate>0).sort((a,b)=>a.rate-b.rate)[0];
+    const bestPriv=priv.sort((a,b)=>a.rate-b.rate)[0];
+    const amt=bestPol?Math.min(parseFloat((bestPol.amt||'').replace(/[^\d.]/g,''))||0, bestPriv?bestPriv.max:0):0;
+    const gap=bestPol&&bestPriv?Math.round(amt*(bestPriv.rate-bestPol.rate)/100*5):0;
+    return `
+    <div class="notice n-go" style="margin-bottom:10px">
+      <h3>정책자금을 먼저 확인하세요</h3>
+      <p>같은 돈을 빌려도 금리가 크게 다릅니다.
+        ${gap>0?`5년 기준 이자 차이가 <b>약 ${gap.toLocaleString()}만 원</b>입니다.`:''}
+        저희는 어느 쪽으로 연결해도 수수료를 받지 않습니다.</p></div>
+    <div class="ledger" style="margin-bottom:10px">
+      ${pol.map(x=>`<div class="lrow rrow r-ok">
+        <div><div class="t">${x.n}</div>
+          <div class="d">${x.why||''} · <span style="color:var(--ink-3)">${x.where||''}</span></div></div>
+        <div class="r"><b>${x.amt}</b>
+          <div style="font-size:12px;margin-top:2px;color:var(--go)">${x.rate?`연 ${x.rate}%`:'금리 없음'}</div></div></div>`).join('')}
+    </div>
+    ${priv.length?`
+    <div style="font-size:12.5px;color:var(--ink-2);margin:0 0 6px 2px">참고 · 민간 대출</div>
+    <div class="ledger" style="margin-bottom:8px">
+      ${priv.map(x=>`<div class="lrow">
+        <div><div class="t" style="color:var(--ink-2)">${x.n}</div>
+          <div class="d">${x.where}</div></div>
+        <div class="r"><b style="color:var(--ink-2)">최대 ${x.max.toLocaleString()}만</b>
+          <div style="font-size:12px;margin-top:2px;color:var(--warn)">연 ${x.rate}%</div></div></div>`).join('')}
+      <div class="lrow" style="justify-content:center">
+        <button class="btn btn-sm" id="type-close" style="margin:0 auto">닫기</button></div>
+    </div>
+    <p style="font-size:12.5px;color:var(--ink-2);margin-bottom:14px">
+      민간 대출은 비교를 위해 함께 보여드립니다. 각 금융사에서 직접 신청하시면 되고,
+      저희를 거치셔도 수수료가 붙지 않습니다.</p>`:''}`;})()
+  :S.type?(()=>{const list=byType[S.type]||[];
+    return `<div class="notice n-go" style="margin-bottom:12px">
+      <h3>${TY[S.type]} ${list.length}건</h3></div>
+    <div class="ledger" style="margin-bottom:14px">
+      ${list.map(x=>`<div class="lrow rrow r-ok">
+        <div><div class="t">${x.n}</div>
+          <div class="d">${x.why||''}${x.where?` · <span style="color:var(--ink-3)">${x.where}</span>`:''}</div></div>
+        <div class="r">${x.amt?`<b>${x.amt}</b>`:''}
+          <div style="font-size:11.5px;margin-top:2px">${x.sec}</div></div></div>`).join('')}
+      <div class="lrow" style="justify-content:center">
+        <button class="btn btn-sm" id="type-close" style="margin:0 auto">닫기</button></div>
+    </div>`;})():''}
 
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:12px;margin-bottom:12px">
     <div class="viz" style="margin:0"><h3>${SECTORS.length}개 분야 · 제도 ${tot}건 전부 대조</h3>
@@ -358,13 +404,14 @@ function viewCheck(){
         <div class="meta">${sec.res.length}건 검토 · ${o?`가능 ${o}건`:'가능 없음'}${k?` · 확인 필요 ${k}건`:''}</div></div>
         <div class="rt">${o?`<span class="tag t-go">${o}</span>`:`<span class="tag t-mute">0</span>`}
           <span class="chev">›</span></div></summary>
-      ${sec.res.map(r=>{
+      ${(()=>{const ord={ok:0,chk:1,lost:2,no:3};
+        return [...sec.res].sort((x,y)=>ord[x.s]-ord[y.s]).map(r=>{
         const tg={ok:['t-go','가능'],chk:['t-warn','확인 필요'],no:['t-mute','불가'],lost:['t-stop','놓침']}[r.s];
-        return `<div class="lrow" style="background:${r.s==='ok'?'#FAFDFC':'transparent'}">
-          <div><div class="t" style="${r.s==='no'||r.s==='lost'?'color:var(--ink-2)':''}">${r.n}</div>
+        return `<div class="lrow rrow r-${r.s}">
+          <div><div class="t">${r.n}</div>
             <div class="d">${r.why||''}${r.s==='ok'&&r.where?` · <span style="color:var(--ink-3)">${r.where}</span>`:''}</div></div>
           <div class="r">${r.amt?`<b>${r.amt}</b>`:''}
-            <div style="margin-top:3px"><span class="tag ${tg[0]}">${tg[1]}</span></div></div></div>`;}).join('')}
+            <div style="margin-top:3px"><span class="tag ${tg[0]}">${tg[1]}</span></div></div></div>`;}).join('');})()}
     </details>`;}).join('')}`;
 }
 
@@ -391,20 +438,6 @@ function viewTodo(){
         <div class="r"><b style="color:${x[1]==='lost'?'var(--stop)':x[1]==='now'?'var(--ink)':'var(--ink-2)'}">${x[3]}</b></div>
       </div>`).join('')}
     </div>`).join('')}
-
-  <h2 class="sec">한 번에 처리할 것 · 재방문을 줄입니다</h2>
-  ${['center','bank','office','company','online'].filter(v=>byVisit[v]&&byVisit[v].length).map(v=>`
-    <details class="acc" ${v!=='online'?'open':''}>
-      <summary><div><div class="ttl">${VISIT[v].n}</div>
-        <div class="meta">${VISIT[v].tip}</div></div>
-        <div class="rt"><span class="tag ${v==='online'?'t-mute':'t-logic'}">${byVisit[v].length}건</span>
-          <span class="chev">›</span></div></summary>
-      ${byVisit[v].map(x=>`<div class="lrow">
-        <div><div class="t">${x.n}</div><div class="d">${x.where||''}</div></div>
-        <div class="r">${x.amt?`<b>${x.amt}</b>`:''}</div></div>`).join('')}
-    </details>`).join('')}
-  <p style="font-size:12.5px;color:var(--ink-2);margin:6px 0 18px">
-    주민센터나 은행에 한 번 갈 때 같은 묶음의 항목을 함께 처리하시면 재방문을 줄일 수 있습니다.</p>
 
   ${roads.length?roads.map(R=>{
     const all=R.stages.flatMap(x=>x.items);
@@ -444,7 +477,23 @@ function viewTodo(){
   :`<div class="card pad"><p style="font-size:13.5px;color:var(--ink-2)">
      연속적인 경로가 있는 역할이 아니라 로드맵 대신 위의 체크리스트로 안내합니다.</p></div>`}
 
-  ${RUN[R0()]?runBlock(RUN[R0()]):''}`;
+  ${RUN[R0()]?runBlock(RUN[R0()]):''}
+
+  <h2 class="sec">한 번에 처리할 것 · 재방문을 줄입니다</h2>
+  ${['center','bank','office','company','online'].filter(v=>byVisit[v]&&byVisit[v].length).map(v=>`
+    <details class="acc" ${v!=='online'?'open':''}>
+      <summary><div><div class="ttl">${VISIT[v].n}</div>
+        <div class="meta">${VISIT[v].tip}</div></div>
+        <div class="rt"><span class="tag ${v==='online'?'t-mute':'t-logic'}">${byVisit[v].length}건</span>
+          <span class="chev">›</span></div></summary>
+      ${byVisit[v].map(x=>`<div class="lrow">
+        <div><div class="t">${x.n}</div><div class="d">${x.where||''}</div></div>
+        <div class="r">${x.amt?`<b>${x.amt}</b>`:''}</div></div>`).join('')}
+    </details>`).join('')}
+  <p style="font-size:12.5px;color:var(--ink-2);margin:6px 0 18px">
+    주민센터나 은행에 한 번 갈 때 같은 묶음의 항목을 함께 처리하시면 재방문을 줄일 수 있습니다.</p>
+
+`;
 }
 
 function runBlock(R){
@@ -534,15 +583,9 @@ function viewMe(){
       <div><div class="t">${x[0]} · <span style="color:var(--ink-2)">${x[1]}</span></div></div>
       <div class="r"><span class="tag t-go">자동</span></div></div>`).join('')}</div>`).join('')}
 
-  <h2 class="sec">내려받기와 비용 구조</h2>
+  <h2 class="sec">내려받기</h2>
   <div class="card pad">
-    <p style="font-size:14px;line-height:1.7">
-      저장된 정보를 언제든 파일로 내려받아 다른 곳에서 쓸 수 있습니다. 막지 않습니다.
-      다만 파일은 내려받은 시점에서 멈춥니다. 자격이 사라지는 날 그 사실을 파일이 알려주지는 않습니다.</p>
-    <p style="font-size:14px;line-height:1.7;margin-top:9px">
-      저장된 정보로 계산할 수 있는 것은 <span class="tag t-logic">규칙</span>으로 즉시 처리하고,
-      글을 쓰거나 전략을 제안하는 일만 <span class="tag t-mute">AI</span>가 맡습니다.
-      모든 질문을 AI에 넘기면 이용자가 늘수록 비용이 늘어 지금의 요금 구조를 유지할 수 없습니다.</p>
+    <p style="font-size:14px;line-height:1.7">저장된 정보를 파일로 내려받아 다른 곳에서 쓰실 수 있습니다.</p>
     <button class="btn btn-sm" style="margin-top:9px">전체 내려받기</button></div>
 
   <h2 class="sec">연결된 곳</h2>
@@ -582,6 +625,9 @@ function bind(){
   main.querySelectorAll('.qopt').forEach(b=>b.onclick=()=>{ S.ans[b.dataset.k]=b.dataset.v; draw(); });
   const r=$('re-q'); if(r) r.onclick=()=>{ S.ans={}; draw(); };
   main.querySelectorAll('.acc').forEach(d=>d.addEventListener('toggle',()=>{ S.sec[d.dataset.k]=d.open; }));
+  main.querySelectorAll('.typebtn').forEach(b=>b.onclick=()=>{
+    S.type = S.type===b.dataset.t ? null : b.dataset.t; draw(); });
+  const tc=$('type-close'); if(tc) tc.onclick=()=>{ S.type=null; draw(); };
   main.querySelectorAll('.jump').forEach(b=>b.onclick=()=>{
     const k=b.dataset.k; S.sec[k]=true; draw();
     setTimeout(()=>$('sec-'+k)?.scrollIntoView({behavior:'smooth',block:'center'}),40); });
