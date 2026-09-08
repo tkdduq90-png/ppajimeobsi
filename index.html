@@ -241,19 +241,49 @@ h2.sec:first-child{margin-top:0}
 .form-row label{font-size:13.5px;color:var(--ink-2)}
 .form-row input,.form-row select{width:100%;padding:8px 11px;border:1px solid var(--rule);
   border-radius:5px;font:inherit;font-size:14px;background:var(--card)}
-.rrow{position:relative;padding-left:20px !important}
-.rrow::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px}
-.rrow.r-ok::before{background:var(--go)}
-.rrow.r-chk::before{background:var(--warn)}
-.rrow.r-lost::before{background:var(--stop)}
-.rrow.r-no::before{background:transparent}
-.rrow.r-ok{background:#E4F1ED}
-.rrow.r-chk{background:#FBF2E6}
-.rrow.r-lost{background:#F9E9E7}
-.rrow.r-no{background:#F7F8F9}
-.rrow.r-ok .t{font-weight:600}
-.rrow.r-no .t,.rrow.r-no .d{color:var(--ink-3)}
-.rrow.r-no .r b{color:var(--ink-3);font-weight:500}
+.ritem{position:relative;border-top:1px solid var(--rule-2)}
+.ritem:first-child{border-top:none}
+.ritem::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;z-index:1}
+.ritem.r-ok::before{background:var(--go)}
+.ritem.r-chk::before{background:var(--warn)}
+.ritem.r-lost::before{background:var(--stop)}
+.ritem.r-unk::before{background:var(--logic)}
+.ritem.r-no::before{background:transparent}
+.ritem.r-ok{background:#E4F1ED}
+.ritem.r-chk{background:#FBF2E6}
+.ritem.r-lost{background:#F9E9E7}
+.ritem.r-unk{background:#EDF1F8}
+.ritem.r-no{background:#F7F8F9}
+.ritem>.lrow{border-top:none;padding-left:20px;width:100%;text-align:left;background:none}
+.ritem>button.lrow{cursor:pointer;transition:background .12s}
+.ritem>button.lrow:hover{background:rgba(0,0,0,.03)}
+.ritem.r-ok .t{font-weight:600}
+.ritem.r-no .t,.ritem.r-no .d{color:var(--ink-3)}
+.ritem.r-no .r b{color:var(--ink-3);font-weight:500}
+.ichev{font-size:11.5px;font-weight:500;color:var(--ink-3);margin-left:7px;
+  border:1px solid var(--rule);border-radius:10px;padding:1px 7px;white-space:nowrap}
+.ritem>button.lrow:hover .ichev{border-color:var(--ink-2);color:var(--ink-2)}
+/* 상세 */
+.gd{padding:2px 18px 15px 20px}
+.gd .gn{font-size:12.5px;color:var(--ink-2);padding:8px 0}
+.gd .gw{font-size:13.5px;line-height:1.6;padding:4px 0 10px}
+.gsec{background:var(--card);border:1px solid var(--rule);border-radius:7px;padding:10px 12px;margin-bottom:7px}
+.gh{font-size:12px;color:var(--ink-2);margin-bottom:6px}
+.gdoc{display:flex;gap:8px;align-items:baseline;padding:3px 0;font-size:13px}
+.gtag{font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:3px;white-space:nowrap;flex-shrink:0}
+.gdoc.auto .gtag{background:var(--go-bg);color:var(--go)}
+.gdoc.self .gtag{background:var(--warn-bg);color:var(--warn)}
+.gdoc.issue .gtag{background:var(--logic-bg);color:var(--logic)}
+.gdoc .gt{flex:1;min-width:0}
+.gw2{color:var(--ink-3);font-size:12px}
+.gstep{display:flex;gap:8px;align-items:baseline;padding:3px 0;font-size:13px}
+.gnum{width:16px;height:16px;border-radius:50%;background:var(--ink);color:#fff;font-size:10px;
+  font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.gwarn{background:var(--stop-bg);border:1px solid #EBC8C3;border-radius:7px;padding:9px 12px;
+  font-size:12.5px;line-height:1.6;color:var(--stop);margin-bottom:7px}
+.gfoot{font-size:11.5px;color:var(--ink-3)}
+.gfoot a{color:var(--go)}
+.needln{font-size:12px;color:var(--logic);margin-top:3px;line-height:1.45}
 .chips{display:flex;gap:5px;flex-wrap:wrap}
 .chip{padding:6px 12px;border:1px solid var(--rule);border-radius:16px;font-size:13px;
   background:var(--card);color:var(--ink-2)}
@@ -262,6 +292,16 @@ h2.sec:first-child{margin-top:0}
 .src a{color:var(--go)}
 .src.nochk{color:var(--warn)}
 .src.part{color:var(--warn)}
+.comp{margin-top:7px;padding:8px 10px;border-radius:6px;background:rgba(47,75,124,.05);border:1px solid var(--logic-bg)}
+.comp .cs{font-size:12.5px;color:var(--logic);font-weight:600}
+.comp .cb{font-size:12px;color:var(--ink-2);margin-top:4px}
+.comp .bn{display:flex;gap:7px;align-items:baseline;font-size:12px;padding:2px 0;color:var(--ink-2)}
+.comp .bn .bt{flex:1;min-width:0}
+.comp .bn .bp{font-variant-numeric:tabular-nums;color:var(--ink-3)}
+.comp .bn.on{color:var(--go);font-weight:600}
+.comp .bn.on .bp{color:var(--go)}
+.comp .bn.ask{color:var(--warn)}
+.comp .cw{font-size:11.5px;color:var(--ink-3);margin-top:5px;line-height:1.45}
 .src.part a{color:var(--warn)}
 </style>
 </head>

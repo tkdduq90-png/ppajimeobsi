@@ -1,7 +1,7 @@
 /* ═══════════ 상태 ═══════════ */
 let PID='d';
 let MINE=null;                       /* 직접 입력한 사람 */
-const S={stage:'landing', view:'check', ans:{}, ob:0, open:{}, sec:{}, asked:[], ti:0, type:null};
+const S={stage:'landing', view:'check', ans:{}, ob:0, open:{}, sec:{}, asked:[], ti:0, type:null, item:null};
 const $=id=>document.getElementById(id);
 const nav=$('nav'), main=$('main');
 const VIEWS=[['check','점검'],['todo','할 일'],['me','내 정보'],['ask','물어보기']];
@@ -20,7 +20,49 @@ function ctx(){ const c=JSON.parse(JSON.stringify(me())), a=S.ans;
   if(a.startup==='yes') c.biz.plan=true;
   return c; }
 function judgeAll(){ const c=ctx();
-  return SECTORS.map(s=>({...s, res:s.items.map(it=>({n:it.n, type:it.type||'cash', where:it.where, visit:it.visit, chk:it.chk||null, ...it.f(c)}))})); }
+  return SECTORS.map(s=>({...s, res:s.items.map(it=>({n:it.n, type:it.type||'cash', where:it.where, visit:it.visit, chk:it.chk||null, base:it.base||null, bonus:it.bonus||null, guide:it.guide||null, ...it.f(c)}))})); }
+
+/* 상세 · 준비물과 절차 · 뎁스 하나 아래 */
+const DOCK={auto:['자동','저장된 정보로 제출됩니다'], self:['본인','직접 준비하셔야 합니다'],
+            issue:['발급','발급받아 오셔야 합니다']};
+function guideBlock(r){ const g=r.guide;
+  if(!g) return `<div class="gd"><p class="gn">준비물과 절차를 아직 정리하지 않았습니다.
+    신청처에서 확인하셔야 합니다${r.where?` · ${r.where}`:''}.</p></div>`;
+  const auto=g.doc.filter(d=>d[1]==='auto').length, mine=g.doc.length-auto;
+  return `<div class="gd">
+    <p class="gw">${g.what}</p>
+    <div class="gsec">
+      <div class="gh">준비물 ${g.doc.length}건 · <b>${auto}건은 자동 제출</b>${mine?` · ${mine}건은 본인이 준비`:''}</div>
+      ${g.doc.map(([n,k,w])=>`<div class="gdoc ${k}">
+        <span class="gtag">${DOCK[k][0]}</span>
+        <span class="gt">${n}${w?`<span class="gw2"> · ${w}</span>`:''}</span></div>`).join('')}
+    </div>
+    <div class="gsec">
+      <div class="gh">절차</div>
+      ${g.how.map((x,i)=>`<div class="gstep"><span class="gnum">${i+1}</span><span>${x}</span></div>`).join('')}
+    </div>
+    ${g.warn?`<div class="gwarn">${g.warn}</div>`:''}
+    <div class="gfoot">${g.time?`처리 기간 ${g.time} · `:''}확인 ${g.d} · <a href="${g.u}" target="_blank" rel="noopener">출처</a></div>
+  </div>`; }
+
+/* 경쟁 선발형 · 확률 대신 선정 규모와 공고문 가점표를 보여줍니다 */
+function compLine(r,c){ if(r.type!=='compete'||r.s!=='ok') return '';
+  const b=r.base, bo=r.bonus||[];
+  const scale = b&&(b.sel||b.comp)
+    ? [b.sel?`선정 ${b.sel}`:null, b.comp?`경쟁률 ${b.comp}`:'경쟁률 미확인'].filter(Boolean).join(' · ')
+    : '선정 규모와 경쟁률 미확인';
+  let got=0, tot=0, rows='';
+  bo.forEach(([n,p,test])=>{ tot+=p;
+    const ok = typeof test==='function' ? !!test(c) : null;
+    if(ok) got+=p;
+    rows += `<div class="bn ${ok?'on':ok===null?'ask':'off'}">
+      <span>${ok?'✓':ok===null?'?':'·'}</span><span class="bt">${n}</span><span class="bp">+${p}</span></div>`; });
+  return `<div class="comp">
+    <div class="cs">${scale}${b&&b.note?` · ${b.note}`:''}</div>
+    ${bo.length?`<div class="cb">가점 ${tot}점 중 확보 ${got}점${bo.every(x=>x[2]==='ask')?' · 전부 본인 확인이 필요한 항목입니다':''}</div>${rows}`
+      :'<div class="cb">공고문 가점표를 아직 옮기지 않았습니다</div>'}
+    <div class="cw">선정 가능성은 계산하지 않습니다. 평가의 대부분이 사업계획서 정성평가이고 배점이 공개되지 않는 사업이 많습니다.</div>
+  </div>`; }
 
 /* 출처 한 줄 · 확인한 것과 확인하지 않은 것을 구분해 보여줍니다 */
 const srcLine=r=> !r.chk
@@ -82,7 +124,7 @@ function drawOb(){ const ob=$('ob-body');
       <b>직접 입력해 보기</b><span>내 상황을 넣고 판정 결과를 확인합니다</span></button>`;
     ob.querySelectorAll('.pick').forEach(b=>b.onclick=()=>{
       const p=b.dataset.p;
-      S.ans={}; S.open={}; S.sec={}; S.asked=[]; S.ti=0; S.type=null;
+      S.ans={}; S.open={}; S.sec={}; S.asked=[]; S.ti=0; S.type=null; S.item=null;
       if(p==='me'){ S.ob=3; drawOb(); return; }
       PID=p; S.ob=1; drawOb(); runConnect(); });
     return; }
@@ -219,11 +261,13 @@ const won=v=>v>=10000?(Math.round(v/1000)/10)+'억':Math.round(v).toLocaleString
 function viewCheck(){
   const c=ctx(), J=judgeAll(), all=J.flatMap(s=>s.res);
   const ok=all.filter(x=>x.s==='ok'), chk=all.filter(x=>x.s==='chk'),
-        no=all.filter(x=>x.s==='no'), lost=all.filter(x=>x.s==='lost');
+        no=all.filter(x=>x.s==='no'), lost=all.filter(x=>x.s==='lost'),
+        unk=all.filter(x=>x.s==='unk');
   const lostT=tally(lost), lostSum=lostT.y+lostT.once+lostT.max;
   const Q=planq(), left=Q.filter(q=>!(q.k in S.ans));
   const seg=[[ok.length,'var(--go)','받을 수 있는 것'],[chk.length,'var(--warn)','확인 필요'],
-             [lost.length,'var(--stop)','놓침'],[no.length,'#D3D9DC','자격 미달']];
+             [unk.length,'var(--logic)','판정 불가'],[lost.length,'var(--stop)','놓침'],
+             [no.length,'#D3D9DC','자격 미달']];
   const tot=all.length; let acc=0;
   const donut=seg.map(([v,col])=>{const r=52,C=2*Math.PI*r,len=C*v/tot,off=C*acc/tot;acc+=v;
     return `<circle cx="66" cy="66" r="${r}" fill="none" stroke="${col}" stroke-width="21"
@@ -342,7 +386,7 @@ function viewCheck(){
         ${won(best[1].amt)} 기준으로 비교하면 5년 이자 차이가
         <b>약 ${best[1].gap.toLocaleString()}만 원</b>입니다.`
        :`받으실 수 있는 정책 대출을 아래에 정리했습니다. 같은 용도의 민간 상품이 조회되지 않아 금리 비교는 생략했습니다.`}
-        저희는 어느 쪽으로 연결해도 수수료를 받지 않습니다.</p></div>
+</p></div>
     <div class="ledger" style="margin-bottom:10px">
       ${pol.map(x=>{const k=cmp[x.n];
         return `<div class="lrow rrow r-ok">
@@ -365,8 +409,7 @@ function viewCheck(){
         <button class="btn btn-sm" id="type-close" style="margin:0 auto">닫기</button></div>
     </div>
     <p style="font-size:12.5px;color:var(--ink-2);margin-bottom:14px">
-      민간 대출은 비교를 위해 함께 보여드립니다. 각 금융사에서 직접 신청하시면 되고,
-      저희를 거치셔도 수수료가 붙지 않습니다.</p>`:''}`;})()
+      민간 대출은 비교를 위해 함께 보여드립니다. 각 금융사에서 직접 신청하시면 됩니다.</p>`:''}`;})()
   :S.type?(()=>{const list=byType[S.type]||[];
     return `<div class="notice n-go" style="margin-bottom:12px">
       <h3>${TY[S.type]} ${list.length}건</h3></div>
@@ -433,7 +476,8 @@ function viewCheck(){
       return `<button class="cellx jump" data-k="${sec.k}" style="${shade(n)};text-align:left;width:100%">
         <div class="cn">${sec.n}</div><div class="cv num">${n}</div></button>`;}).join('')}</div>
     <p style="font-size:12.5px;color:var(--ink-2);margin-top:10px">
-      0으로 표시된 분야도 검토는 끝났습니다. 눌러서 안 되는 이유를 보실 수 있습니다.</p></div>
+      0으로 표시된 분야도 검토는 끝났습니다. 눌러서 안 되는 이유를 보실 수 있습니다.
+      <b style="color:var(--logic)">판정 불가</b>는 요건이 미달이라는 뜻이 아니라, 연동으로 가져올 수 없는 정보라 저희가 결론을 내지 못한 항목입니다.</p></div>
 
   <h2 class="sec">분야별 상세 · 눌러서 펼치기</h2>
   ${(()=>{const pct=Math.round(CHECK_COUNT/RULE_COUNT*100), org=Math.round(ORG_COUNT/RULE_COUNT*100);
@@ -441,27 +485,35 @@ function viewCheck(){
   <div class="card pad" style="margin-bottom:8px">
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap">
       <div><div style="font-size:14px">제도 ${RULE_COUNT}건 중 <b>${CHECK_COUNT}건</b>은 금액과 요건까지 기관 자료로 대조했습니다</div>
-        <div style="font-size:12.5px;color:var(--ink-2)">최근 확인 ${CHECK_LATEST} · <span style="color:var(--warn)">${ORG_COUNT}건은 소관 기관만 확인</span>했고 수치는 아직 대조하지 않았습니다${none?` · ${none}건은 출처 미확인`:''}</div></div>
+        <div style="font-size:12.5px;color:var(--ink-2)">최근 확인 ${CHECK_LATEST} · <span style="color:var(--warn)">${ORG_COUNT}건은 소관 기관만 확인</span>했고 수치는 아직 대조하지 않았습니다${none?` · ${none}건은 출처 미확인`:''}</div>
+        <div style="font-size:12.5px;color:var(--ink-2);margin-top:3px">항목을 누르면 준비물과 절차가 나옵니다 · <b>${GUIDE_COUNT}건</b> 정리 완료</div></div>
       <div class="num" style="font-size:22px;font-weight:600">${pct}%</div></div>
     <div class="rmbar" style="margin-bottom:0;display:flex">
       <span style="width:${pct}%"></span><span style="width:${org}%;background:var(--warn)"></span></div>
   </div>`;})()}
   ${J.map(sec=>{
-    const o=sec.res.filter(x=>x.s==='ok').length, k=sec.res.filter(x=>x.s==='chk').length;
+    const o=sec.res.filter(x=>x.s==='ok').length, k=sec.res.filter(x=>x.s==='chk').length,
+          u=sec.res.filter(x=>x.s==='unk').length;
     return `<details class="acc" id="sec-${sec.k}" ${S.sec[sec.k]?'open':''} data-k="${sec.k}">
       <summary><div><div class="ttl">${sec.n}</div>
-        <div class="meta">${sec.res.length}건 검토 · ${o?`가능 ${o}건`:'가능 없음'}${k?` · 확인 필요 ${k}건`:''}</div></div>
+        <div class="meta">${sec.res.length}건 검토 · ${o?`가능 ${o}건`:'가능 없음'}${k?` · 확인 필요 ${k}건`:''}${u?` · 판정 불가 ${u}건`:''}</div></div>
         <div class="rt">${o?`<span class="tag t-go">${o}</span>`:`<span class="tag t-mute">0</span>`}
           <span class="chev">›</span></div></summary>
-      ${(()=>{const ord={ok:0,chk:1,lost:2,no:3};
+      ${(()=>{const ord={ok:0,chk:1,unk:2,lost:3,no:4};
         return [...sec.res].sort((x,y)=>ord[x.s]-ord[y.s]).map(r=>{
-        const tg={ok:['t-go','가능'],chk:['t-warn','확인 필요'],no:['t-mute','불가'],lost:['t-stop','놓침']}[r.s];
-        return `<div class="lrow rrow r-${r.s}">
-          <div><div class="t">${r.n}</div>
+        const tg={ok:['t-go','가능'],chk:['t-warn','확인 필요'],unk:['t-logic','판정 불가'],
+                  no:['t-mute','불가'],lost:['t-stop','놓침']}[r.s];
+        const can=r.s!=='no', open=can&&S.item===r.n, key=encodeURIComponent(r.n);
+        return `<div class="ritem r-${r.s}">
+          <${can?`button class="lrow ihead" data-i="${key}"`:'div class="lrow"'}>
+          <div><div class="t">${r.n}${can?`<span class="ichev">${open?'닫기':'자세히'}</span>`:''}</div>
             <div class="d">${r.why||''}${r.s==='ok'&&r.where?` · <span style="color:var(--ink-3)">${r.where}</span>`:''}</div>
-            ${r.s==='no'?'':srcLine(r)}</div>
+            ${r.s==='unk'&&r.need?`<div class="needln">판정하려면 <b>${r.need}</b>가 필요합니다 · 연동으로는 가져올 수 없습니다</div>`:''}
+            ${can?srcLine(r):''}${compLine(r,c)}</div>
           <div class="r">${r.amt?`<b>${r.amt}</b>`:''}
-            <div style="margin-top:3px"><span class="tag ${tg[0]}">${tg[1]}</span></div></div></div>`;}).join('');})()}
+            <div style="margin-top:3px"><span class="tag ${tg[0]}">${tg[1]}</span></div></div>
+          </${can?'button':'div'}>
+          ${open?guideBlock(r):''}</div>`;}).join('');})()}
     </details>`;}).join('')}`;
 }
 
@@ -683,6 +735,9 @@ function bind(){
   main.querySelectorAll('.qopt').forEach(b=>b.onclick=()=>{ S.ans[b.dataset.k]=b.dataset.v; draw(); });
   const r=$('re-q'); if(r) r.onclick=()=>{ S.ans={}; draw(); };
   main.querySelectorAll('.acc').forEach(d=>d.addEventListener('toggle',()=>{ S.sec[d.dataset.k]=d.open; }));
+  main.querySelectorAll('.ihead').forEach(b=>b.onclick=()=>{
+    const n=decodeURIComponent(b.dataset.i);
+    S.item = S.item===n ? null : n; draw(); });
   main.querySelectorAll('.typebtn').forEach(b=>b.onclick=()=>{
     S.type = S.type===b.dataset.t ? null : b.dataset.t; draw(); });
   const tc=$('type-close'); if(tc) tc.onclick=()=>{ S.type=null; draw(); };
