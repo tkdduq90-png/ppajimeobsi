@@ -1,41 +1,57 @@
 /* ═══════════════════════════════════════════════
    제도 규칙 데이터베이스
-   각 항목: n(이름) amt(금액) f(판정 함수) doc(필요 서류) where(신청처) visit(방문 유형)
+   각 항목: n(이름) amt(표시 금액) f(판정 함수) where(신청처) visit(방문 유형)
    판정 결과: OK 가능 / NO 불가 / LOST 놓침 / CHK 확인 필요
+
+   ── 금액 집계 규칙 ──
+   OK 의 다섯 번째 인자 mv 가 "합산 가능한 금액"입니다. 없으면 합산에서 빠집니다.
+     {y:n}    연 환산 반복 수령·절감액 (월 20만 12개월 → y:240)
+     {once:n} 한 번만 받는 금액
+     {cap:n}  대출 한도 (받는 돈이 아니므로 따로 셉니다)
+     {max:n}  선정돼야 받는 최대 사업비 (확정 금액이 아니므로 따로 셉니다)
+   단위는 만원. 범위 표기는 하한을, '최대' 표기는 그 값을 씁니다.
    ═══════════════════════════════════════════════ */
 
-const OK=(amt,why,odds,rate)=>({s:'ok',amt,why,odds:odds||70,rate:rate||'요건 충족 시'});
+const OK=(amt,why,odds,rate,mv)=>({s:'ok',amt,why,odds:odds||70,rate:rate||'요건 충족 시',mv:mv||null});
 const NO=why=>({s:'no',why});
-const LOST=(amt,why)=>({s:'lost',amt,why});
+const LOST=(amt,why,mv)=>({s:'lost',amt,why,mv:mv||null});
 const CHK=(amt,why)=>({s:'chk',amt,why});
 
+/* 정책 대출 · cat 이 같은 민간 상품과만 비교합니다 */
+const POLICY_LOAN={
+ '소상공인 정책자금':{rate:2.96, cat:'biz'},
+ '경영안정자금':{rate:2.96, cat:'biz'},
+ '새출발기금':{rate:3.0, cat:'biz'},
+ '중기청 전월세보증금 대출':{rate:1.5, cat:'jeonse'},
+ '버팀목 전세자금대출':{rate:2.7, cat:'jeonse'},
+ '주택연금':{rate:0, cat:'none'}
+};
 /* 민간 대출 · 비교용으로만 조회합니다. 연결해도 수수료를 받지 않습니다 */
 const PRIV=[
- {n:'시중은행 사업자 신용대출', rate:7.8, max:5000, need:c=>c.biz.on, where:'각 은행'},
- {n:'인터넷은행 사업자대출', rate:6.9, max:3000, need:c=>c.biz.on, where:'토스뱅크 · 케이뱅크'},
- {n:'카드사 사업자 대출', rate:11.2, max:3000, need:c=>c.biz.on, where:'각 카드사'},
- {n:'시중은행 신용대출', rate:6.4, max:8000, need:c=>c.work.on, where:'각 은행'},
- {n:'인터넷은행 신용대출', rate:5.9, max:5000, need:c=>c.work.on, where:'카카오뱅크 · 토스뱅크'},
- {n:'전세자금 민간대출', rate:4.6, max:20000, need:c=>c.home.rent&&!c.home.own, where:'각 은행'}
+ {n:'시중은행 사업자 신용대출', cat:'biz', rate:7.8, max:5000, need:c=>c.biz.on, where:'각 은행'},
+ {n:'인터넷은행 사업자대출', cat:'biz', rate:6.9, max:3000, need:c=>c.biz.on, where:'토스뱅크 · 케이뱅크'},
+ {n:'카드사 사업자 대출', cat:'biz', rate:11.2, max:3000, need:c=>c.biz.on, where:'각 카드사'},
+ {n:'시중은행 신용대출', cat:'credit', rate:6.4, max:8000, need:c=>c.work.on, where:'각 은행'},
+ {n:'인터넷은행 신용대출', cat:'credit', rate:5.9, max:5000, need:c=>c.work.on, where:'카카오뱅크 · 토스뱅크'},
+ {n:'전세자금 민간대출', cat:'jeonse', rate:4.6, max:20000, need:c=>c.home.rent&&!c.home.own, where:'각 은행'}
 ];
-const POLICY_RATE={'소상공인 정책자금':2.0,'경영안정자금':2.5,'중기청 전월세보증금 대출':1.5,
- '버팀목 전세자금대출':2.7,'새출발기금':3.0,'주택연금':0};
 
 const SECTORS=[
 {k:'house', n:'주거', items:[
   {n:'청년월세 특별지원', type:'cash', where:'복지로 · 주민센터', visit:'online',
+   chk:{d:'2026-09-08', src:'2026 청년월세 특별지원', u:'https://www.tossbank.com/articles/youth-monthly-rent'},
    f:c=> !c.home.rent ? NO('임차 중이 아닙니다')
     : c.age>34 ? NO(`만 ${c.age}세 · 기준 34세 이하`)
     : c.home.incomeRate>60 ? NO(`본인 소득 중위 ${c.home.incomeRate}% · 기준 60% 이하`)
     : c.home.deposit>5000 ? NO(`보증금 ${c.home.deposit.toLocaleString()}만 · 기준 5,000만 이하`)
-    : OK('월 20만 · 12개월','무주택 · 소득과 보증금 요건 충족',62,'예산 범위')},
+    : OK('월 최대 20만 · 최대 24개월 · 총 480만','2026년부터 상시 신청 · 청년 중위 60% 이하 · 원가구 100% 이하',62,'상시 신청',{y:240})},
   {n:'서울시 청년월세 지원', type:'compete', where:'서울주거포털', visit:'online',
    f:c=> !c.region.startsWith('서울') ? NO(`${c.region} 거주 · 서울시 사업입니다`)
     : c.age>39 ? NO(`만 ${c.age}세 · 기준 39세 이하`)
     : c.home.deposit>8000 ? NO('보증금 8,000만 초과')
     : c.home.monthly>60 ? NO(`월세 ${c.home.monthly}만 · 기준 60만 이하`)
     : c.home.incomeRate>150 ? NO(`중위 ${c.home.incomeRate}% · 기준 150% 이하`)
-    : OK('월 20만 · 10개월','보증금·월세·소득 요건 모두 충족',54,'추첨')},
+    : OK('월 20만 · 10개월','보증금·월세·소득 요건 모두 충족',54,'추첨',{max:200})},
   {n:'SH 청년안심주택 · 공공지원민간임대', type:'compete', where:'SH 인터넷청약', visit:'online',
    f:c=> !c.region.startsWith('서울') ? NO(`${c.region} 거주 · 서울 지역 공급`)
     : c.age>39 ? NO(`만 ${c.age}세 · 기준 39세 이하`)
@@ -59,12 +75,13 @@ const SECTORS=[
    f:c=> !(c.work.on&&c.work.sme) ? NO('중소기업 재직자가 아닙니다')
     : c.age>34 ? NO(`만 ${c.age}세 · 기준 34세 이하`)
     : c.home.deposit>20000 ? NO(`보증금 ${c.home.deposit.toLocaleString()}만 · 기준 2억 이하`)
-    : OK('최대 1억 · 연 1.5%','중소기업 재직 · 보증금 요건 충족',83,'심사')},
+    : OK('최대 1억 · 연 1.5%','중소기업 재직 · 보증금 요건 충족',83,'심사',{cap:10000})},
   {n:'버팀목 전세자금대출', type:'loan', where:'주택도시기금 · 은행 방문', visit:'bank',
+   chk:{d:'2026-09-08', src:'2026 버팀목 전세자금대출 조건', u:'https://brunch.co.kr/@anaskorea16/211'},
    f:c=> c.home.own ? NO('주택을 소유하고 있습니다')
     : !c.home.rent ? NO('임차 계약이 없습니다')
     : c.home.incomeRate>140 ? NO(`중위 ${c.home.incomeRate}% · 소득 기준 초과`)
-    : OK('최대 2억','무주택 · 소득과 보증금 요건 충족',86,'심사')},
+    : OK('최대 2억','무주택 · 소득과 보증금 요건 충족',86,'심사',{cap:20000})},
   {n:'주택연금', type:'loan', where:'주택금융공사 · 지사 방문', visit:'office',
    f:c=> !c.home.own ? NO('주택을 소유하고 있어야 합니다')
     : c.age<55 ? NO(`만 ${c.age}세 · 기준 55세 이상`)
@@ -72,35 +89,42 @@ const SECTORS=[
 
 {k:'cash', n:'현금·자산형성', items:[
   {n:'근로장려금', type:'cash', where:'홈택스 · 손택스', visit:'online',
+   chk:{d:'2026-09-08', src:'2026 근로·자녀장려금 기준', u:'https://bileotools.com/blog/eitc-child-tax-credit-2026-guide'},
    f:c=> !c.work.on&&!c.biz.on&&!c.work.freelance ? NO('근로 또는 사업 소득이 없습니다')
     : c.biz.kind==='corp' ? NO('법인 대표는 지급 대상에서 제외됩니다')
     : c.home.incomeRate>120 ? NO(`중위 ${c.home.incomeRate}% · 소득 기준 초과`)
-    : OK('최대 330만','소득 요건 충족 · 재산 2.4억 미만 확인 필요',76,'신청 기간 내')},
+    : c.fam.married ? OK('홑벌이 연 최대 285만','배우자도 소득이 있으면 맞벌이 최대 330만 · 재산 1.7억 미만이면 전액',76,'신청 기간 내',{y:285})
+    : OK('단독 연 최대 165만','재산 1.7억 미만이면 전액 · 2.4억 이상은 신청 불가',76,'신청 기간 내',{y:165})},
   {n:'자녀장려금', type:'cash', where:'홈택스 · 손택스', visit:'online',
+   chk:{d:'2026-09-08', src:'2026 근로·자녀장려금 기준', u:'https://bileotools.com/blog/eitc-child-tax-credit-2026-guide'},
    f:c=> c.fam.kids===0 ? NO('부양 자녀가 없습니다')
     : c.biz.kind==='corp' ? NO('법인 대표는 지급 대상에서 제외됩니다')
     : c.home.incomeRate>120 ? NO(`중위 ${c.home.incomeRate}% · 소득 기준 초과`)
-    : OK(`자녀 ${c.fam.kids}명 · 최대 ${c.fam.kids*100}만`,'소득 요건 충족',78,'신청 기간 내')},
+    : OK(`자녀 ${c.fam.kids}명 · 연 최대 ${c.fam.kids*100}만`,'부부합산 총소득 7,000만 미만 · 자녀 1명당 50~100만',78,'신청 기간 내',{y:c.fam.kids*100})},
   {n:'청년도약계좌', type:'cash', where:'은행 앱 또는 창구', visit:'online',
+   chk:{d:'2026-09-08', src:'2026 청년도약계좌 기여금 인상', u:'https://www.dait90000.com/2026/09/youth-leap-account-government-contribution-expansion-2026.html'},
    f:c=> c.age>34 ? NO(`만 ${c.age}세 · 기준 34세 이하`)
     : !c.work.on&&!c.biz.on&&!c.work.freelance ? NO('소득이 확인되지 않습니다')
-    : OK('정부기여금 월 2.4만','개인소득 7,500만 이하 · 가구 중위 250% 이하',88,'소득 구간별')},
+    : OK('정부기여금 월 최대 3.3만','총급여 7,500만 이하 · 소득 구간별 매칭 3.0~6.0%',88,'소득 구간별',{y:39.6})},
   {n:'희망저축계좌', type:'compete', where:'주민센터', visit:'center',
    f:c=> !c.misc.welfare ? NO('기초생활수급 또는 차상위 가구가 아닙니다')
     : !c.work.on&&!c.biz.on ? NO('근로 또는 사업 소득이 있어야 합니다')
-    : OK('3년 만기 최대 1,440만','수급 가구 근로자 · 정부 매칭',85,'신청 시')},
+    : OK('3년 만기 최대 1,440만','수급 가구 근로자 · 정부 매칭',85,'신청 시',{max:1440})},
   {n:'기초연금', type:'cash', where:'주민센터 · 복지로', visit:'center',
+   chk:{d:'2026-09-08', src:'국민연금공단 · 2026년 기초연금', u:'https://www.npsonair.kr/advantages/detail.html?strIdx=3761'},
    f:c=> c.age<65 ? NO(`만 ${c.age}세 · 기준 65세 이상`)
     : c.home.incomeRate>70 ? NO('소득인정액이 선정기준액을 초과합니다')
-    : OK('월 최대 34만','만 65세 이상 · 소득 하위 70%',90,'신청 시')}]},
+    : c.home.incomeRate<=50 ? OK('월 40만','2026년부터 중위소득 50% 이하 저소득 어르신은 40만',90,'신청 시',{y:480})
+    : OK('월 최대 34만 9,700원','만 65세 이상 · 소득 하위 70% · 선정기준액 단독 247만',90,'신청 시',{y:419.6})}]},
 
 {k:'tax', n:'세금·공과금', items:[
   {n:'중소기업 취업자 소득세 감면', type:'save', where:'회사 제출 · 원천징수의무자 경유', visit:'company',
+   chk:{d:'2026-09-08', src:'뉴스핌 · 2026 일몰조세 심층평가', u:'https://www.newspim.com/news/view/20260510000101'},
    f:c=> c.biz.kind==='corp'&&!c.work.on ? NO('법인 대표는 감면 대상에서 제외됩니다')
     : !c.work.on ? NO('근로소득이 없습니다')
     : !c.work.smeType ? NO('감면 대상 업종이 아닙니다')
     : c.work.taxRelief ? NO('이미 적용받고 있습니다')
-    : OK('연 200만 한도 · 90%','미신청 상태 · 2026.12.31 일몰 예정',97,'신청만 하면')},
+    : OK('연 200만 한도 · 청년 5년 90%','미신청 · 2026.12.31 일몰 예정이고 연장 여부는 아직 정해지지 않았습니다',97,'신청만 하면',{y:200})},
   {n:'경정청구 · 미신청 감면 소급', type:'cash', where:'홈택스', visit:'online',
    f:c=> c.biz.kind==='corp'&&!c.work.on ? NO('감면 대상이 아니라 소급분이 없습니다')
     : !c.work.on ? NO('근로소득이 없습니다')
@@ -108,19 +132,30 @@ const SECTORS=[
     : OK('최대 5년치','미신청 기간에 대해 소급 청구할 수 있습니다',92,'5년 이내')},
   {n:'전기요금 할인', type:'save', where:'한전 · 온라인 신청', visit:'online',
    f:c=> (c.fam.kids>=3||c.misc.disabled||c.misc.single||c.misc.welfare)
-      ? OK('월 최대 1.6만', c.misc.welfare?'수급 가구':c.misc.single?'한부모 가구':c.fam.kids>=3?'다자녀 가구':'장애 가구',95,'신청 시')
+      ? OK('월 최대 1.6만', c.misc.welfare?'수급 가구':c.misc.single?'한부모 가구':c.fam.kids>=3?'다자녀 가구':'장애 가구',95,'신청 시',{y:19.2})
     : NO('다자녀·장애·한부모·수급 등 대상에 해당하지 않습니다')},
   {n:'통신요금 감면', type:'save', where:'통신사 · 주민센터', visit:'center',
-   f:c=> (c.misc.disabled||c.misc.welfare) ? OK('월 최대 2.6만', c.misc.welfare?'수급 가구':'장애 등록',95,'신청 시')
-    : c.age>=65 ? OK('월 최대 1.1만','만 65세 이상 · 기초연금 수급자 대상',90,'기초연금 수급 후')
+   f:c=> (c.misc.disabled||c.misc.welfare) ? OK('월 최대 2.6만', c.misc.welfare?'수급 가구':'장애 등록',95,'신청 시',{y:31.2})
+    : c.age>=65 ? OK('월 최대 1.1만','만 65세 이상 · 기초연금 수급자 대상',90,'기초연금 수급 후',{y:13.2})
     : NO('감면 대상 계층에 해당하지 않습니다')},
   {n:'에너지바우처', type:'cash', where:'주민센터 · 복지로', visit:'center',
-   f:c=> c.misc.welfare ? OK('연 최대 37만','기초생활수급 가구',95,'동절기 신청')
-    : NO('기초생활수급 또는 차상위 계층이 아닙니다')},
+   chk:{d:'2026-09-08', src:'2026 에너지바우처 안내', u:'https://www.tossbank.com/articles/2026-energy-voucher'},
+   f:c=>{ if(!c.misc.welfare) return NO('기초생활수급 또는 차상위 계층이 아닙니다');
+     if(!(c.age>=65||c.misc.disabled||c.fam.infant||c.fam.pregnant||c.misc.chronic))
+       return NO('수급 가구 중 노인 · 장애인 · 영유아 · 임산부 · 중증질환자가 있어야 합니다');
+     const n=1+(c.fam.married?1:0)+c.fam.kids, v=[29.5,40.7,53.2,70.1][Math.min(3,n-1)];
+     return OK(`연 ${v}만`,`수급 가구 · ${n}인 세대 기준`,95,'6~12월 신청',{y:v}); }},
   {n:'주거급여', type:'cash', where:'주민센터 · 복지로', visit:'center',
-   f:c=> !c.misc.welfare ? NO(`중위 ${c.home.incomeRate}% · 기준 48% 이하`)
-    : !c.home.rent ? NO('임차 가구가 아닙니다')
-    : OK('월 최대 35만','수급 가구 · 임차료 지원',93,'신청 시')}]},
+   chk:{d:'2026-09-08', src:'2026 주거급여 기준임대료', u:'https://bokjijiwon.com/housing-benefit/'},
+   f:c=>{ if(!c.misc.welfare) return NO(`중위 ${c.home.incomeRate}% · 기준 48% 이하`);
+     if(!c.home.rent) return NO('임차 가구가 아닙니다');
+     const G=['1급지 서울','2급지 경기·인천','3급지 광역시·세종','4급지 그 외'];
+     const g=/^서울/.test(c.region)?0:/^(경기|인천)/.test(c.region)?1
+            :/^(부산|대구|광주|대전|울산|세종)/.test(c.region)?2:3;
+     const T=[[36.9,41.4,49.3,57.1,59.0,70.0],[30.0,33.7,40.1,46.4,48.0,56.9],
+              [24.7,27.7,33.0,38.2,39.5,46.8],[21.2,23.8,28.3,32.8,34.0,40.2]];
+     const n=Math.min(6, 1+(c.fam.married?1:0)+c.fam.kids), r=T[g][n-1];
+     return OK(`월 최대 ${r}만`,`${G[g]} · ${n}인 가구 기준임대료 · 소득에 따라 자기부담분이 차감됩니다`,93,'신청 시',{y:+(r*12).toFixed(1)}); }}]},
 
 {k:'move', n:'교통·문화', items:[
   {n:'K-패스', type:'save', where:'K-패스 앱 · 카드사', visit:'online',
@@ -130,12 +165,13 @@ const SECTORS=[
    f:c=> !c.region.startsWith('서울') ? NO(`${c.region} 거주 · 서울 지역 이용권`)
     : OK('월 6.5만 무제한','서울 거주 · 대중교통 이용',90,'구매 시')},
   {n:'문화누리카드', type:'cash', where:'주민센터 · 문화누리', visit:'center',
-   f:c=> c.misc.welfare ? OK('연 14만','기초생활수급 가구',95,'신청 시')
+   chk:{d:'2026-09-08', src:'2026 문화누리카드 안내', u:'https://asiatop.co.kr/gov-support/culture-nuri-card-2026-eligibility/'},
+   f:c=> c.misc.welfare ? OK('연 15만','기초생활수급 · 법정 차상위 · 만 6세 이상',95,'2~11월 발급',{y:15})
     : NO('기초생활수급 또는 차상위 계층이 아닙니다')},
   {n:'스포츠강좌이용권', type:'cash', where:'주민센터', visit:'center',
    f:c=> c.fam.kids===0 ? NO('대상 아동이 없습니다')
     : !c.misc.welfare&&!c.misc.single ? NO('기초생활수급 또는 차상위 가구가 아닙니다')
-    : OK('월 10만 · 아동당','수급 또는 한부모 가구',90,'신청 시')}]},
+    : OK('월 10만 · 아동당','수급 또는 한부모 가구',90,'신청 시',{y:120*c.fam.kids})}]},
 
 {k:'job', n:'일자리·훈련', items:[
   {n:'실업급여', type:'cash', where:'고용센터 방문 · 워크넷 선행', visit:'office',
@@ -143,45 +179,54 @@ const SECTORS=[
     : c.work.quit==='self' ? NO('자발적 퇴사는 수급 대상이 아닙니다')
     : c.work.insured<180 ? NO(`피보험 단위기간 ${c.work.insured}일 · 기준 180일 이상`)
     : c.biz.on ? OK('210일 지급','사업자 휴업 또는 폐업 처리가 선행돼야 합니다',70,'선행 조건 필요')
-    : OK(`${c.work.insured>=1200?'210':'150'}일 지급`,`피보험 단위기간 ${c.work.insured}일 충족`,94,'요건 충족 시')},
+    : OK(`${c.work.insured>=1200?'210':'150'}일 지급`,`피보험 단위기간 ${c.work.insured}일 충족 · 지급액은 이직 전 임금으로 산정`,94,'요건 충족 시')},
   {n:'국민취업지원제도', type:'cash', where:'고용센터 · 온라인', visit:'office',
+   chk:{d:'2026-09-08', src:'2026 국민취업지원제도 1유형', u:'https://blog.kwt.co.kr/%EA%B5%AD%EB%AF%BC%EC%B7%A8%EC%97%85%EC%A7%80%EC%9B%90%EC%A0%9C%EB%8F%84-2026%EB%85%84-%EC%B4%9D%EC%A0%95%EB%A6%AC-%EC%9B%94-60%EB%A7%8C%EC%9B%90-%EA%B5%AC%EC%A7%81%EC%B4%89%EC%A7%84%EC%88%98/'},
    f:c=> c.work.on&&c.work.quit!=='soon' ? NO('구직 상태가 아닙니다')
     : c.age>69 ? NO(`만 ${c.age}세 · 기준 15~69세`)
     : c.home.incomeRate>60 ? NO(`중위 ${c.home.incomeRate}% · Ⅰ유형 기준 60% 이하`)
-    : OK('월 50만 · 6개월','구직 중 · 소득 요건 충족',72,'심사')},
+    : OK('월 60만 · 6개월 · 최대 360만','Ⅰ유형 · 중위 60% 이하 · 부양가족 1인당 월 10만 추가',72,'심사',{once:360})},
   {n:'내일배움카드', type:'admin', where:'HRD-Net · 고용센터', visit:'online',
    f:c=> c.age>=75 ? NO('연령 상한을 초과했습니다')
-    : OK('최대 500만','재직 중에도 발급 가능',91,'요건 충족 시')},
+    : OK('훈련비 최대 500만','재직 중에도 발급 가능',91,'요건 충족 시')},
   {n:'임금체불 대지급금', type:'cash', where:'고용노동부 · 근로복지공단', visit:'office',
+   chk:{d:'2026-09-08', src:'찾기쉬운 생활법령 · 대지급금', u:'https://easylaw.go.kr/CSP/CnpClsMain.laf?popMenu=ov&csmSeq=1694&ccfNo=3&cciNo=3&cnpClsNo=1'},
    f:c=> !c.work.on&&c.work.insured===0 ? NO('근로 관계가 확인되지 않습니다')
-    : c.misc.unpaid ? OK('최대 1,000만','체불 확인 · 사업주가 못 주면 국가가 대신 지급',82,'확정 후')
+    : c.misc.unpaid ? OK('간이 최대 1,000만 · 도산 최대 3,150만','체불 확인 · 사업주가 못 주면 국가가 대신 지급',82,'확정 후',{once:1000})
     : NO('체불 사실이 확인되지 않습니다')},
-  {n:'청년일자리도약장려금', type:'compete', where:'고용노동부 · 워크넷', visit:'online',
+  {n:'청년일자리도약장려금', type:'compete', where:'고용노동부 · 고용24', visit:'online',
+   chk:{d:'2026-09-08', src:'2026 청년일자리도약장려금 안내', u:'https://www.tossbank.com/articles/youth-employment-subsidy'},
    f:c=> !c.biz.on ? NO('사업주가 아닙니다')
     : c.biz.emp===0&&!c.biz.hire ? NO('상시근로자가 없습니다')
-    : OK('월 60만 · 12개월','청년 채용 시',72,'채용 후')},
+    : /^(서울|경기|인천)/.test(c.region)&&c.biz.emp<5 ? NO(`수도권형은 상시근로자 5명 이상 · 현재 ${c.biz.emp}명`)
+    : OK('기업 1년간 최대 720만','정규직 · 주 28시간 이상 · 월 급여 450만 이하',72,'채용 후',{max:720})},
   {n:'노인일자리', type:'compete', where:'주민센터 · 시니어클럽', visit:'center',
+   chk:{d:'2026-09-08', src:'2026 노인일자리 유형별 활동비', u:'https://minwoninfo.co.kr/2026-%EB%85%B8%EC%9D%B8%EC%9D%BC%EC%9E%90%EB%A6%AC-%EC%8B%A0%EC%B2%AD-%EB%B0%A9%EB%B2%95-%EC%B4%9D%EC%A0%95%EB%A6%AC-%EC%9B%94-%EC%B5%9C%EB%8C%80-76%EB%A7%8C%EC%9B%90%C2%B7115%EB%A7%8C%EA%B0%9C/'},
    f:c=> c.age<65 ? NO(`만 ${c.age}세 · 기준 65세 이상`)
-    : OK('월 29~76만','만 65세 이상 · 유형별 상이',85,'모집 시')}]},
+    : OK('공익 월 29만 · 사회서비스 월 59.4만','시장형은 최대 76만 · 공익활동은 기초연금 수급자 대상',85,'모집 시',{max:348})}]},
 
 {k:'care', n:'양육·교육', items:[
   {n:'부모급여', type:'cash', where:'주민센터 · 복지로', visit:'center',
+   chk:{d:'2026-09-08', src:'2026 부모급여·아동수당·첫만남이용권 정리', u:'https://welfare-mom.com/korea-child-benefit-guide-2026/'},
    f:c=> c.fam.kids===0 ? NO('자녀가 없습니다')
     : !c.fam.infant ? NO('만 2세 이하 영아가 없습니다')
-    : OK('월 50만 · 만 2세까지','영아 보유',99,'자동 지급')},
+    : OK('0세 월 100만 · 1세 월 50만','자녀 나이에 따라 갈립니다 · 어린이집 이용 시 차액 지급',99,'자동 지급',{y:600})},
   {n:'아동수당', type:'cash', where:'주민센터 · 복지로', visit:'center',
+   chk:{d:'2026-09-08', src:'2026 부모급여·아동수당·첫만남이용권 정리', u:'https://welfare-mom.com/korea-child-benefit-guide-2026/'},
    f:c=> c.fam.kids===0 ? NO('자녀가 없습니다')
-    : OK('월 10만 · 만 8세까지','자녀 보유',99,'자동 지급')},
+    : OK(`자녀 ${c.fam.kids}명 · 월 ${10*c.fam.kids}만`,'2026년부터 만 9세 미만으로 확대',99,'자동 지급',{y:120*c.fam.kids})},
   {n:'한부모 아동양육비', type:'cash', where:'주민센터', visit:'center',
+   chk:{d:'2026-09-08', src:'2026 한부모가족 아동양육비', u:'https://www.tndlrs.com/2026/08/single-parentchild.html'},
    f:c=> !c.misc.single ? NO('한부모 가구가 아닙니다')
-    : c.home.incomeRate>63 ? NO(`중위 ${c.home.incomeRate}% · 기준 63% 이하`)
-    : OK(`자녀 ${c.fam.kids}명 · 월 ${c.fam.kids*21}만`,'소득 요건 충족',94,'신청 시')},
+    : c.home.incomeRate>65 ? NO(`중위 ${c.home.incomeRate}% · 기준 65% 이하`)
+    : OK(`자녀 ${c.fam.kids}명 · 월 ${c.fam.kids*23}만`,'중위소득 65% 이하 · 만 18세 미만 자녀',94,'신청 시',{y:c.fam.kids*23*12})},
   {n:'첫만남이용권', type:'cash', where:'주민센터 · 복지로', visit:'center',
-   f:c=> c.fam.pregnant ? OK('200만','출생 후 1년 이내 신청',99,'출생 신고 시')
-    : c.fam.infant ? LOST('200만','출생 후 1년이 지나 신청 기간이 끝났습니다')
+   chk:{d:'2026-09-08', src:'2026 첫만남이용권 안내', u:'https://www.tndlrs.com/2026/08/FirstChildVoucher.html'},
+   f:c=> c.fam.pregnant ? OK('첫째 200만 · 둘째 이상 300만','출생 후 1년 이내 신청 · 2년 안에 안 쓰면 소멸',99,'출생 신고 시',{once:200})
+    : c.fam.infant ? LOST('200만','출생 후 1년이 지나 신청 기간이 끝났습니다',{once:200})
     : NO('출산 예정이나 해당 영아가 없습니다')},
   {n:'임신출산 진료비', type:'cash', where:'국민행복카드 · 은행 방문', visit:'bank',
-   f:c=> c.fam.pregnant ? OK('100만 · 다태아 140만','임신 확인 후 신청',99,'출산 전')
+   f:c=> c.fam.pregnant ? OK('100만 · 다태아 140만','임신 확인 후 신청',99,'출산 전',{once:100})
     : NO('임신이 확인되지 않습니다')},
   {n:'보육료 지원', type:'admin', where:'주민센터 · 복지로', visit:'center',
    f:c=> c.fam.kids===0 ? NO('자녀가 없습니다')
@@ -194,7 +239,7 @@ const SECTORS=[
   {n:'재난적의료비 지원', type:'compete', where:'건강보험공단 지사', visit:'office',
    f:c=> !c.misc.medicalHigh ? NO('연간 의료비가 소득 대비 기준을 넘지 않습니다')
     : c.home.incomeRate>200 ? NO('소득 기준 초과')
-    : OK('최대 5,000만','의료비 부담 기준 충족',68,'심사')},
+    : OK('최대 5,000만','의료비 부담 기준 충족',68,'심사',{max:5000})},
   {n:'산정특례', type:'save', where:'병원 · 건강보험공단', visit:'office',
    f:c=> !c.misc.chronic ? NO('중증질환 등록 이력이 없습니다')
     : OK('본인부담 5~10%','등록 질환 대상',90,'등록 시')},
@@ -208,10 +253,11 @@ const SECTORS=[
 {k:'target', n:'대상 특화', items:[
   {n:'장애인연금 · 활동지원', type:'cash', where:'주민센터', visit:'center',
    f:c=> !c.misc.disabled ? NO('장애 등록이 확인되지 않습니다')
-    : OK('월 최대 43만','장애 정도와 소득에 따라 상이',90,'신청 시')},
+    : OK('월 최대 43만','장애 정도와 소득에 따라 상이',90,'신청 시',{y:516})},
   {n:'한부모가족 증명서', type:'admin', where:'주민센터', visit:'center',
+   chk:{d:'2026-09-08', src:'2026 한부모가족 아동양육비', u:'https://www.tndlrs.com/2026/08/single-parentchild.html'},
    f:c=> !c.misc.single ? NO('한부모 가구가 아닙니다')
-    : c.home.incomeRate>63 ? NO(`중위 ${c.home.incomeRate}% · 기준 63% 이하`)
+    : c.home.incomeRate>65 ? NO(`중위 ${c.home.incomeRate}% · 기준 65% 이하`)
     : OK('각종 감면의 전제','발급받아야 다른 지원을 신청할 수 있습니다',95,'신청 시')},
   {n:'장기요양보험', type:'save', where:'건강보험공단 지사', visit:'office',
    f:c=> c.age<65 ? NO(`만 ${c.age}세 · 기준 65세 이상`)
@@ -243,7 +289,7 @@ const SECTORS=[
     : OK('신청서 작성까지 지원','법무법인에 맡기면 200~300만 원이 드는 절차입니다',85,'상담 후')},
   {n:'희망리턴패키지', type:'compete', where:'소진공 지역센터 · 폐업 신고 전', visit:'office',
    f:c=> !c.biz.on ? NO('사업자가 아닙니다')
-    : c.biz.close ? OK('최대 2,000만','폐업 신고 전에 상담을 받아야 합니다',78,'상담 후')
+    : c.biz.close ? OK('최대 2,000만','폐업 신고 전에 상담을 받아야 합니다',78,'상담 후',{max:2000})
     : CHK('최대 2,000만','폐업을 고려하실 때 신고 전에 상담을 받으셔야 합니다')},
   {n:'새출발기금', type:'loan', where:'캠코 · 온라인', visit:'online',
    f:c=> !c.biz.on ? NO('사업자가 아닙니다')
@@ -252,28 +298,30 @@ const SECTORS=[
 
 {k:'start', n:'창업 지원', items:[
   {n:'예비창업패키지', type:'compete', where:'K-Startup', visit:'online',
-   f:c=> c.biz.on ? LOST('최대 1억','사업자등록으로 자격이 소멸했습니다')
-    : OK('최대 1억','사업자등록 전 · 지금 등록하면 자격이 사라집니다',38,'14 : 1')},
+   chk:{d:'2026-09-08', src:'2026년도 예비창업패키지 모집공고', u:'https://www.venturesquare.net/announcement/1041449'},
+   f:c=> c.biz.on ? LOST('평균 4,000만','사업자등록으로 자격이 소멸했습니다',{max:4000})
+    : OK('평균 4,000만 · 1단계 2,000만','사업자 미보유 · 지금 등록하면 자격이 사라집니다',38,'49 : 1',{max:4000})},
   {n:'초기창업패키지', type:'compete', where:'K-Startup', visit:'online',
+   chk:{d:'2026-09-08', src:'2026년 초기창업패키지 모집 공고 분석', u:'https://www.nextunicorn.kr/insight/69246d75f5fa2699'},
    f:c=> !c.biz.on ? NO('사업자등록 후 신청할 수 있습니다')
     : c.biz.kind!=='corp' ? NO(`${c.biz.ksic}는 제외 업종입니다`)
     : c.biz.years>3 ? NO(`업력 ${c.biz.years}년 · 기준 3년 이내`)
-    : OK('최대 1억','업력 3년 이내',52,'9 : 1')},
+    : OK('최대 1억 · 평균 5,000만','창업 3년 미만',52,'9 : 1',{max:10000})},
   {n:'창업도약패키지', type:'compete', where:'K-Startup', visit:'online',
    f:c=> !c.biz.on ? NO('사업자가 아닙니다')
     : c.biz.kind!=='corp' ? NO('제외 업종입니다')
     : c.biz.years<3 ? NO(`업력 ${c.biz.years}년 · 초기창업 구간입니다`)
     : c.biz.years>7 ? NO('업력 7년을 초과했습니다')
-    : OK('최대 3억','업력 3~7년',41,'12 : 1')},
+    : OK('최대 3억','업력 3~7년',41,'12 : 1',{max:30000})},
   {n:'창업성장 R&D', type:'compete', where:'K-Startup · IRIS', visit:'online',
    f:c=> !c.biz.on ? NO('사업자가 아닙니다')
     : c.biz.kind!=='corp' ? NO('제외 업종입니다')
-    : OK('최대 2억', c.biz.ip?'지식재산권 보유 가점':'기술성 증빙 부족', c.biz.ip?47:23,'7 : 1')},
+    : OK('최대 2억', c.biz.ip?'지식재산권 보유 가점':'기술성 증빙 부족', c.biz.ip?47:23,'7 : 1',{max:20000})},
   {n:'청년창업사관학교', type:'compete', where:'K-Startup', visit:'online',
    f:c=> c.age>39 ? NO(`만 ${c.age}세 · 기준 39세 이하`)
     : !c.biz.on&&!c.biz.plan ? NO('창업자 또는 예비창업자가 아닙니다')
     : c.biz.on&&c.biz.kind!=='corp' ? NO('기술창업 분야 대상입니다')
-    : OK('최대 1억','만 39세 이하 · 업력 3년 이내',44,'11 : 1')},
+    : OK('최대 1억','만 39세 이하 · 업력 3년 이내',44,'11 : 1',{max:10000})},
   {n:'TIPS', type:'compete', where:'운영사 추천 후 K-Startup', visit:'online',
    f:c=> c.biz.on&&c.biz.kind!=='corp' ? NO('기술창업 분야 대상입니다')
     : NO('운영사 추천이 선행돼야 합니다')},
@@ -288,42 +336,46 @@ const SECTORS=[
 
 {k:'small', n:'소상공인·농어업', items:[
   {n:'소상공인 정책자금', type:'loan', where:'소상공인정책자금 누리집 · 지역센터', visit:'office',
+   chk:{d:'2026-09-08', src:'2026 소상공인 정책자금 한도·금리', u:'https://brunch.co.kr/@af3987f9ff78481/33'},
    f:c=> !c.biz.on ? NO('사업자가 아닙니다')
     : c.biz.kind==='corp' ? NO('중소기업 자금 대상입니다')
     : c.misc.arrear ? NO('체납 또는 연체 해소가 선행돼야 합니다')
     : c.biz.rev>30000 ? NO(`매출 ${(c.biz.rev/10000).toFixed(1)}억 · 기준 3억 이하`)
-    : OK('최대 7,000만','매출 3억 미만 · 소상공인 기준 충족',60,'예산 소진 전')},
+    : OK('최대 7,000만','매출 3억 미만 · 소상공인 기준 충족',60,'예산 소진 전',{cap:7000})},
   {n:'경영안정자금', type:'loan', where:'소상공인정책자금 누리집', visit:'online',
    f:c=> !c.biz.on ? NO('사업자가 아닙니다')
     : !c.biz.revDown ? NO('매출 감소가 확인되지 않습니다')
-    : OK('최대 7,000만','매출 감소 증빙 자동 제출',71,'요건 충족 시')},
+    : OK('최대 7,000만','매출 감소 증빙 자동 제출',71,'요건 충족 시',{cap:7000})},
   {n:'스마트상점 기술보급', type:'compete', where:'소상공인마당', visit:'online',
    f:c=> !c.biz.on ? NO('사업자가 아닙니다')
     : c.biz.kind!=='solo' ? NO('오프라인 점포 대상입니다')
-    : OK('최대 500만','오프라인 점포 보유',58,'4 : 1')},
+    : OK('최대 500만','오프라인 점포 보유',58,'4 : 1',{max:500})},
   {n:'온라인 판로 지원', type:'compete', where:'소상공인마당', visit:'online',
    f:c=> !c.biz.on ? NO('사업자가 아닙니다')
     : !c.biz.tongsin ? NO('통신판매업 신고가 필요합니다')
-    : OK('최대 500만','통신판매업 신고 완료',64,'3 : 1')},
+    : OK('최대 500만','통신판매업 신고 완료',64,'3 : 1',{max:500})},
   {n:'노란우산공제', type:'save', where:'중소기업중앙회 · 은행', visit:'bank',
    f:c=> !c.biz.on&&!c.work.freelance ? NO('사업자 또는 프리랜서가 아닙니다')
     : c.biz.noran ? NO('이미 가입돼 있습니다')
-    : OK('연 최대 500만 소득공제','가입만 하면 적용 · 폐업 시 공제금',95,'가입 시')},
+    : OK('연 최대 500만 소득공제','가입만 하면 적용 · 절감액은 세율에 따라 다릅니다',95,'가입 시')},
   {n:'백년가게', type:'compete', where:'소상공인마당', visit:'online',
    f:c=> !c.biz.on ? NO('사업자가 아닙니다') : NO('업력 30년 요건을 충족하지 못합니다')},
   {n:'농업직불금 · 청년농 영농정착', type:'compete', where:'농관원 · 농지소재지', visit:'office',
    f:c=> !c.misc.farm ? NO('농업경영체 등록이 없습니다')
-    : OK('월 최대 110만','청년농 영농정착지원금',80,'선발')}]},
+    : OK('월 최대 110만','청년농 영농정착지원금',80,'선발',{max:1320})}]},
 
 {k:'emp', n:'고용·정책금융', items:[
   {n:'두루누리 사회보험료', type:'cash', where:'근로복지공단', visit:'online',
+   chk:{d:'2026-09-08', src:'근로복지공단 두루누리', u:'https://insurancesupport.or.kr/durunuri/intro.php'},
    f:c=> !c.biz.on ? NO('사업주가 아닙니다')
     : c.biz.emp===0&&!c.biz.hire ? NO('상시근로자가 없습니다')
-    : OK('월 최대 60만', c.biz.hire?'채용 계획 있음 · 채용 후에는 소급 불가':'상시근로자 보유',85,'채용 전 신청')},
-  {n:'고용창출장려금', type:'cash', where:'고용노동부 · 워크넷 선행', visit:'online',
+    : c.biz.emp>=10 ? NO(`상시근로자 ${c.biz.emp}명 · 기준 10명 미만`)
+    : c.biz.hire ? OK('근로자 1인당 월 최대 10.9만','보험료의 80% · 채용 후에는 소급되지 않습니다',85,'채용 전 신청',{y:130})
+    : CHK('근로자 1인당 월 최대 10.9만','2021년 이후 신규 가입한 근로자만 대상이고 합산 36개월까지입니다. 기존 직원은 해당하지 않습니다')},
+  {n:'고용창출장려금', type:'cash', where:'고용노동부 · 고용센터', visit:'online',
+   chk:{d:'2026-09-08', src:'찾기쉬운 생활법령 · 고용창출 지원', u:'https://easylaw.go.kr/CSP/CnpClsMain.laf?popMenu=ov&csmSeq=1122&ccfNo=2&cciNo=1&cnpClsNo=1'},
    f:c=> !c.biz.on ? NO('사업주가 아닙니다')
-    : c.biz.emp===0 ? NO('상시근로자가 없습니다')
-    : OK('최대 3,600만','워크넷 구인등록이 선행 조건',78,'요건 충족 시')},
+    : NO('일자리 함께하기와 신중년 적합직무는 2024년 1월부터 신규 지원이 끝났고, 남은 유형은 국내복귀기업 대상입니다')},
   {n:'이노비즈 인증', type:'admin', where:'이노비즈협회', visit:'online',
    f:c=> !c.biz.on ? NO('사업자가 아닙니다')
     : c.biz.years<3 ? NO('업력 3년 이상이 필요합니다')
@@ -333,22 +385,22 @@ const SECTORS=[
 
 {k:'refund', n:'미수령·환급', items:[
   {n:'국세 미환급금', type:'cash', where:'홈택스 · 손택스', visit:'online',
-   f:c=> c.refund.tax>0 ? OK(c.refund.tax.toLocaleString()+'만','미수령 환급금 확인 · 5년 지나면 국고 귀속',99,'조회 후 신청')
+   f:c=> c.refund.tax>0 ? OK(c.refund.tax.toLocaleString()+'만','미수령 환급금 확인 · 5년 지나면 국고 귀속',99,'조회 후 신청',{once:c.refund.tax})
     : NO('미환급금이 확인되지 않습니다')},
   {n:'지방세 미환급금', type:'cash', where:'위택스', visit:'online',
-   f:c=> c.refund.local>0 ? OK(c.refund.local.toLocaleString()+'만','미수령 환급금 확인',99,'조회 후 신청')
+   f:c=> c.refund.local>0 ? OK(c.refund.local.toLocaleString()+'만','미수령 환급금 확인',99,'조회 후 신청',{once:c.refund.local})
     : NO('미환급금이 확인되지 않습니다')},
   {n:'본인부담상한제 환급금', type:'cash', where:'건강보험공단', visit:'online',
-   f:c=> c.refund.medical>0 ? OK(c.refund.medical.toLocaleString()+'만','상한 초과분 환급 대상 · 신청해야 지급',97,'신청 시')
+   f:c=> c.refund.medical>0 ? OK(c.refund.medical.toLocaleString()+'만','상한 초과분 환급 대상 · 신청해야 지급',97,'신청 시',{once:c.refund.medical})
     : NO('연간 본인부담금이 상한을 넘지 않았습니다')},
   {n:'휴면예금 · 미청구 보험금', type:'cash', where:'서민금융진흥원 · 내보험찾아줌', visit:'online',
-   f:c=> c.refund.dormant>0 ? OK(c.refund.dormant.toLocaleString()+'만','장기 미거래 계좌와 미청구 보험금',99,'조회 후 신청')
+   f:c=> c.refund.dormant>0 ? OK(c.refund.dormant.toLocaleString()+'만','장기 미거래 계좌와 미청구 보험금',99,'조회 후 신청',{once:c.refund.dormant})
     : NO('미수령 금액이 확인되지 않습니다')},
   {n:'종합소득세 경정청구', type:'cash', where:'홈택스', visit:'online',
    f:c=> !c.biz.on&&!c.work.on&&!c.work.freelance ? NO('신고 이력이 없습니다')
     : OK('최대 5년치', c.work.freelance?'프리랜서 원천징수 3.3% 환급 가능성':'누락된 공제와 감면 소급',75,'5년 이내')},
   {n:'미청구 국민연금 · 퇴직연금', type:'cash', where:'국민연금공단 · 통합연금포털', visit:'online',
-   f:c=> c.refund.pension>0 ? OK(c.refund.pension.toLocaleString()+'만','미청구 적립금 확인',95,'조회 후 신청')
+   f:c=> c.refund.pension>0 ? OK(c.refund.pension.toLocaleString()+'만','미청구 적립금 확인',95,'조회 후 신청',{once:c.refund.pension})
     : NO('미청구 적립금이 확인되지 않습니다')}]},
 
 {k:'death', n:'상속·사망', items:[
@@ -369,7 +421,7 @@ const SECTORS=[
   {n:'장제급여', type:'cash', where:'주민센터', visit:'center',
    f:c=> !c.event.death ? NO('해당 사건이 확인되지 않습니다')
     : !c.misc.welfare ? NO('기초생활수급 가구가 아닙니다')
-    : OK('80만','수급 가구 장례비 지원',95,'신청 시')},
+    : OK('80만','수급 가구 장례비 지원',95,'신청 시',{once:80})},
   {n:'상속 취득세 감면', type:'save', where:'위택스 · 시군구청', visit:'office',
    f:c=> !c.event.death ? NO('해당 사건이 확인되지 않습니다')
     : CHK('요건별 감면','1가구 1주택 상속 등 요건을 확인해야 합니다')}]},
@@ -401,3 +453,13 @@ const SECTORS=[
     : c.admin.carCheck<3 ? OK('검사 수수료',`검사 기한까지 ${c.admin.carCheck}개월 · 지나면 과태료가 부과됩니다`,99,'방문 검사')
     : NO(`검사 기한까지 ${c.admin.carCheck}개월 · 아직 여유가 있습니다`)}]}
 ];
+
+/* 제도 총 건수 · 문구에 하드코딩하지 않고 여기서 셉니다 */
+const RULE_COUNT=SECTORS.reduce((a,s)=>a+s.items.length,0);
+const SECTOR_COUNT=SECTORS.length;
+
+/* 출처 확인 이력 · chk:{d:확인일, src:출처, u:링크}
+   새 제도를 넣을 때 chk 를 비워두면 화면에 '출처 미확인'으로 표시됩니다 */
+const CHECKED=SECTORS.flatMap(s=>s.items).filter(i=>i.chk);
+const CHECK_COUNT=CHECKED.length;
+const CHECK_LATEST=CHECKED.map(i=>i.chk.d).sort().pop()||null;

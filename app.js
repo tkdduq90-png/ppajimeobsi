@@ -19,7 +19,12 @@ function ctx(){ const c=JSON.parse(JSON.stringify(me())), a=S.ans;
   if(a.moving==='yes') c.admin.moving=true;
   return c; }
 function judgeAll(){ const c=ctx();
-  return SECTORS.map(s=>({...s, res:s.items.map(it=>({n:it.n, type:it.type||'cash', where:it.where, visit:it.visit, ...it.f(c)}))})); }
+  return SECTORS.map(s=>({...s, res:s.items.map(it=>({n:it.n, type:it.type||'cash', where:it.where, visit:it.visit, chk:it.chk||null, ...it.f(c)}))})); }
+
+/* 출처 한 줄 · 확인한 것과 확인하지 않은 것을 구분해 보여줍니다 */
+const srcLine=r=> r.chk
+  ? `<div class="src">확인 ${r.chk.d} · <a href="${r.chk.u}" target="_blank" rel="noopener">${r.chk.src}</a></div>`
+  : `<div class="src nochk">출처 미확인 · 금액과 요건을 다시 확인해야 합니다</div>`;
 
 /* 계획 문답 — 연동으로 알 수 없는 것만 */
 const PLANQ=[
@@ -72,7 +77,7 @@ function drawOb(){ const ob=$('ob-body');
       <b>직접 입력해 보기</b><span>내 상황을 넣고 판정 결과를 확인합니다</span></button>`;
     ob.querySelectorAll('.pick').forEach(b=>b.onclick=()=>{
       const p=b.dataset.p;
-      S.ans={}; S.open={}; S.sec={}; S.asked=[]; S.ti=0;
+      S.ans={}; S.open={}; S.sec={}; S.asked=[]; S.ti=0; S.type=null;
       if(p==='me'){ S.ob=3; drawOb(); return; }
       PID=p; S.ob=1; drawOb(); runConnect(); });
     return; }
@@ -102,7 +107,7 @@ function runConnect(){ const n=SRC_ALL.length; let i=0;
 /* ═══════════ 직접 입력 ═══════════ */
 function formHTML(){ return `<h2>직접 입력해 보기</h2>
   <p class="sub">실제 서비스에서는 연동으로 자동 채워지는 항목입니다.
-    시연을 위해 <b>몇 가지만 넣으시면</b> 74건을 판정합니다.</p>
+    시연을 위해 <b>몇 가지만 넣으시면</b> ${RULE_COUNT}건을 판정합니다.</p>
   <div class="card pad">
     <div class="form-row"><label for="f-age">나이</label><input id="f-age" type="number" value="33" min="15" max="99"></div>
     <div class="form-row"><label for="f-region">거주지</label>
@@ -196,16 +201,21 @@ $('sheet-x').onclick=()=>$('sheet').classList.add('hide');
 $('sheet').onclick=e=>{ if(e.target.id==='sheet') $('sheet').classList.add('hide'); };
 
 /* ═══════════ 점검 — 시각 요약 + 분야 상세 ═══════════ */
-function money(list){let t=0;list.forEach(x=>{const m=(x.amt||'').match(/([\d,.]+)\s*(억|천만|백만|만)/);
-  if(m){const n=parseFloat(m[1].replace(/,/g,''));
-    t+= m[2]==='억'?n*10000 : m[2]==='천만'?n*1000 : m[2]==='백만'?n*100 : n;}});return t;}
+/* 금액 집계 · 성격이 다른 돈을 섞지 않습니다
+   y 연 환산 반복 / once 한 번 / cap 대출 한도 / max 선정 시 최대
+   금액이 정해지지 않은 항목은 none 으로 세고 합계에서 뺍니다 */
+function tally(list){ const t={y:0,once:0,cap:0,max:0,none:0,n:{y:0,once:0,cap:0,max:0}};
+  (list||[]).forEach(x=>{ const m=x.mv;
+    if(!m){ t.none++; return; }
+    for(const k in m){ if(k in t.n){ t[k]+=m[k]; t.n[k]++; } } });
+  return t; }
 const won=v=>v>=10000?(Math.round(v/1000)/10)+'억':Math.round(v).toLocaleString()+'만';
 
 function viewCheck(){
   const c=ctx(), J=judgeAll(), all=J.flatMap(s=>s.res);
   const ok=all.filter(x=>x.s==='ok'), chk=all.filter(x=>x.s==='chk'),
         no=all.filter(x=>x.s==='no'), lost=all.filter(x=>x.s==='lost');
-  const sum=money(ok), lostSum=money(lost);
+  const lostT=tally(lost), lostSum=lostT.y+lostT.once+lostT.max;
   const Q=planq(), left=Q.filter(q=>!(q.k in S.ans));
   const seg=[[ok.length,'var(--go)','받을 수 있는 것'],[chk.length,'var(--warn)','확인 필요'],
              [lost.length,'var(--stop)','놓침'],[no.length,'#D3D9DC','자격 미달']];
@@ -236,8 +246,7 @@ function viewCheck(){
   const TY={cash:'현금으로 받는 것',save:'감면으로 아끼는 것',loan:'빌릴 수 있는 한도',
             compete:'선발되어야 받는 것',admin:'해두면 좋은 것'};
   const byType={}; J.forEach(sc=>sc.res.filter(x=>x.s==='ok').forEach(x=>{(byType[x.type]=byType[x.type]||[]).push({...x, sec:sc.n})}));
-  const cashSum=money(byType.cash||[]), saveSum=money(byType.save||[]),
-        loanSum=money(byType.loan||[]), compSum=money(byType.compete||[]);
+  const cT=tally(byType.cash);
 
   const facts=[`만 ${c.age}세`, c.region.split(' ')[0],
     c.work.on?'재직 중':c.work.freelance?'프리랜서':c.work.insured>0?'구직 중':null,
@@ -276,52 +285,75 @@ function viewCheck(){
 
   <div class="viz">
     <h3>성격이 다른 것을 나누어 보여드립니다</h3>
-    <div style="display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;margin-bottom:14px">
-      <div><div class="hero-num num" style="color:var(--go)">${won(cashSum)}</div>
-        <div style="font-size:13px;color:var(--ink-2)">현금으로 받는 것 ${(byType.cash||[]).length}건 · 신청하면 지급됩니다</div></div>
-      ${lost.length?`<div style="padding-left:16px;border-left:1px solid var(--rule)">
+    ${(()=>{const A={v:cT.y,n:cT.n.y,l:'해마다 반복해서 받는 것',t:' · <b>연 환산</b>'},
+             B={v:cT.once,n:cT.n.once,l:'한 번만 받는 것',t:''};
+      const big=A.v>=B.v?A:B, small=big===A?B:A;
+      return `<div style="display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;margin-bottom:8px">
+      <div><div class="hero-num num" style="color:${big.v?'var(--go)':'var(--ink-3)'}">${big.v?won(big.v):'—'}</div>
+        <div style="font-size:13px;color:var(--ink-2)">${big.v?`${big.l} ${big.n}건${big.t}`
+          :'현금으로 바로 받는 항목은 없습니다 · 아래 유형을 확인하세요'}</div></div>
+      ${small.v?`<div style="padding-left:16px;border-left:1px solid var(--rule)">
+        <div class="num" style="font-size:24px;font-weight:600">${won(small.v)}</div>
+        <div style="font-size:12.5px;color:var(--ink-2)">${small.l} ${small.n}건</div></div>`:''}`;})()}
+      ${lostSum?`<div style="padding-left:16px;border-left:1px solid var(--rule)">
         <div class="num" style="font-size:24px;font-weight:600;color:var(--stop)">−${won(lostSum)}</div>
         <div style="font-size:12.5px;color:var(--stop)">이미 놓친 ${lost.length}건</div></div>`:''}
     </div>
+    <p style="font-size:12px;color:var(--ink-3);line-height:1.55;margin-bottom:12px">
+      월 단위 급여는 12개월로 환산했고 한 번만 받는 돈은 따로 뒀습니다.
+      '최대' 로 고시된 제도는 그 상한을 썼습니다.${cT.none?` 금액이 정해지지 않은 ${cT.none}건은 합계에서 뺐습니다.`:''}
+      대출 한도와 선정돼야 받는 사업비는 받는 돈이 아니므로 아래에 분리했습니다.</p>
     <div class="ledger">
       ${['save','loan','compete','admin'].filter(t=>byType[t]&&byType[t].length).map(t=>{
-        const v=t==='save'?saveSum:t==='loan'?loanSum:t==='compete'?compSum:0;
+        const T=tally(byType[t]);
+        const v={save:T.y, loan:T.cap, compete:T.max, admin:0}[t];
+        const unit={save:'연 절감', loan:'한도 합', compete:'선정 시 최대', admin:''}[t];
         const note={save:'세금과 공과금에서 줄어듭니다', loan:'받는 돈이 아니라 빌리는 돈입니다',
                     compete:'경쟁을 거쳐 선정돼야 받습니다', admin:'해두면 다른 자격이 열립니다'}[t];
         return `<button class="lrow typebtn" data-t="${t}" style="width:100%;text-align:left">
           <div><div class="t">${TY[t]}</div><div class="d">${note}</div></div>
           <div class="r"><b>${v?won(v):byType[t].length+'건'}</b>
-            <div style="font-size:11.5px;margin-top:2px">${v?byType[t].length+'건 · 보기':'보기'} ›</div></div></button>`;}).join('')}
+            <div style="font-size:11.5px;margin-top:2px">${v?unit+' · '+byType[t].length+'건 · 보기':'보기'} ›</div></div></button>`;}).join('')}
     </div>
   </div>
 
   ${S.type==='loan'?(()=>{
-    const pol=(byType.loan||[]).map(x=>({...x, rate:POLICY_RATE[x.n]}));
-    const priv=PRIV.filter(x=>x.need(c));
-    const bestPol=pol.filter(x=>x.rate>0).sort((a,b)=>a.rate-b.rate)[0];
-    const bestPriv=priv.sort((a,b)=>a.rate-b.rate)[0];
-    const amt=bestPol?Math.min(parseFloat((bestPol.amt||'').replace(/[^\d.]/g,''))||0, bestPriv?bestPriv.max:0):0;
-    const gap=bestPol&&bestPriv?Math.round(amt*(bestPriv.rate-bestPol.rate)/100*5):0;
+    const CAT={biz:'사업 자금', credit:'신용 대출', jeonse:'전세 자금'};
+    const pol=(byType.loan||[]).map(x=>({...x, pl:POLICY_LOAN[x.n]||null}));
+    const cmp={};
+    pol.forEach(p=>{ if(!p.pl||!p.pl.rate||!p.mv||!p.mv.cap) return;
+      const rival=PRIV.filter(v=>v.cat===p.pl.cat&&v.need(c)).sort((a,b)=>a.rate-b.rate)[0];
+      if(!rival) return;
+      const amt=Math.min(p.mv.cap, rival.max);
+      cmp[p.n]={rival, amt, gap:Math.round(amt*(rival.rate-p.pl.rate)/100*5)}; });
+    const best=Object.entries(cmp).sort((a,b)=>b[1].gap-a[1].gap)[0];
+    const priv=PRIV.filter(x=>x.need(c)).sort((a,b)=>a.rate-b.rate);
     return `
     <div class="notice n-go" style="margin-bottom:10px">
       <h3>정책자금을 먼저 확인하세요</h3>
-      <p>같은 돈을 빌려도 금리가 크게 다릅니다.
-        ${gap>0?`5년 기준 이자 차이가 <b>약 ${gap.toLocaleString()}만 원</b>입니다.`:''}
+      <p>${best?`같은 용도로 빌려도 금리가 다릅니다.
+        <b>${best[0]}</b>(연 ${POLICY_LOAN[best[0]].rate}%)와
+        <b>${best[1].rival.n}</b>(연 ${best[1].rival.rate}%)를 겹치는 한도
+        ${won(best[1].amt)} 기준으로 비교하면 5년 이자 차이가
+        <b>약 ${best[1].gap.toLocaleString()}만 원</b>입니다.`
+       :`받으실 수 있는 정책 대출을 아래에 정리했습니다. 같은 용도의 민간 상품이 조회되지 않아 금리 비교는 생략했습니다.`}
         저희는 어느 쪽으로 연결해도 수수료를 받지 않습니다.</p></div>
     <div class="ledger" style="margin-bottom:10px">
-      ${pol.map(x=>`<div class="lrow rrow r-ok">
-        <div><div class="t">${x.n}</div>
-          <div class="d">${x.why||''} · <span style="color:var(--ink-3)">${x.where||''}</span></div></div>
+      ${pol.map(x=>{const k=cmp[x.n];
+        return `<div class="lrow rrow r-ok">
+        <div><div class="t">${x.n}${x.pl?` <span class="tag t-mute">${CAT[x.pl.cat]||''}</span>`:''}</div>
+          <div class="d">${x.why||''} · <span style="color:var(--ink-3)">${x.where||''}</span>
+            ${k?`<br>민간 최저 ${k.rival.n} 대비 · 한도 ${won(k.amt)} 기준 5년 <b style="color:var(--go)">${k.gap.toLocaleString()}만 절약</b>`:''}</div></div>
         <div class="r"><b>${x.amt}</b>
-          <div style="font-size:12px;margin-top:2px;color:var(--go)">${x.rate?`연 ${x.rate}%`:'금리 없음'}</div></div></div>`).join('')}
+          <div style="font-size:12px;margin-top:2px;color:var(--go)">${x.pl&&x.pl.rate?`연 ${x.pl.rate}%`:'금리 없음'}</div></div></div>`;}).join('')}
     </div>
     ${priv.length?`
-    <div style="font-size:12.5px;color:var(--ink-2);margin:0 0 6px 2px">참고 · 민간 대출</div>
+    <div style="font-size:12.5px;color:var(--ink-2);margin:0 0 6px 2px">참고 · 민간 대출 · 같은 용도끼리만 비교했습니다</div>
     <div class="ledger" style="margin-bottom:8px">
       ${priv.map(x=>`<div class="lrow">
-        <div><div class="t" style="color:var(--ink-2)">${x.n}</div>
+        <div><div class="t" style="color:var(--ink-2)">${x.n} <span class="tag t-mute">${CAT[x.cat]||''}</span></div>
           <div class="d">${x.where}</div></div>
-        <div class="r"><b style="color:var(--ink-2)">최대 ${x.max.toLocaleString()}만</b>
+        <div class="r"><b style="color:var(--ink-2)">최대 ${won(x.max)}</b>
           <div style="font-size:12px;margin-top:2px;color:var(--warn)">연 ${x.rate}%</div></div></div>`).join('')}
       <div class="lrow" style="justify-content:center">
         <button class="btn btn-sm" id="type-close" style="margin:0 auto">닫기</button></div>
@@ -335,7 +367,8 @@ function viewCheck(){
     <div class="ledger" style="margin-bottom:14px">
       ${list.map(x=>`<div class="lrow rrow r-ok">
         <div><div class="t">${x.n}</div>
-          <div class="d">${x.why||''}${x.where?` · <span style="color:var(--ink-3)">${x.where}</span>`:''}</div></div>
+          <div class="d">${x.why||''}${x.where?` · <span style="color:var(--ink-3)">${x.where}</span>`:''}</div>
+          ${srcLine(x)}</div>
         <div class="r">${x.amt?`<b>${x.amt}</b>`:''}
           <div style="font-size:11.5px;margin-top:2px">${x.sec}</div></div></div>`).join('')}
       <div class="lrow" style="justify-content:center">
@@ -343,7 +376,7 @@ function viewCheck(){
     </div>`;})():''}
 
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:12px;margin-bottom:12px">
-    <div class="viz" style="margin:0"><h3>${SECTORS.length}개 분야 · 제도 ${tot}건 전부 대조</h3>
+    <div class="viz" style="margin:0"><h3>${SECTOR_COUNT}개 분야 · 제도 ${tot}건 전부 대조</h3>
       <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
         <svg width="132" height="132" viewBox="0 0 132 132" role="img" aria-label="판정 결과 비율">${donut}
           <text x="66" y="63" text-anchor="middle" style="font-size:25px;font-weight:600;fill:var(--ink)">${ok.length}</text>
@@ -397,6 +430,14 @@ function viewCheck(){
       0으로 표시된 분야도 검토는 끝났습니다. 눌러서 안 되는 이유를 보실 수 있습니다.</p></div>
 
   <h2 class="sec">분야별 상세 · 눌러서 펼치기</h2>
+  ${(()=>{const pct=Math.round(CHECK_COUNT/RULE_COUNT*100);return `
+  <div class="card pad" style="margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap">
+      <div><div style="font-size:14px">제도 ${RULE_COUNT}건 중 <b>${CHECK_COUNT}건</b>은 기관 자료로 금액과 요건을 확인했습니다</div>
+        <div style="font-size:12.5px;color:var(--ink-2)">최근 확인 ${CHECK_LATEST} · 나머지 ${RULE_COUNT-CHECK_COUNT}건은 각 항목에 <span style="color:var(--warn)">출처 미확인</span>으로 표시했습니다</div></div>
+      <div class="num" style="font-size:22px;font-weight:600">${pct}%</div></div>
+    <div class="rmbar" style="margin-bottom:0"><span style="width:${pct}%"></span></div>
+  </div>`;})()}
   ${J.map(sec=>{
     const o=sec.res.filter(x=>x.s==='ok').length, k=sec.res.filter(x=>x.s==='chk').length;
     return `<details class="acc" id="sec-${sec.k}" ${S.sec[sec.k]?'open':''} data-k="${sec.k}">
@@ -409,7 +450,8 @@ function viewCheck(){
         const tg={ok:['t-go','가능'],chk:['t-warn','확인 필요'],no:['t-mute','불가'],lost:['t-stop','놓침']}[r.s];
         return `<div class="lrow rrow r-${r.s}">
           <div><div class="t">${r.n}</div>
-            <div class="d">${r.why||''}${r.s==='ok'&&r.where?` · <span style="color:var(--ink-3)">${r.where}</span>`:''}</div></div>
+            <div class="d">${r.why||''}${r.s==='ok'&&r.where?` · <span style="color:var(--ink-3)">${r.where}</span>`:''}</div>
+            ${r.s==='no'?'':srcLine(r)}</div>
           <div class="r">${r.amt?`<b>${r.amt}</b>`:''}
             <div style="margin-top:3px"><span class="tag ${tg[0]}">${tg[1]}</span></div></div></div>`;}).join('');})()}
     </details>`;}).join('')}`;
@@ -421,6 +463,14 @@ function viewTodo(){
   const byVisit={};
   ok.forEach(x=>{ const v=x.visit||'online'; (byVisit[v]=byVisit[v]||[]).push(x); });
   const evs=roles().filter(r=>EVENTS[r]).map(r=>EVENTS[r](c));
+  /* ROLE 선언 순서가 아니라 RUN_ORDER 로 고르고, 판정이 '불가'인 제도는 건너뜁니다 */
+  const flat=J.flatMap(s=>s.res);
+  const runRole=RUN_ORDER.find(r=>{
+    if(!roles().includes(r)||!RUN[r]) return false;
+    const R=RUN[r];
+    if(R.guard&&!R.guard(c)) return false;
+    if(R.key){ const j=flat.find(x=>x.n===R.key); if(j&&j.s==='no') return false; }
+    return true; });
   const roads=roles().filter(r=>ROAD[r]).map(r=>ROAD[r](c));
   const icon=s=>s==='done'?'✓':s==='now'?'!':s==='lost'?'×':'';
   const cl=s=>s==='done'?'done':s==='now'?'now':s==='lost'?'lost':s==='cond'?'lock':'todo';
@@ -477,7 +527,7 @@ function viewTodo(){
   :`<div class="card pad"><p style="font-size:13.5px;color:var(--ink-2)">
      연속적인 경로가 있는 역할이 아니라 로드맵 대신 위의 체크리스트로 안내합니다.</p></div>`}
 
-  ${RUN[R0()]?runBlock(RUN[R0()]):''}
+  ${runRole?runBlock(RUN[runRole]):''}
 
   <h2 class="sec">한 번에 처리할 것 · 재방문을 줄입니다</h2>
   ${['center','bank','office','company','online'].filter(v=>byVisit[v]&&byVisit[v].length).map(v=>`
