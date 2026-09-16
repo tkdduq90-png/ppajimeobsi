@@ -8,11 +8,14 @@
 
 const BLANK={
   name:'', sub:'', tag:'', age:30, region:'서울',
-  work:{on:false, sme:false, smeType:false, insured:0, hired:null, quit:null, taxRelief:false, freelance:false},
+  /* 계정 · 이건 서버에 있습니다. 누구인지 식별하고 연락하는 데만 씁니다.
+     아래 판정용 정보(소득·신용·가족·사업·주거·건강)와는 저장 위치가 다릅니다. */
+  acct:{email:'', phone:'', joined:'2026-01-04'},
+  work:{on:false, sme:false, smeType:false, insured:0, pay:0, hired:null, quit:null, taxRelief:false, freelance:false},
   biz:{on:false, plan:false, kind:null, label:'', ksic:'', years:0, rev:0, revDown:false,
        emp:0, opened:null, noran:false, tongsin:false, ip:null, venture:false, close:false, hire:false},
   home:{own:false, rent:false, deposit:0, monthly:0, incomeRate:100, car:0},
-  fam:{married:false, kids:0, infant:false, pregnant:false, college:false},
+  fam:{married:false, kids:0, infant:false, pregnant:false, college:false, elem:0, mid:0, high:0},
   credit:{score:800, drop:0, arrears:0, multi:false, dsr:20},
   refund:{tax:0, local:0, medical:0, dormant:0, pension:0},
   event:{death:false, deathDays:0},
@@ -24,8 +27,76 @@ const mk=(o)=>{const d=JSON.parse(JSON.stringify(BLANK));
   for(const k in o){ if(typeof o[k]==='object'&&!Array.isArray(o[k])) Object.assign(d[k],o[k]); else d[k]=o[k]; }
   return d;};
 
+/* ═══════ 업종 ═══════════════════════════════════════════════
+   '법인이냐 개인이냐' 로는 제도를 가를 수 없습니다.
+   제도가 실제로 보는 것은 사업자등록증의 업종코드(한국표준산업분류)입니다.
+   같은 법인이라도 소프트웨어 개발이면 되고 부동산임대업이면 안 됩니다.
+   그래서 코드 앞자리로 분야를 뽑아 판정에 직접 넘깁니다.
+   코드가 없으면 '' 이고, 규칙은 그때 NO 가 아니라 UNK(판정 불가) 로 떨어집니다.
+   ── 자릿수가 긴 규칙을 먼저 둡니다. 47912 는 도소매가 아니라 통신판매입니다. */
+const KSIC_FIELD=[
+  [/^0[1-3]/,'농림어업'],      [/^0[5-8]/,'광업'],
+  [/^(1\d|2\d|3[0-4])/,'제조업'], [/^3[5-9]/,'전기·수도·환경'],
+  [/^4[12]/,'건설업'],
+  [/^479/,'통신판매업'],        [/^4[567]/,'도소매업'],
+  [/^(49|5[0-2])/,'운수·창고업'],
+  [/^55/,'숙박업'],            [/^561/,'음식점업'],  [/^562/,'주점업'],
+  [/^(5[89]|6[0-3])/,'정보통신업'], [/^6[4-6]/,'금융·보험업'], [/^68/,'부동산업'],
+  [/^7[0-3]/,'전문·과학·기술'], [/^7[4-6]/,'사업시설·지원'],
+  [/^85/,'교육서비스업'],       [/^86/,'보건업'], [/^87/,'사회복지'],
+  [/^9[01]/,'예술·스포츠·여가'], [/^9[4-6]/,'수리·개인서비스']
+];
+const ksicField=code=>{ const s=String(code||'').trim().match(/^\d+/);
+  if(!s) return ''; const hit=KSIC_FIELD.find(([re])=>re.test(s[0])); return hit?hit[1]:'기타'; };
+
+/* 창업으로 보지 않는 업종 · 중소기업창업 지원법 시행령 제4조
+   일반유흥주점업 · 무도유흥주점업 · 카지노 운영업 · 기타 사행시설 관리 및 운영업
+   → 창업패키지·창업 R&D 계열 전부의 공통 제외 사유입니다. */
+const NOT_STARTUP=/유흥주점|카지노|사행|도박|무도장/;
+const startupBanned=b=>NOT_STARTUP.test(String(b.ksic||''));
+
+/* 창업중소기업 세액감면 대상 업종 · 조세특례제한법 제6조 제3항 (18개 업종)
+   y 대상 · n 대상 아님 · p 같은 분야 안에서도 세부업종에 따라 갈림 → 판정 불가 */
+const TAX6={'광업':'y','제조업':'y','전기·수도·환경':'y','건설업':'y','통신판매업':'y',
+  '운수·창고업':'p','음식점업':'y','정보통신업':'p','금융·보험업':'p','전문·과학·기술':'p',
+  '사업시설·지원':'p','사회복지':'y','예술·스포츠·여가':'p','수리·개인서비스':'p',
+  '교육서비스업':'p','숙박업':'p','보건업':'n','도소매업':'n','주점업':'n','부동산업':'n',
+  '농림어업':'n','기타':'p'};
+/* 같은 분야 안에서 조문이 명시적으로 빼는 세부업종 · 위 열거의 괄호 부분 */
+const TAX6_OUT=/사행|카지노|오락장|수상오락|자영예술가|비디오물 감상실|뉴스제공|가상자산|변호사|변리사|법무사|회계사|세무사|수의사|행정사|건축사/;
+
+/* 기술창업 여부 · 창업패키지 계열은 업종 제한 이전에 '기술창업' 을 전제로 합니다
+   (창업진흥원 사업안내 · 예비창업패키지 FAQ)
+   제조업과 지식서비스업 계열이 여기 들어갑니다.
+   음식점 · 도소매 · 숙박 같은 생계형 업종은 여기 없고,
+   그렇다고 '제외 업종' 이라고 단정할 근거도 없어 확인 필요로 남깁니다.
+   소상공인 창업 트랙(소진공 신사업창업사관학교 등)이 따로 있습니다. */
+const TECH_FIELD=['제조업','정보통신업','전문·과학·기술','전기·수도·환경','사업시설·지원'];
+const isTech=b=>TECH_FIELD.includes(b.field||'');
+
+/* 소상공인 규모 · 소상공인기본법 시행령
+   광업·제조업·건설업·운수업은 상시근로자 10명 미만, 그 밖의 업종은 5명 미만
+   (매출 기준인 소기업 요건은 별도이고 여기서는 근로자 수만 봅니다) */
+/* ═══════ 기초생활보장 ═══════════════════════════════════
+   2026년 기준 중위소득 (보건복지부 고시 · 가구원수별 월)
+   급여는 이 금액의 비율로 정해집니다 — 생계 32% · 의료 40% · 주거 48% · 교육 50% */
+const MEDIAN26=[0, 2564238, 4190368, 5354072, 6494738];
+const median26=n=>{ const h=Math.max(1,n);
+  return h<=4 ? MEDIAN26[h] : MEDIAN26[4] + (h-4)*(MEDIAN26[4]-MEDIAN26[3]); };
+const hhSize=c=>1+(c.fam.married?1:0)+(c.fam.kids||0);
+/* 소득인정액 · 이 프로토타입은 중위소득 대비 %(incomeRate)로 근사합니다.
+   실제로는 소득평가액 + 재산의 소득환산액이고 연동으로 계산해야 합니다. */
+const incomeAmt=c=>Math.round(median26(hhSize(c))*(c.home.incomeRate||0)/100);
+const benefitCut=(c,rate)=>Math.round(median26(hhSize(c))*rate);
+/* 근로능력 · 실제 판정은 근로능력평가(의학적·활동능력)로 하고
+   여기서는 연령과 장애 여부로만 근사합니다. 그래서 단정하지 않고 화면에도 적습니다. */
+const ableToWork=c=>c.age<65 && !c.misc.disabled;
+
+const SOSANG_10=['광업','제조업','건설업','운수·창고업'];
+const isSosang=b=>(b.emp||0) < (SOSANG_10.includes(b.field||'')?10:5);
+
 const CTX={
- a:mk({name:'오상엽', sub:'법인 대표 · 기술창업 2년차', tag:'법인사업자', age:38, region:'서울 동대문구',
+ a:mk({acct:{email:'sangyeop.o@example.com', phone:'010-2841-7730'}, name:'오상엽', sub:'법인 대표 · 기술창업 2년차', tag:'법인사업자', age:38, region:'서울 동대문구',
    biz:{on:true, kind:'corp', label:'법인', ksic:'62010 소프트웨어 개발', years:2, rev:8400,
         emp:1, opened:'2022-01-24', ip:'특허 출원 1건'},
    home:{rent:true, deposit:5000, monthly:75, incomeRate:145},
@@ -33,8 +104,8 @@ const CTX={
    credit:{score:842, dsr:18},
    refund:{tax:37, local:4, dormant:12, pension:0}}),
 
- b:mk({name:'김소연', sub:'카페 운영 3년차 · 자녀 1명', tag:'개인사업자 · 부모', age:36, region:'인천 미추홀구',
-   biz:{on:true, kind:'solo', label:'개인 점포', ksic:'56211 일반음식점', years:3, rev:21000,
+ b:mk({acct:{email:'soyeon.k@example.com', phone:'010-5512-9084'}, name:'김소연', sub:'카페 운영 3년차 · 자녀 1명', tag:'개인사업자 · 부모', age:36, region:'인천 미추홀구',
+   biz:{on:true, kind:'solo', label:'개인 점포', ksic:'56111 한식 일반 음식점업', years:3, rev:21000,
         revDown:true, emp:2, opened:'2023-04-11'},
    home:{rent:true, deposit:8000, incomeRate:112, car:1800},
    fam:{married:true, kids:1, infant:true},
@@ -43,34 +114,34 @@ const CTX={
    refund:{tax:0, local:8, medical:41, dormant:0, pension:0},
    misc:{medicalHigh:true, chronic:false}}),
 
- c:mk({name:'박지훈', sub:'중소기업 재직 4년차 · 자녀 1명', tag:'직장인 · 부모', age:34, region:'경기 고양시',
-   work:{on:true, sme:true, smeType:true, insured:1620, hired:'2021-08-16', taxRelief:true},
+ c:mk({acct:{email:'jihun.p@example.com', phone:'010-3097-4416'}, name:'박지훈', sub:'중소기업 재직 4년차 · 자녀 1명', tag:'직장인 · 부모', age:34, region:'경기 고양시',
+   work:{on:true, sme:true, smeType:true, insured:1620, pay:3800, hired:'2021-08-16', taxRelief:true},
    home:{rent:true, deposit:24000, incomeRate:118, car:2600},
    fam:{married:true, kids:1, infant:true},
    admin:{passport:38, license:true, licenseDue:31, carCheck:9},
    credit:{score:871, dsr:24},
    refund:{tax:12, local:0, medical:0, dormant:6, pension:0}}),
 
- d:mk({name:'이현우', sub:'직장인 · 온라인 스토어 겸업 · 퇴사 예정', tag:'직장인 · 온라인사업자',
+ d:mk({acct:{email:'hyunwoo.l@example.com', phone:'010-7723-1608'}, name:'이현우', sub:'직장인 · 온라인 스토어 겸업 · 퇴사 예정', tag:'직장인 · 온라인사업자',
    age:33, region:'서울 성동구',
-   work:{on:true, sme:true, smeType:true, insured:1280, hired:'2022-03-02'},
-   biz:{on:true, kind:'online', label:'온라인 스토어', ksic:'47912 전자상거래 소매업',
+   work:{on:true, sme:true, smeType:true, insured:1280, pay:4200, hired:'2022-03-02'},
+   biz:{on:true, kind:'online', label:'온라인 스토어', ksic:'47911 전자상거래 소매업',
         years:2, rev:3200, opened:'2024-06-03', tongsin:true},
    home:{rent:true, deposit:3000, monthly:62, incomeRate:132, car:2100},
    admin:{passport:3, license:true, licenseDue:26, carCheck:7},
    credit:{score:812, dsr:31},
    refund:{tax:28, local:3, dormant:0, pension:0}}),
 
- e:mk({name:'정수미', sub:'한부모 · 자녀 2명 · 중소기업 재직', tag:'직장인 · 한부모', age:41, region:'부산 사하구',
-   work:{on:true, sme:true, smeType:true, insured:900, hired:'2024-01-15'},
+ e:mk({acct:{email:'sumi.j@example.com', phone:'010-4460-2255'}, name:'정수미', sub:'한부모 · 자녀 2명 · 중소기업 재직', tag:'직장인 · 한부모', age:41, region:'부산 사하구',
+   work:{on:true, sme:true, smeType:true, insured:900, pay:2800, hired:'2024-01-15'},
    home:{rent:true, deposit:3000, monthly:35, incomeRate:55, car:900},
-   fam:{married:false, kids:2},
+   fam:{married:false, kids:2, elem:1, mid:1},
    admin:{passport:0, license:true, licenseDue:19},
    credit:{score:722, drop:-11, dsr:38},
    refund:{tax:19, local:0, medical:27, dormant:0, pension:0},
    misc:{single:true, medicalHigh:true}}),
 
- f:mk({name:'한복순', sub:'만 68세 · 자가 거주 · 배우자와 2인', tag:'노년 가구', age:68, region:'대구 달서구',
+ f:mk({acct:{email:'boksoon.h@example.com', phone:'010-2218-6603'}, name:'한복순', sub:'만 68세 · 자가 거주 · 배우자와 2인', tag:'노년 가구', age:68, region:'대구 달서구',
    home:{own:true, incomeRate:45},
    fam:{married:true},
    admin:{passport:0, license:true, licenseDue:2},
@@ -78,14 +149,14 @@ const CTX={
    refund:{tax:0, local:2, medical:63, dormant:41, pension:180},
    misc:{medicalHigh:true, chronic:true, care:true}}),
 
- g:mk({name:'최기준', sub:'실직 · 기초생활수급 · 채무 연체', tag:'구직자 · 수급 가구', age:47, region:'광주 북구',
+ g:mk({acct:{email:'gijun.c@example.com', phone:'010-6635-0912'}, name:'최기준', sub:'실직 · 기초생활수급 · 채무 연체', tag:'구직자 · 수급 가구', age:47, region:'광주 북구',
    work:{on:false, sme:true, insured:700, hired:'2023-02-01', quit:'end'},
    home:{rent:true, deposit:500, monthly:25, incomeRate:28},
    credit:{score:512, drop:-96, arrears:74, multi:true, dsr:88},
    refund:{tax:0, local:0, medical:22, dormant:0, pension:0},
    misc:{welfare:true, medicalHigh:true, unpaid:true}}),
 
- h:mk({name:'윤가람', sub:'프리랜서 · 창업 준비 중 · 사업자등록 전', tag:'프리랜서 · 예비창업자',
+ h:mk({acct:{email:'garam.y@example.com', phone:'010-8804-3371'}, name:'윤가람', sub:'프리랜서 · 창업 준비 중 · 사업자등록 전', tag:'프리랜서 · 예비창업자',
    age:29, region:'서울 마포구',
    work:{freelance:true},
    biz:{on:false, plan:true},
@@ -94,9 +165,9 @@ const CTX={
    refund:{tax:64, local:0, dormant:9, pension:0},
    admin:{idLatest:false, cert:false, passport:5, license:false, licenseDue:99}}),
 
- i:mk({name:'신재호', sub:'부친 사망 · 상속 절차 진행 중 · 직장인', tag:'직장인 · 상속인',
+ i:mk({acct:{email:'jaeho.s@example.com', phone:'010-3316-7729'}, name:'신재호', sub:'부친 사망 · 상속 절차 진행 중 · 직장인', tag:'직장인 · 상속인',
    age:52, region:'대전 서구',
-   work:{on:true, sme:false, insured:4200, hired:'2012-05-02'},
+   work:{on:true, sme:false, insured:4200, pay:8600, hired:'2012-05-02'},
    home:{own:true, incomeRate:155},
    fam:{married:true, kids:1, college:true},
    admin:{passport:9, license:true, licenseDue:22},
@@ -104,8 +175,8 @@ const CTX={
    refund:{tax:0, local:0, medical:0, dormant:23, pension:0},
    event:{death:true, deathDays:38}}),
 
- j:mk({name:'오유진', sub:'첫 직장 6개월차 · 원룸 자취 시작', tag:'사회초년생', age:24, region:'서울 관악구',
-   work:{on:true, sme:true, smeType:true, insured:180, hired:'2026-03-02'},
+ j:mk({acct:{email:'yujin.o@example.com', phone:'010-9970-2284'}, name:'오유진', sub:'첫 직장 6개월차 · 원룸 자취 시작', tag:'사회초년생', age:24, region:'서울 관악구',
+   work:{on:true, sme:true, smeType:true, insured:180, pay:2600, hired:'2026-03-02'},
    home:{rent:true, deposit:1000, monthly:48, incomeRate:52},
    credit:{score:740, dsr:12},
    refund:{tax:0, local:0, dormant:0, pension:0},
@@ -243,7 +314,7 @@ const CROSS={
     ['취업하면 생계급여가 줄어듭니다',
      '근로 소득이 생기면 생계급여가 감액됩니다. 자활 성공을 위한 유예 제도가 있으니 취업 전에 확인하셔야 합니다']],
  h:[['사업자등록 시점이 지원 규모를 가릅니다',
-     '지금은 예비창업패키지 대상입니다. 2026년 기준 평균 4,000만 원이고, 사업자등록을 먼저 하면 이 자격이 영구히 사라져 초기창업패키지로만 갈 수 있습니다'],
+     '지금은 예비창업패키지 대상입니다. 2026년 기준 평균 4,000만 원이고, 사업자등록을 먼저 하면 그 공고에는 신청할 수 없어 초기창업패키지로 넘어갑니다'],
     ['인증서가 없어 온라인 신청이 막힙니다',
      '공동인증서가 없으면 대부분의 온라인 신청을 진행할 수 없습니다. 은행 방문 시 함께 발급받으시면 재방문을 줄일 수 있습니다']],
  i:[['상속 기한이 두 개 동시에 흐릅니다',
@@ -305,13 +376,13 @@ const ASK={
    a:'폐업을 결정하시기 전에 희망리턴패키지를 확인하세요. 점포철거비가 전용면적 3.3㎡당 20만원, 최대 600만원까지 나오고 폐업 전후 모두 신청할 수 있습니다. 다만 실제 공사비를 증빙해야 하므로 철거 전후 사진과 공사내역서를 반드시 남기셔야 합니다. 재취업하면 장려수당도 최대 100만원 나옵니다.',
    cite:'저장된 매출 추이 · 2026 희망리턴패키지 공고 요건으로 판정'},
   {q:'정책자금 상담 전화가 왔는데 수수료를 달래',mode:'logic',
-   a:'정책자금은 보증료 외에 어떤 비용도 들지 않습니다. 컨설팅 명목으로 대출금의 8~12%를 요구하고 부결되어도 청구하는 사례가 보고되고 있습니다.',
+   a:'정책자금은 보증료 외에 어떤 비용도 들지 않습니다. 중소벤처기업부는 2026년 1월 제3자 부당개입 대응세트를 내놨습니다. 신고포상 건당 최대 200만원, 불이익 행위 과태료 300만원 이하, 정책자금 컨설팅 등록제 법제화가 함께 추진되고 있습니다.',
    cite:'정책자금 운영 규정으로 판단 · 저희도 이 영역에서 요금을 받지 않습니다'}],
  online:[{q:'회사 다니면서 이 사업 유지해도 되나?',mode:'logic',
    a:'온라인 판매업은 상시 근무가 필요하지 않아 겸업 자체는 가능합니다. 다만 회사 취업규칙의 겸업 금지 조항은 별도로 확인하셔야 하고, 사업자를 보유한 상태에서는 퇴사하더라도 실업급여를 신청할 수 없습니다.',
    cite:'저장된 업종 · 사업 형태 · 고용보험 상태로 계산'}],
  free:[{q:'사업자등록 하려는데 괜찮아?',mode:'logic',
-   a:'등록하시기 전에 예비창업패키지를 먼저 확인하셔야 합니다. 2026년 기준 평균 4,000만 원이고 사업자등록 전에만 신청할 수 있어, 등록하는 순간 자격이 영구히 사라집니다.',
+   a:'등록하시기 전에 예비창업패키지를 먼저 확인하셔야 합니다. 2026년 기준 평균 4,000만 원이고 신청 시점에 사업자등록이 없어야 하므로, 등록하면 그 공고는 신청할 수 없습니다. 사업자등록은 선정된 뒤 협약 단계에서 하는 것이 정상 순서입니다.',
    cite:'저장된 사업자등록 여부 · 나이로 계산'},
   {q:'3.3% 뗀 거 돌려받을 수 있어?',mode:'logic',
    a:'국세 미환급금 64만 원이 조회됐습니다. 종합소득세 신고로 정산되며, 누락된 공제가 있으면 경정청구로 최대 5년까지 소급할 수 있습니다.',
@@ -361,7 +432,7 @@ const RUN={
           ['점포철거비 신청','소상공인24 · 3.3㎡당 20만 · 최대 600만','wait'],
           ['재취업장려수당','취업 성공 시 최대 100만','wait']], paid:0},
  free:{key:'예비창업패키지', title:'예비창업패키지', amt:'평균 4,000만', dday:'사업자등록 전에만',
-   lead:'등록하는 순간 자격이 영구히 사라집니다',
+   lead:'등록하면 그 공고는 신청할 수 없습니다',
    steps:[['사업자등록 여부 확인','미등록 상태로 자격 유지 중','now'],
           ['공동인증서 발급','온라인 신청의 전제 · 은행 방문','now'],
           ['다음 공고 확인','통상 연 1회 · 1~2월 모집','wait'],
