@@ -915,7 +915,7 @@ function agency(r){
 const AGY={
   auto:['앱이 끝냅니다','서류가 전부 연동으로 채워지고 제출까지 갑니다 · 하실 일 없음','t-go'],
   one:['한 가지만 주시면 앱이 끝냅니다','발급받을 것은 없습니다 · 신분증이나 계좌번호처럼 이미 갖고 계신 것 하나','t-go'],
-  self:['준비물을 챙기셔야 합니다','발급받아야 하는 서류나 창구 방문이 섞여 있습니다 · 준비물과 절차를 드립니다','t-warn'],
+  self:['준비물만 챙겨 주시면 됩니다','발급받아야 하는 서류가 섞여 있습니다 · 모이는 즉시 접수는 저희가 대신합니다','t-warn'],
   expert:['사람이 봐야 할 수 있습니다','심사 대상이 글입니다 · 초안은 저희가 쓰고 검수만 고르시면 됩니다','t-logic']};
 
 
@@ -939,9 +939,18 @@ function openFlow(names){
    그래서 마지막이 접수가 아니라 '언제 다시 알려줄지' 입니다. */
 function openPrep(names){
   S.sub={mode:'prep', names:names.slice(), step:0, when:'d3',
-         noti:{prep:true, due:true, sms:false, name:false}};
+         noti:{prep:true, due:true, sms:false, name:false},
+         deleg:{scope:true, notify:true, skip:{}}};
   $('flow').classList.remove('hide'); drawFlow(); }
 function closeFlow(){ S.sub=null; $('flow').classList.add('hide'); }
+/* 제출 경로 · 이용자가 손을 대야 하느냐로만 나눕니다.
+   본인 확인이 법으로 요구되는 건만 인증을 한 번 받고, 나머지는 그대로 들어갑니다. */
+function route(r){
+  const d=(r.guide&&r.guide.doc)||[];
+  return d.every(x=>x[1]==='auto') ? 'api' : 'auth'; }
+const RT={
+  api:['바로 제출','서류가 전부 채워져 있습니다','t-go'],
+  auth:['인증 한 번','마지막에 간편인증만 받습니다','t-logic']};
 function subItems(){ const ok=judgeAll().flatMap(x=>x.res.filter(y=>y.s==='ok'));
   return (S.sub.names).map(n=>ok.find(x=>x.n===n)).filter(Boolean); }
 /* 문자 본문 · 이 문자열은 서버로 가지 않습니다. 기기 안에서 만들어 기기 안에서 씁니다. */
@@ -960,7 +969,7 @@ const WHEN={d1:['내일','내일 이 시간에'], d3:['3일 뒤','3일 뒤에'],
 const VISITN={center:'주민센터',bank:'은행',office:'기관 방문',company:'회사',online:'온라인'};
 function drawPrep(){
   const L=subItems(), st=S.sub.step;
-  const bar=`<div class="fsteps">${[0,1,2].map(i=>`<span class="${i<=st?'on':''}"></span>`).join('')}</div>`;
+  const bar=`<div class="fsteps">${[0,1,2,3].map(i=>`<span class="${i<=st?'on':''}"></span>`).join('')}</div>`;
   /* 본인이 준비할 것만 추립니다 — 연동으로 채워지는 것은 알 필요가 없습니다 */
   const need=[]; let autoN=0;
   L.forEach(x=>((x.guide&&x.guide.doc)||[]).forEach(d=>{
@@ -969,7 +978,8 @@ function drawPrep(){
   const got=need.filter(d=>S.have[d.key]).length;
   const visits=[...new Set(L.map(x=>x.visit).filter(v=>v&&v!=='online'))];
   $('flow-t').textContent = st===0?`준비물 · ${need.length}건`
-    : st===1?'언제 알려드릴까요' : '저장했습니다';
+    : st===1?'언제 알려드릴까요'
+    : st===2?`제출 · ${L.length}건` : '예약했습니다';
   if(st===0){
     const byI={}; need.forEach(d=>(byI[d.item]=byI[d.item]||[]).push(d));
     $('flow-b').innerHTML=bar+`
@@ -1063,6 +1073,39 @@ function drawPrep(){
     $('f-back').onclick=()=>{ S.sub.step=0; drawFlow(); };
     $('f-go').onclick=()=>{ S.sub.step=2; drawFlow(); };
     return; }
+
+  /* ── 대리 제출 · 준비물이 모이면 접수까지 저희가 합니다 ──────────────
+     경로는 세 가지이고, 무엇이 막고 있는지를 건별로 그대로 보여줍니다. */
+  if(st===2){
+    const rest2=need.filter(d=>!S.have[d.key]);
+    $('flow-b').innerHTML=bar+`
+      <p class="flead">${rest2.length?`남은 준비물 ${rest2.length}건이 채워지면 <b>그대로 제출됩니다.</b>`:'<b>지금 바로 제출됩니다.</b>'}
+        지금 한 번만 확인해 주시면 다시 들어오실 필요가 없습니다.</p>
+      <div class="fconsent" style="margin-bottom:9px">
+        <div class="ch">보낼 것</div>
+        ${L.map(x=>{const r=route(x); const on=!S.sub.deleg.skip[x.n];
+          return `<label class="fchk" style="margin-top:9px">
+          <input type="checkbox" class="dskip" data-n="${encodeURIComponent(x.n)}" ${on?'checked':''}>
+          <span><b>${x.n}</b> <span class="tag ${RT[r][2]}">${RT[r][0]}</span>
+            <div class="gmeta">${x.where||''}${x.where?' · ':''}${RT[r][1]}</div></span></label>`;}).join('')}
+        <p class="fnote">체크를 풀면 이번에 보내지 않고 준비물과 절차만 남겨 둡니다.</p>
+      </div>
+      <div class="fconsent">
+        <label class="fchk"><input type="checkbox" id="d-scope" ${S.sub.deleg.scope?'checked':''}>
+          <span>제 이름으로 <b>접수하는 것에 동의합니다</b>
+            <div class="gmeta">서류 작성과 접수까지입니다. 내용을 바꿔야 하는 일이 생기면 반드시 다시 여쭙고,
+              접수번호와 결과는 알려드립니다. 취소는 언제든 가능합니다.</div></span></label>
+        <p class="fnote">제출에는 값을 받지 않습니다. 창구 접수 건은 기관 협약이 끝난 지역부터 순차로 열립니다.</p>
+      </div>`;
+    $('flow-f').innerHTML=`<button class="btn btn-sm" id="f-back2">뒤로</button>
+      <button class="btn btn-sm btn-fill" id="f-go2">확인 ›</button>`;
+    $('flow-b').querySelectorAll('.dskip').forEach(b=>b.onchange=()=>{
+      S.sub.deleg.skip[decodeURIComponent(b.dataset.n)]=!b.checked; drawFlow(); });
+    $('d-scope').onchange=e=>{ S.sub.deleg.scope=e.target.checked; };
+    $('f-back2').onclick=()=>{ S.sub.step=1; drawFlow(); };
+    $('f-go2').onclick=()=>{ S.sub.step=3; drawFlow(); };
+    return; }
+
   const rest=need.filter(d=>!S.have[d.key]);
   $('flow-b').innerHTML=bar+`
     <p class="flead">${L.length}건을 <b>내 할 일</b>에 넣었습니다.
@@ -1080,6 +1123,15 @@ function drawPrep(){
         <span style="color:var(--ink-3)">(${S.sub.noti.name?'제도 이름 포함 · 그 한 줄은 서버가 봅니다':'서버는 날짜만 알고 내용은 모릅니다'})</span></div>`:''}
       ${!S.sub.noti.prep&&!S.sub.noti.due&&!S.sub.noti.sms?'<div class="cl">· 없음 — 알림을 모두 끄셨습니다</div>':''}
       <div class="cl" style="margin-top:5px">· 준비물이 다 모이면 <b>제출은 저희가 합니다</b> — 그때 다시 알려드립니다</div>
+    </div>
+    <div class="fconsent" style="margin-top:8px">
+      <div class="ch">제출 예약</div>
+      ${L.filter(x=>!S.sub.deleg.skip[x.n]).length
+        ? L.filter(x=>!S.sub.deleg.skip[x.n]).map(x=>{const r=route(x);
+            return `<div class="cl">· ${x.n} <span class="tag ${RT[r][2]}">${RT[r][0]}</span></div>`;}).join('')
+        : '<div class="cl">· 없음 — 이번에는 보낼 것을 고르지 않으셨습니다</div>'}
+      ${L.filter(x=>S.sub.deleg.skip[x.n]).map(x=>`<div class="cl" style="color:var(--ink-3)">· ${x.n} — 이번에는 보내지 않음</div>`).join('')}
+      <p class="fnote">제출이 끝나면 접수번호를 남겨 드립니다. 그 전에는 언제든 취소하실 수 있습니다.</p>
     </div>
     <p class="fnote">체크하신 준비물은 <b>이 기기에</b> 저장했습니다. 서버로 보내지 않았습니다.
       다른 기기에서도 이어서 하시려면 <b>내 정보</b>에서 암호화 백업을 켜시면 됩니다.</p>`;
@@ -1230,7 +1282,7 @@ function viewTodo(){
       ${k==='self'?`<div class="lrow"><div><div class="d">
         발급받아야 하는 서류가 있어 오늘 끝나지 않습니다. 무엇을 챙겨야 하는지 정리하고,
         준비되면 다시 알려드립니다.</div></div>
-        <div class="r"><button class="btn btn-sm btn-fill prepgo" data-n="${encodeURIComponent(L.map(x=>x.n).join('|'))}">${L.length}건 준비물 정리</button></div></div>`:''}
+        <div class="r"><button class="btn btn-sm btn-fill prepgo" data-n="${encodeURIComponent(L.map(x=>x.n).join('|'))}">${L.length}건 준비하고 맡기기</button></div></div>`:''}
       ${k==='expert'?`<div class="lrow"><div><div class="d">
         초안 작성까지는 서비스가 합니다. 받아보신 뒤 손봐야겠다고 판단하실 때만 검수를 고르시면 됩니다.
         <b>정책자금은 이 목록에 넣지 않습니다</b> — 심사 대상이 자격 요건이라 글을 고쳐서 바뀌는 것이 없기 때문입니다.</div></div>
