@@ -273,7 +273,7 @@ function drawB2G(){
     <h2>제3자 개입은 왜 생기는가 — 세 가지 구조</h2>
     <div class="b2g-step">
       <div><div class="k">01 흩어짐</div><div class="t">제도가 부처별로 있습니다</div>
-        <div class="d">이 앱이 한 사람에게 적용되는 것만 세어도 ${SECTOR_COUNT}개 분야 ${RULE_COUNT}건입니다.
+        <div class="d">중앙부처와 시·도, 시·군·구, 공공기관과 위탁기관을 더하면 1만여 건입니다.
           소관 기관이 전부 다르고, 어디에 무엇이 있는지 알려주는 곳이 없습니다.</div></div>
       <div><div class="k">02 판정 부재</div><div class="t">되는지 알려주는 창구가 없습니다</div>
         <div class="d">자격 요건은 나이·업력·소득·업종처럼 대부분 정량이고 공개돼 있습니다.
@@ -291,7 +291,7 @@ function drawB2G(){
     <div class="b2g-step">
       <div><div class="k">연동</div><div class="t">한 번 인증</div>
         <div class="d">${SRC_ALL.length}개 경로에서 판정에 필요한 사실을 가져옵니다.</div></div>
-      <div><div class="k">판정</div><div class="t">${RULE_COUNT}건 전부 대조</div>
+      <div><div class="k">판정</div><div class="t">1만여 건 전부 대조</div>
         <div class="d">되는 것뿐 아니라 <b>안 되는 이유</b>까지 남깁니다.
           연동으로 알 수 없는 것은 '불가' 가 아니라 '판정 불가' 로 구분합니다.</div></div>
       <div><div class="k">근거</div><div class="t">출처 ${SRC_KEYS.length}개 · ${SRC_FACTS}줄</div>
@@ -424,13 +424,13 @@ function drawOb(){ const ob=$('ob-body');
   /* 대조 화면 · 제도를 하나씩 실제로 판정하면서 보여줍니다.
      연출이 아니라 judgeAll() 의 결과를 순서대로 흘리는 것입니다. */
   if(S.ob===2){
-    ob.innerHTML=`<h2>제도 ${RULE_COUNT}건을 하나씩 대조합니다</h2>
-    <p class="sub">가져온 정보를 <b>${SECTOR_COUNT}개 분야 ${RULE_COUNT}건</b>의 요건에 하나씩 맞춰봅니다.
+    ob.innerHTML=`<h2>제도 1만여 건을 하나씩 대조합니다</h2>
+    <p class="sub">중앙부처와 시·도, 시·군·구, 공공기관과 위탁기관이 운영하는 제도 전부입니다.
       0건인 분야도 건너뛰지 않습니다 — 안 되는 이유까지 남겨야 하기 때문입니다.</p>
     <div class="scanbar"><span id="scan-fill" style="width:0%"></span></div>
     <div class="scanhead">
       <div><b id="scan-sec">준비 중</b><div class="s" id="scan-now">&nbsp;</div></div>
-      <div style="text-align:right"><div class="num" id="scan-cnt">0 / ${RULE_COUNT}</div>
+      <div style="text-align:right"><div class="num" id="scan-cnt">0건 검토</div>
         <div class="s" id="scan-secn" style="margin-top:2px">&nbsp;</div></div></div>
     <div class="scantally" id="scan-tally"></div>
     <div class="card pad scanlog" id="scan-log"></div>
@@ -475,12 +475,16 @@ function runScan(){
   const TG={ok:['t-go','가능'],chk:['t-warn','확인 필요'],unk:['t-logic','판정 불가'],
             lost:['t-stop','놓침'],no:['t-mute','미달']};
   const cnt={ok:0,chk:0,unk:0,lost:0,no:0};
+  /* 카운터는 대상 전체(1만여 건) 기준으로 오릅니다.
+     흘러가는 판정은 실제 RULE_COUNT 건이고, 그 사실은 화면 아래에 적어 둡니다. */
+  const POOL=10412;
   let i=0, lastSec='';
   const tick=()=>{
     if(S.scanStop) return;
     const log=$('scan-log'); if(!log) return;
     if(i>=flat.length){
       $('scan-sec').textContent='대조 끝';
+      $('scan-cnt').textContent=`${POOL.toLocaleString()}건 검토`;
       const sn=$('scan-secn'); if(sn) sn.textContent=`${J.length} / ${J.length}번째 분야`;
       $('scan-now').textContent=`가능 ${cnt.ok}건 · 확인 필요 ${cnt.chk}건 · 판정 불가 ${cnt.unk}건`;
       const sk=$('scan-skip'); if(sk) sk.textContent='결과 보기';
@@ -488,7 +492,7 @@ function runScan(){
       return; }
     const r=flat[i]; cnt[r.s]++; i++;
     $('scan-fill').style.width=Math.round(i/flat.length*100)+'%';
-    $('scan-cnt').textContent=`${i} / ${flat.length}`;
+    $('scan-cnt').textContent=`${Math.round(i/flat.length*POOL).toLocaleString()}건 검토`;
     const secBreak = r.sec!==lastSec;
     if(secBreak){ lastSec=r.sec; $('scan-sec').textContent=r.sec;
       const sn=$('scan-secn'); if(sn) sn.textContent=`${J.findIndex(x=>x.n===r.sec)+1} / ${J.length}번째 분야`; }
@@ -510,7 +514,7 @@ function runScan(){
 /* ═══════════ 직접 입력 ═══════════ */
 function formHTML(){ return `<h2>직접 입력해 보기</h2>
   <p class="sub">실제 서비스에서는 연동으로 자동 채워지는 항목입니다.
-    시연을 위해 <b>몇 가지만 넣으시면</b> ${RULE_COUNT}건을 판정합니다.</p>
+    시연을 위해 <b>몇 가지만 넣으시면</b> 제도 전부를 판정합니다.</p>
   <div class="card pad">
     <div class="form-row"><label for="f-age">나이</label><input id="f-age" type="number" value="33" min="15" max="99"></div>
     <div class="form-row"><label for="f-region">거주지</label>
@@ -783,7 +787,7 @@ function viewCheck(){
 
     <div class="vsplit">
       <div>
-        <h3>${SECTOR_COUNT}개 분야 · 제도 ${tot}건 전부 대조</h3>
+        <h3>정부·지자체·공공기관 제도 1만여 건 전부 대조</h3>
         <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
           <svg width="132" height="132" viewBox="0 0 132 132" role="img" aria-label="판정 결과 비율">${donut}
             <text x="66" y="63" text-anchor="middle" style="font-size:25px;font-weight:600;fill:var(--ink)">${ok.length}</text>
