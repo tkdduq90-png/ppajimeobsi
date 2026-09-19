@@ -89,7 +89,7 @@ a{color:inherit}
   backdrop-filter:blur(8px); border-bottom:1px solid var(--rule)}
 .lp-top .in{display:flex; justify-content:space-between; align-items:center; padding:14px 0}
 .logo{font-size:19px; font-weight:700; letter-spacing:-0.02em}
-.hero{padding:74px 0 60px; max-width:720px}
+.hero{padding:74px 0 60px}
 .hero h1{font-size:clamp(31px,5vw,48px); font-weight:800; letter-spacing:-0.04em;
   line-height:1.22; margin-bottom:18px}
 .hero h1 em{font-style:normal; color:var(--go)}
@@ -390,6 +390,111 @@ h2.sec:first-child{margin-top:0}
 .more>summary::after{content:'›';transform:rotate(90deg);display:inline-block;font-size:15px}
 .more[open]>summary::after{transform:rotate(-90deg)}
 .more .sub{margin-top:9px}
+
+.shot{display:block;width:100%;max-width:100%;margin:16px auto 0;border-radius:12px;
+  box-shadow:0 1px 3px rgba(0,0,0,.06),0 6px 20px rgba(0,0,0,.05)}
+
+/* ── 랜딩 개념도 (2026-09 개편) ── */
+.hero{display:flex;gap:44px;align-items:center;max-width:none}
+.hero .d-hl{flex:1;min-width:0;max-width:640px}
+.hero .d-hr{width:346px;flex:none;display:flex;align-items:center;gap:12px}
+.d-orgs{flex:1;display:flex;flex-direction:column;gap:5px}
+.d-org{background:#fff;border-radius:8px;padding:8px 10px;font-size:11.5px;color:var(--ink-2);
+  box-shadow:var(--sh);display:flex;justify-content:space-between;gap:8px}
+.d-org i{font-style:normal;color:#C3CBD4;font-size:10.5px;white-space:nowrap}
+.d-arw{font-size:18px;color:#C3CBD4;flex:none}
+.d-one{width:118px;flex:none;background:var(--go);border-radius:14px;padding:16px 12px;
+  text-align:center;color:#fff;box-shadow:0 10px 26px rgba(27,100,218,.26)}
+.d-one .t{font-size:15px;font-weight:800;letter-spacing:-.03em}
+.d-one .v{font-size:11px;color:#CFE2FF;line-height:1.7;margin-top:6px}
+/* ── 개념도 공통 ── */
+.dia{margin-top:24px;background:#F7F9FB;border-radius:16px;padding:26px 24px}
+.d-flow{display:flex;align-items:center;gap:16px}
+.d-ar{font-size:20px;color:#C3CBD4;flex:none}
+.d-col{flex:1}
+.d-ttl{font-size:11.5px;font-weight:700;color:#8B95A1;letter-spacing:.02em;margin-bottom:9px}
+.d-chips{display:flex;flex-wrap:wrap;gap:5px}
+.d-chip{background:#fff;border-radius:7px;padding:6px 9px;font-size:12px;color:#4E5968;
+ box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.d-me{background:#1B64DA;border-radius:12px;padding:15px 14px;color:#fff;text-align:center}
+.d-me .t{font-size:14px;font-weight:800;letter-spacing:-.03em;margin-bottom:7px}
+.d-me .v{font-size:11.5px;line-height:1.75;color:#CFE2FF}
+.d-bins{display:flex;flex-direction:column;gap:6px}
+.d-bin{display:flex;align-items:center;gap:9px;background:#fff;border-radius:8px;padding:9px 11px;
+ box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.d-bin .n{font-size:17px;font-weight:800;letter-spacing:-.03em;width:32px;text-align:right}
+.d-bin .l{font-size:12.5px;color:#4E5968;flex:1}
+.d-bin.a .n{color:#1B64DA}.d-bin.b .n{color:#C2410C}.d-bin.c .n{color:#6D3BEB}
+.d-bin.d .n{color:#E5343D}.d-bin.e .n{color:#8B95A1}.d-bin.e .l{color:#8B95A1}
+
+/* 근거 개념도 */
+.d-judge{display:flex;gap:16px;align-items:stretch}
+.d-jl{flex:1.15;background:#fff;border-radius:12px;padding:17px 16px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.d-jr{flex:1;background:#fff;border-radius:12px;padding:17px 16px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.d-jh{font-size:11.5px;font-weight:700;color:#8B95A1;margin-bottom:11px;letter-spacing:.02em}
+.d-cond{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid #F2F4F6;font-size:13px}
+.d-cond:last-of-type{border:0}
+.d-cond .k{color:#8B95A1;width:52px;flex:none;font-size:12px}
+.d-cond .v{color:#191F28;flex:1;letter-spacing:-.02em}
+.d-cond .m{font-weight:800;font-size:14px}
+.d-ok{color:#1B64DA}.d-no{color:#E5343D}
+.d-verd{margin-top:11px;background:#E8F3FF;border-radius:9px;padding:11px 12px}
+.d-verd .a{font-size:14px;font-weight:800;color:#1B64DA;letter-spacing:-.03em}
+.d-verd .b{font-size:12px;color:#4E5968;margin-top:3px;line-height:1.55}
+.d-quote{font-size:12.5px;line-height:1.75;color:#191F28;letter-spacing:-.02em;
+ border-left:3px solid #1B64DA;padding-left:11px}
+.d-src{font-size:11.5px;color:#8B95A1;margin-top:10px;padding-top:9px;border-top:1px solid #F2F4F6;line-height:1.6}
+
+/* 제출 비교 */
+.d-cmp{display:flex;flex-direction:column;gap:11px}
+.d-lane{background:#fff;border-radius:12px;padding:15px 16px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.d-lane.on{background:#E8F3FF;box-shadow:none}
+.d-lh{font-size:12.5px;font-weight:800;letter-spacing:-.03em;margin-bottom:11px;color:#8B95A1}
+.d-lane.on .d-lh{color:#1B64DA}
+.d-stops{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.d-stop{background:#F2F4F6;border-radius:8px;padding:8px 10px;font-size:12px;color:#4E5968;text-align:center}
+.d-stop i{display:block;font-style:normal;font-size:10.5px;color:#8B95A1;margin-top:2px}
+.d-lane.on .d-stop{background:#fff}
+.d-sep{color:#C3CBD4;font-size:13px}
+.d-lane .d-note{font-size:12px;color:#8B95A1;margin-top:10px}
+.d-lane.on .d-note{color:#1B64DA;font-weight:600}
+
+/* 타임라인 */
+.d-tl{margin-top:26px;position:relative;padding:34px 0 8px}
+.d-tl .d-line{position:absolute;left:0;right:0;top:46px;height:3px;background:#E5E8EB;border-radius:2px}
+.d-tl .d-fill{position:absolute;left:0;width:12%;top:46px;height:3px;background:#1B64DA;border-radius:2px}
+.d-tl .d-row{display:flex;position:relative}
+.d-tl .p{flex:1;text-align:center}
+.d-tl .d-dot{width:13px;height:13px;border-radius:50%;margin:0 auto;border:3px solid #fff;
+ box-shadow:0 0 0 2px #E5E8EB;background:#E5E8EB}
+.d-tl .p.on .d-dot{background:#1B64DA;box-shadow:0 0 0 2px #1B64DA}
+.d-tl .p.warn .d-dot{background:#C2410C;box-shadow:0 0 0 2px #C2410C}
+.d-tl .p.purple .d-dot{background:#6D3BEB;box-shadow:0 0 0 2px #6D3BEB}
+.d-tl .w{font-size:12px;color:#8B95A1;margin-bottom:9px;font-weight:600}
+.d-tl .t{font-size:14px;font-weight:800;letter-spacing:-.03em;margin-top:11px}
+.d-tl .d{font-size:12.3px;color:#4E5968;line-height:1.55;margin:4px 0 7px;padding:0 6px}
+
+/* 기기 vs 서버 */
+.d-split{display:flex;gap:14px;align-items:stretch;margin-top:24px}
+.d-bx{flex:1;border-radius:14px;padding:19px 18px;background:#F7F9FB}
+.d-bx.d-mine{background:#E8F3FF;box-shadow:0 0 0 1.5px #1B64DA inset}
+.d-bx .h{font-size:11.5px;font-weight:700;color:#8B95A1;letter-spacing:.02em;margin-bottom:3px}
+.d-bx.d-mine .h{color:#1B64DA}
+.d-bx .n{font-size:17px;font-weight:800;letter-spacing:-.035em;margin-bottom:11px}
+.d-bx li{list-style:none;font-size:13px;color:#4E5968;line-height:1.95;letter-spacing:-.02em}
+.d-bx li::before{content:'·';margin-right:7px;color:#8B95A1}
+.d-bx .f{font-size:12px;color:#8B95A1;margin-top:11px;padding-top:10px;border-top:1px solid rgba(0,0,0,.06);line-height:1.55}
+.d-mid{width:112px;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+.d-mid .d-lb{font-size:11.5px;color:#8B95A1;text-align:center;line-height:1.45}
+
+
+@media(max-width:760px){
+  .hero{flex-direction:column;gap:26px} .hero .d-hr{width:100%}
+  .d-flow,.d-judge,.d-split{flex-direction:column} .d-flow .d-ar{transform:rotate(90deg)}
+  .d-mid{width:auto;flex-direction:row;gap:9px;padding:4px 0}
+  .d-stops{flex-direction:column;align-items:stretch} .d-stops .d-sep{transform:rotate(90deg);text-align:center}
+  .d-tl .d-row{flex-direction:column;gap:20px} .d-tl .d-line,.d-tl .d-fill{display:none}
+}
 </style>
 <style>
 .acc{border:none;border-radius:var(--r-lg);background:var(--card);margin-bottom:9px;overflow:hidden;box-shadow:var(--sh)}
@@ -499,6 +604,103 @@ h2.sec:first-child{margin-top:0}
 .more>summary::after{content:'›';transform:rotate(90deg);display:inline-block;font-size:15px}
 .more[open]>summary::after{transform:rotate(-90deg)}
 .more .sub{margin-top:9px}
+
+.shot{display:block;width:100%;max-width:100%;margin:16px auto 0;border-radius:12px;
+  box-shadow:0 1px 3px rgba(0,0,0,.06),0 6px 20px rgba(0,0,0,.05)}
+
+/* ── 랜딩 개념도 (2026-09 개편) ── */
+.hero .hl{flex:1}
+.hero .hr{width:262px;flex:none}
+.hero .hr img{width:100%;border-radius:20px;
+  box-shadow:0 2px 6px rgba(0,0,0,.06),0 18px 46px rgba(0,0,0,.10)}
+/* ── 개념도 공통 ── */
+.dia{margin-top:24px;background:#F7F9FB;border-radius:16px;padding:26px 24px}
+.flow{display:flex;align-items:center;gap:16px}
+.ar{font-size:20px;color:#C3CBD4;flex:none}
+.col{flex:1}
+.ttl{font-size:11.5px;font-weight:700;color:#8B95A1;letter-spacing:.02em;margin-bottom:9px}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{background:#fff;border-radius:7px;padding:6px 9px;font-size:12px;color:#4E5968;
+ box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.me{background:#1B64DA;border-radius:12px;padding:15px 14px;color:#fff;text-align:center}
+.me .t{font-size:14px;font-weight:800;letter-spacing:-.03em;margin-bottom:7px}
+.me .v{font-size:11.5px;line-height:1.75;color:#CFE2FF}
+.bins{display:flex;flex-direction:column;gap:6px}
+.bin{display:flex;align-items:center;gap:9px;background:#fff;border-radius:8px;padding:9px 11px;
+ box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.bin .n{font-size:17px;font-weight:800;letter-spacing:-.03em;width:32px;text-align:right}
+.bin .l{font-size:12.5px;color:#4E5968;flex:1}
+.bin.a .n{color:#1B64DA}.bin.b .n{color:#C2410C}.bin.c .n{color:#6D3BEB}
+.bin.d .n{color:#E5343D}.bin.e .n{color:#8B95A1}.bin.e .l{color:#8B95A1}
+
+/* 근거 개념도 */
+.judge{display:flex;gap:16px;align-items:stretch}
+.jl{flex:1.15;background:#fff;border-radius:12px;padding:17px 16px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.jr{flex:1;background:#fff;border-radius:12px;padding:17px 16px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.jh{font-size:11.5px;font-weight:700;color:#8B95A1;margin-bottom:11px;letter-spacing:.02em}
+.cond{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid #F2F4F6;font-size:13px}
+.cond:last-of-type{border:0}
+.cond .k{color:#8B95A1;width:52px;flex:none;font-size:12px}
+.cond .v{color:#191F28;flex:1;letter-spacing:-.02em}
+.cond .m{font-weight:800;font-size:14px}
+.ok{color:#1B64DA}.no{color:#E5343D}
+.verd{margin-top:11px;background:#E8F3FF;border-radius:9px;padding:11px 12px}
+.verd .a{font-size:14px;font-weight:800;color:#1B64DA;letter-spacing:-.03em}
+.verd .b{font-size:12px;color:#4E5968;margin-top:3px;line-height:1.55}
+.quote{font-size:12.5px;line-height:1.75;color:#191F28;letter-spacing:-.02em;
+ border-left:3px solid #1B64DA;padding-left:11px}
+.src{font-size:11.5px;color:#8B95A1;margin-top:10px;padding-top:9px;border-top:1px solid #F2F4F6;line-height:1.6}
+
+/* 제출 비교 */
+.cmp{display:flex;flex-direction:column;gap:11px}
+.lane{background:#fff;border-radius:12px;padding:15px 16px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.lane.on{background:#E8F3FF;box-shadow:none}
+.lh{font-size:12.5px;font-weight:800;letter-spacing:-.03em;margin-bottom:11px;color:#8B95A1}
+.lane.on .lh{color:#1B64DA}
+.stops{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.stop{background:#F2F4F6;border-radius:8px;padding:8px 10px;font-size:12px;color:#4E5968;text-align:center}
+.stop i{display:block;font-style:normal;font-size:10.5px;color:#8B95A1;margin-top:2px}
+.lane.on .stop{background:#fff}
+.sep{color:#C3CBD4;font-size:13px}
+.lane .note{font-size:12px;color:#8B95A1;margin-top:10px}
+.lane.on .note{color:#1B64DA;font-weight:600}
+
+/* 타임라인 */
+.tl{margin-top:26px;position:relative;padding:34px 0 8px}
+.tl .line{position:absolute;left:0;right:0;top:46px;height:3px;background:#E5E8EB;border-radius:2px}
+.tl .fill{position:absolute;left:0;width:12%;top:46px;height:3px;background:#1B64DA;border-radius:2px}
+.tl .row{display:flex;position:relative}
+.tl .p{flex:1;text-align:center}
+.tl .dot{width:13px;height:13px;border-radius:50%;margin:0 auto;border:3px solid #fff;
+ box-shadow:0 0 0 2px #E5E8EB;background:#E5E8EB}
+.tl .p.on .dot{background:#1B64DA;box-shadow:0 0 0 2px #1B64DA}
+.tl .p.warn .dot{background:#C2410C;box-shadow:0 0 0 2px #C2410C}
+.tl .p.purple .dot{background:#6D3BEB;box-shadow:0 0 0 2px #6D3BEB}
+.tl .w{font-size:12px;color:#8B95A1;margin-bottom:9px;font-weight:600}
+.tl .t{font-size:14px;font-weight:800;letter-spacing:-.03em;margin-top:11px}
+.tl .d{font-size:12.3px;color:#4E5968;line-height:1.55;margin:4px 0 7px;padding:0 6px}
+
+/* 기기 vs 서버 */
+.split{display:flex;gap:14px;align-items:stretch;margin-top:24px}
+.bx{flex:1;border-radius:14px;padding:19px 18px;background:#F7F9FB}
+.bx.mine{background:#E8F3FF;box-shadow:0 0 0 1.5px #1B64DA inset}
+.bx .h{font-size:11.5px;font-weight:700;color:#8B95A1;letter-spacing:.02em;margin-bottom:3px}
+.bx.mine .h{color:#1B64DA}
+.bx .n{font-size:17px;font-weight:800;letter-spacing:-.035em;margin-bottom:11px}
+.bx li{list-style:none;font-size:13px;color:#4E5968;line-height:1.95;letter-spacing:-.02em}
+.bx li::before{content:'·';margin-right:7px;color:#8B95A1}
+.bx .f{font-size:12px;color:#8B95A1;margin-top:11px;padding-top:10px;border-top:1px solid rgba(0,0,0,.06);line-height:1.55}
+.mid{width:112px;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+.mid .lb{font-size:11.5px;color:#8B95A1;text-align:center;line-height:1.45}
+
+
+@media(max-width:760px){
+  .hero{flex-direction:column;gap:26px} .hero .hr{width:210px}
+  .flow,.judge,.split{flex-direction:column} .flow .ar{transform:rotate(90deg)}
+  .mid{width:auto;flex-direction:row;gap:9px;padding:4px 0}
+  .stops{flex-direction:column;align-items:stretch} .stops .sep{transform:rotate(90deg);text-align:center}
+  .tl .row{flex-direction:column;gap:20px} .tl .line,.tl .fill{display:none}
+}
 </style>
 <div id="landing">
   <header class="lp-top"><div class="wrap in">
@@ -507,12 +709,27 @@ h2.sec:first-child{margin-top:0}
   </div></header>
   <div class="wrap">
     <section class="hero">
+      <div class="d-hl">
       <h1>받을 수 있는데<br>몰라서 못 받는 것들을<br><em>빠짐없이</em> 찾아드립니다</h1>
-      <p>창업, 실직, 출산, 상속. 인생에 무슨 일이 생기면 행정을 만납니다.
-         그때 <b>받을 수 있는 것과 해야 할 것 전부</b>를 한 번에 판정합니다.</p>
+      <p>제도는 만드는 쪽 기준으로 쪼개져 있습니다.
+         <b>사람은 한 명인데 창구는 수십 곳입니다.</b></p>
       <div class="cta">
         <button class="btn btn-fill btn-lg start">내 자격 확인하기</button>
-        <a class="btn btn-lg" href="#why">왜 필요한가요</a>
+        <a class="btn btn-lg" href="#why">어떻게 되는지 보기</a>
+      </div></div>
+      <div class="d-hr" aria-label="기관마다 흩어진 제도를 한 사람 기준으로 모읍니다">
+        <div class="d-orgs">
+          <div class="d-org"><span>고용노동부</span><i>실업급여</i></div>
+          <div class="d-org"><span>보건복지부</span><i>기초연금</i></div>
+          <div class="d-org"><span>국세청</span><i>근로장려금</i></div>
+          <div class="d-org"><span>중소벤처기업부</span><i>창업패키지</i></div>
+          <div class="d-org"><span>LH · SH</span><i>공공임대</i></div>
+          <div class="d-org"><span>신용회복위원회</span><i>채무조정</i></div>
+          <div class="d-org"><span>시 · 군 · 구</span><i>지자체 제도</i></div>
+        </div>
+        <div class="d-arw">▶</div>
+        <div class="d-one"><div class="t">한 사람</div>
+          <div class="v">나이 · 소득<br>업력 · 업종<br>가구원 · 주거</div></div>
       </div>
     </section>
   </div>
@@ -534,8 +751,127 @@ h2.sec:first-child{margin-top:0}
       </div>
     </section>
     <section class="sect">
-      <h2>왜 지금까지 없었나</h2>
-      <p class="sub">아무도 안 만든 것이 아닙니다. 다들 만들었는데, 각자 구조적으로 못 하는 자리가 있습니다.</p>
+      <h2>해당되는 것을 전부 찾아냅니다</h2>
+    <p class="sub">15개 분야 101건을 <b>한 건씩</b> 내 조건에 맞춰봅니다.
+      받을 수 있는 것만이 아니라 <b>확인이 필요한 것, 판정할 수 없는 것, 이미 놓친 것</b>까지 나눕니다.</p>
+    <div class="dia"><div class="d-flow">
+      <div class="d-col"><div class="d-ttl">제도 101건 · 15개 분야</div>
+        <div class="d-chips">
+          <span class="d-chip">고용</span><span class="d-chip">복지</span><span class="d-chip">주거</span>
+          <span class="d-chip">창업</span><span class="d-chip">정책자금</span><span class="d-chip">세금·환급</span>
+          <span class="d-chip">채무조정</span><span class="d-chip">의료</span><span class="d-chip">교육</span>
+          <span class="d-chip">돌봄</span><span class="d-chip">교통</span><span class="d-chip">농림</span>
+          <span class="d-chip">지식재산</span><span class="d-chip">상속</span><span class="d-chip">민원</span></div></div>
+      <div class="d-ar">▶</div>
+      <div class="d-col" style="flex:.72"><div class="d-ttl">내 조건</div>
+        <div class="d-me"><div class="t">한 사람</div>
+          <div class="v">만 36세 · 인천<br>개인사업자 · 음식점업<br>중위소득 112% · 자녀 1명<br>무주택 · 연체 없음</div></div></div>
+      <div class="d-ar">▶</div>
+      <div class="d-col"><div class="d-ttl">판정 결과</div>
+        <div class="d-bins">
+          <div class="d-bin a"><span class="n">25</span><span class="l">받을 수 있는 것</span><span class="tag t-go">가능</span></div>
+          <div class="d-bin b"><span class="n">8</span><span class="l">확인이 필요한 것</span><span class="tag t-warn">확인</span></div>
+          <div class="d-bin c"><span class="n">3</span><span class="l">판정할 수 없는 것</span><span class="tag t-logic">모름</span></div>
+          <div class="d-bin d"><span class="n">3</span><span class="l">이미 놓친 것</span><span class="tag t-stop">놓침</span></div>
+          <div class="d-bin e"><span class="n">62</span><span class="l">자격 미달</span><span class="tag t-mute">미달</span></div></div></div>
+    </div></div>
+    </section>
+
+    <section class="sect">
+      <h2>왜 되는지, 왜 안 되는지 그 자리에서 보여드립니다</h2>
+    <p class="sub">요건을 하나씩 내 값과 맞춰본 결과를 그대로 펼칩니다.
+      그리고 그 판단의 근거가 된 <b>기관 자료의 문장을 원문 그대로</b> 붙입니다.
+      출처와 확인 날짜가 있으니 저희 말을 믿지 않으셔도 됩니다.</p>
+    <div class="dia"><div class="d-judge">
+      <div class="d-jl"><div class="d-jh">요건 대조</div>
+        <div class="d-cond"><span class="k">나이</span><span class="v">만 36세 — 만 39세 이하</span><span class="m d-ok">✓</span></div>
+        <div class="d-cond"><span class="k">업력</span><span class="v">3년 2개월 — 7년 미만</span><span class="m d-ok">✓</span></div>
+        <div class="d-cond"><span class="k">업종</span><span class="v">음식점업 — 제외 업종 아님</span><span class="m d-ok">✓</span></div>
+        <div class="d-cond"><span class="k">소득</span><span class="v">중위 112% — 100% 이하</span><span class="m d-no">✗</span></div>
+        <div class="d-verd"><div class="a">세 가지는 맞고 하나가 걸립니다</div>
+          <div class="b">소득 요건만 넘으면 신청할 수 있습니다. 가구원 수가 늘면 기준선도 올라갑니다.</div></div></div>
+      <div class="d-jr"><div class="d-jh">이 판단의 근거</div>
+        <div class="d-quote">가구원 수별 기준 중위소득 100% 이하인 가구.
+          가구원 수 산정은 주민등록표상 세대를 기준으로 한다.</div>
+        <div class="d-src">보건복지부 · 2026년 기준 중위소득 고시<br>
+          확인 2026-09-13 · 원문 링크 · 읽은 내용 5줄</div></div>
+    </div></div>
+    </section>
+
+    <section class="sect">
+      <h2>신청도 여기서 끝납니다</h2>
+    <p class="sub">기관마다 창구가 달라서 지금은 사이트를 옮겨 다니며 같은 서류를 몇 번씩 냅니다.
+      저희는 <b>한 곳에서 한 번</b>에 끝냅니다.</p>
+    <div class="dia"><div class="d-cmp">
+      <div class="d-lane"><div class="d-lh">지금</div>
+        <div class="d-stops">
+          <span class="d-stop">정부24<i>로그인 · 서류 발급</i></span><span class="d-sep">▶</span>
+          <span class="d-stop">홈택스<i>로그인 · 증명 발급</i></span><span class="d-sep">▶</span>
+          <span class="d-stop">건강보험공단<i>로그인 · 신청</i></span><span class="d-sep">▶</span>
+          <span class="d-stop">고용24<i>로그인 · 신청</i></span><span class="d-sep">▶</span>
+          <span class="d-stop">은행 창구<i>방문 · 접수</i></span></div>
+        <div class="d-note">같은 서류를 다섯 번 냅니다. 한 군데서 막히면 처음부터 다시 합니다.</div></div>
+      <div class="d-lane on"><div class="d-lh">빠짐없이</div>
+        <div class="d-stops">
+          <span class="d-stop">한 번 연결<i>공공 마이데이터 · 홈택스</i></span><span class="d-sep">▶</span>
+          <span class="d-stop">서류 자동 채움<i>발급까지 대신</i></span><span class="d-sep">▶</span>
+          <span class="d-stop">간편인증 한 번<i>본인 확인이 필요한 건만</i></span><span class="d-sep">▶</span>
+          <span class="d-stop">제출<i>기관별로 알아서</i></span></div>
+        <div class="d-note">다른 사이트로 옮겨 다니실 일이 없습니다. 접수번호와 결과는 알려드립니다.</div></div>
+    </div></div>
+    </section>
+
+    <section class="sect">
+      <h2>한 번 연결하면 계속 봅니다</h2>
+      <p class="sub">제도는 해마다 새로 생기고 금액과 요건이 바뀝니다. 내 쪽도 나이를 먹고, 취업하고,
+        사업자를 내고, 아이가 태어납니다. <b>새로 열린 것과 곧 닫히는 것을 그때그때 알려드립니다.</b></p>
+      <div class="d-tl">
+    <div class="d-line"></div><div class="d-fill"></div>
+    <div class="d-row">
+      <div class="p on"><div class="w">오늘</div><div class="d-dot"></div>
+        <div class="t">25건 가능</div><div class="d">지금 받을 수 있는 것</div>
+        <span class="tag t-go">판정 완료</span></div>
+      <div class="p purple"><div class="w">사업자 등록 전</div><div class="d-dot"></div>
+        <div class="t">순서가 있습니다</div><div class="d">등록하면 못 받게 되는 것이 있습니다</div>
+        <span class="tag t-logic">행정설계</span></div>
+      <div class="p warn"><div class="w">4개월 뒤</div><div class="d-dot"></div>
+        <div class="t">운전면허 갱신</div><div class="d">기한이 지나면 과태료</div>
+        <span class="tag t-warn">마감 알림</span></div>
+      <div class="p warn"><div class="w">4년 뒤</div><div class="d-dot"></div>
+        <div class="t">청년 대상 사업</div><div class="d">만 40세가 되면 닫힙니다</div>
+        <span class="tag t-warn">자격 소멸</span></div>
+    </div>
+  </div>
+    </section>
+
+    <section class="sect">
+      <h2>내 정보는 내 폰에 있습니다</h2>
+      <p class="sub">"내 소득과 신용을 누가 갖고 있느냐"가 가장 먼저 걱정되는 부분입니다.
+        저희는 그걸 <b>갖지 않는 쪽</b>으로 만들었습니다.</p>
+      <div class="d-split">
+    <div class="d-bx d-mine"><div class="h">내 기기</div><div class="n">판정에 쓰는 것 전부</div>
+      <ul><li>소득 · 신용점수 · 연체 · 상환 부담</li><li>가족 관계와 자녀</li>
+        <li>사업자등록 · 매출 · 업종</li><li>주거 형태와 보증금</li><li>답하신 계획과 체크한 준비물</li></ul>
+      <div class="f">규칙을 내려받아 기기 안에서 계산합니다</div></div>
+    <div class="d-mid"><div style="font-size:19px;color:#8B95A1">◀</div>
+      <div class="d-lb">규칙만 내려옵니다<br>내 정보는 올라가지 않습니다</div></div>
+    <div class="d-bx"><div class="h">저희 서버</div><div class="n">누구에게나 같은 것</div>
+      <ul><li>나이 · 소득 · 업력 요건과 금액</li><li>공고와 마감일</li>
+        <li>출처와 거기서 읽은 문장</li></ul>
+      <div class="f">개인정보가 아닙니다. 계정과 알림 시각만 따로 둡니다</div></div>
+  </div>
+      <p class="sub" style="margin-top:16px">판정은 규칙을 내려받아 <b>기기 안에서</b> 계산합니다.
+        그래서 저희 서버는 <b>당신이 누구인지는 알아도, 어떤 상태인지는 모릅니다.</b></p>
+      <details class="more"><summary>알림과 기기 변경은 어떻게 되나요</summary>
+        <p class="sub">알림은 <b>"이 날짜에 깨워달라"</b>만 등록합니다. 문자에는 "확인하실 것이 있습니다" 한 줄만 담기고,
+        무엇이 걸렸는지는 앱을 여는 순간 기기가 계산합니다.
+        다른 기기에서도 쓰시려면 <b>암호화 백업</b>을 켜실 수 있습니다 —
+        기기에서 잠근 뒤 올리기 때문에 저희는 열어볼 수 없고, 비밀번호를 잃으면 복구도 해 드릴 수 없습니다.</p></details>
+    </section>
+
+    <section class="sect" style="border:0">
+      <details class="more"><summary>이렇게 좋은 게 왜 아직 없었을까</summary>
+<p class="sub">아무도 안 만든 것이 아닙니다. 다들 만들었는데, 각자 구조적으로 못 하는 자리가 있습니다.</p>
       <div class="cases">
         <div class="case"><div class="q">정부 포털</div>
           <div class="b">보조금24 · 복지멤버십. 데이터 접근은 가장 강합니다.</div>
@@ -558,63 +894,9 @@ h2.sec:first-child{margin-top:0}
       <details class="more"><summary>그럼 여기는 AI를 어떻게 쓰나요</summary>
         <p class="sub">답을 짓게 두지 않습니다. 공고문을 읽어 규칙으로 옮기는 데까지만 쓰고,
         <b>판정은 그 규칙으로 계산한 뒤 읽은 문장을 그대로 붙여</b> 보여드립니다.</p></details>
-    </section>
-    <section class="sect">
-      <h2>내 정보는 내 폰에 있습니다</h2>
-      <p class="sub">"내 소득과 신용을 누가 갖고 있느냐"가 가장 먼저 걱정되는 부분입니다.
-        저희는 그걸 <b>갖지 않는 쪽</b>으로 만들었습니다.</p>
-      <div class="vs">
-        <div class="col"><h3>서버 · 계정</h3><ul>
-          <li>이메일 — 로그인과 결과 통지</li>
-          <li>휴대전화 — 마감 임박 문자</li>
-          <li>가입일과 연결한 기기 목록</li>
-          <li>연락할 수단이 없으면 마감 전에 알릴 방법도 없습니다</li></ul></div>
-        <div class="col me"><h3>이 기기 · 판정 데이터</h3><ul>
-          <li>소득 · 신용점수 · 연체 · 상환 부담</li>
-          <li>가족 관계와 자녀</li>
-          <li>사업자등록 · 매출 · 업종</li>
-          <li>주거 형태와 보증금 · 건강 관련 항목</li>
-          <li>답하신 계획과 체크한 준비물</li></ul></div>
-        <div class="col"><h3>서버 · 제도 규칙</h3><ul>
-          <li>나이·소득·업력 요건과 금액</li>
-          <li>공고와 마감일</li>
-          <li>출처와 거기서 읽은 문장</li>
-          <li>누구에게나 같은 내용이라 개인정보가 아닙니다</li></ul></div>
-      </div>
-      <p class="sub" style="margin-top:16px">판정은 규칙을 내려받아 <b>기기 안에서</b> 계산합니다.
-        그래서 저희 서버는 <b>당신이 누구인지는 알아도, 어떤 상태인지는 모릅니다.</b></p>
-      <details class="more"><summary>알림과 기기 변경은 어떻게 되나요</summary>
-        <p class="sub">알림은 <b>"이 날짜에 깨워달라"</b>만 등록합니다. 문자에는 "확인하실 것이 있습니다" 한 줄만 담기고,
-        무엇이 걸렸는지는 앱을 여는 순간 기기가 계산합니다.
-        다른 기기에서도 쓰시려면 <b>암호화 백업</b>을 켜실 수 있습니다 —
-        기기에서 잠근 뒤 올리기 때문에 저희는 열어볼 수 없고, 비밀번호를 잃으면 복구도 해 드릴 수 없습니다.</p></details>
-    </section>
-    <section class="sect">
-      <h2>혼자 할 수 있는 데까지는 전부 무료입니다</h2>
-      <p class="sub">원칙은 하나입니다. 앱으로 혼자 끝낼 수 있는 일에는 값을 붙이지 않습니다.
-        자격 판정과 그 근거, 상시 트래킹, 준비물, 절차, 서류 채우기, 제출, 마감 알림까지입니다.</p>
-      <div class="vs">
-        <div class="col me"><h3>무료입니다</h3><ul>
-          <li>자격 판정과 그 근거 — 읽은 문장까지 그대로</li>
-          <li>준비물과 절차, 신청서 초안</li>
-          <li>연동으로 채워지는 건은 제출까지</li>
-          <li>마감과 자격 소멸 전 알림</li>
-          <li>무엇을 먼저 해야 무엇이 열리는지 — 요건의 선후로 짠 순서</li>
-          <li>정책자금 · 환급 · 복지 — 글을 고쳐서 바뀌는 것이 없는 영역 전부</li></ul></div>
-        <div class="col"><h3>전문가 광고만 있습니다</h3><ul>
-          <li>사업계획서 · R&amp;D 과제계획서 · 특허 명세서 — 글이 심사 대상인 건에 한해</li>
-          <li>저희가 섭외하지 않습니다. 광고로만 노출합니다</li>
-          <li>정액 광고료만 받고 성공보수도 연결 수수료도 없습니다</li>
-          <li>맡기시든 아니든 저희 수입은 같습니다</li></ul></div>
-      </div>
-      <p class="sub" style="margin-top:18px"><b>차이는 하나입니다. 지금은 몰라서 맡기고, 여기서는 알고 맡깁니다.</b>
-        저희가 없애려는 것은 대행이 아니라 <b>몰라서 맡기는 일</b>입니다.</p>
-      <details class="more"><summary>그래도 맡기고 싶은 분은요</summary>
-        <p class="sub">전부 무료로 깔아놔도 맡기고 싶은 분은 남습니다. 없애야 할 수요가 아니라 이미 있는 수요입니다.
-        다만 저희는 그 일을 대신 하지 않고 <b>유자격 전문가를 광고로 보여드리는 데까지만</b> 합니다.
-        정책자금이 보증료 말고는 비용이 들지 않는다는 것도 먼저 알려드립니다 —
-        중소벤처기업부가 2026년 1월 신고포상제와 과태료, 컨설팅 등록제를 함께 내놓은 것도 같은 문제 때문입니다.</p></details>
-      <button class="btn btn-fill btn-lg start">내 자격 확인하기</button>
+      </details>
+      <p class="sub" style="margin-top:20px;color:var(--ink-3)">판정과 신청에는 값을 받지 않습니다.
+        저희 수익은 사업계획서·특허 명세서처럼 글이 심사 대상인 영역의 <b>전문가 광고</b>입니다.</p>
     </section>
   </div>
   <footer class="lp-foot"><div class="wrap">빠짐없이 · 개발 중인 프로토타입입니다. 제도 수치는 기관 자료에서 직접 확인한 것이지만, 화면의 개인 정보는 예시이며 일부 항목은 실제와 다를 수 있습니다.
