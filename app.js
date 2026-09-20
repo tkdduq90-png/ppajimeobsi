@@ -407,9 +407,10 @@ function drawOb(){ const ob=$('ob-body');
 
   if(S.ob===1){
     ob.innerHTML=`<h2>정보를 가져오는 중입니다</h2>
-    <p class="sub">한 번만 인증하면 <b>연결 가능한 모든 곳을 조회</b>합니다. 이후에는 배경에서 갱신됩니다.</p>
+    <p class="sub">간편인증 <b>한 번</b>이면 됩니다. 요청은 <b>아홉 곳에 동시에</b> 나가고,
+      기관 서버 사정에 따라 돌아오는 순서는 매번 다릅니다. 이후에는 배경에서 갱신됩니다.</p>
     <div class="scanhead" style="margin-bottom:10px">
-      <div><b>연결 가능한 곳</b><div class="s">인증 한 번으로 아래 전부를 조회합니다</div></div>
+      <div><b>연결 가능한 곳</b><div class="s" id="conn-auth">간편인증 진행 중</div></div>
       <div class="num" id="conn-count">0 / ${SRC_ALL.length}곳</div></div>
     <div class="card pad" id="conn-list">
       ${SRC_ALL.map((x,i)=>`<div class="conn" data-i="${i}"><span class="dot"></span>
@@ -442,31 +443,49 @@ function drawOb(){ const ob=$('ob-body');
 
 }
 
-/* 연동 · 기관마다 실제로 응답 속도가 다릅니다.
-   한 경로가 [인증 → 조회 → 수신] 세 단계를 밟고, 단계마다 상태 글자가 바뀝니다.
-   ms 는 SRC_ALL[4] 에 경로별로 적어 뒀습니다 — 다 같은 속도로 지나가면 가짜로 보입니다. */
-const CONN_PHASE=[['인증 중',0.28],['조회 중',0.50],['수신 중',0.22]];
+/* 연동 · 간편인증 한 번을 받고 아홉 곳에 동시에 요청을 던집니다.
+   실제로는 기관마다 서버 사정이 달라 같은 곳도 매번 응답이 다릅니다.
+   그래서 기본 응답 시간(SRC_ALL[4])에 매번 흔들림을 섞고, 가끔 재시도가 납니다.
+   끝나는 순서는 그때그때 달라집니다 — 고정된 순서로 떨어지면 연출로 보입니다. */
+/* PAD 는 경로마다 더 붙는 시간입니다. 기관 대기열에 들어가 기다리는 구간이라
+   경로별로 조금씩 달라야 합니다 — 똑같이 붙이면 전부 같이 밀려 보입니다. */
+const AUTH_MS=1600, MS_K=2.3, JIT=[0.62,1.55], RETRY_P=0.26, PAD=4000;
 function runConnect(){ const n=SRC_ALL.length, c=ctx(); let i=0;
+  const rnd=(lo,hi)=>lo+Math.random()*(hi-lo);
+  const q=k=>$('conn-list')?.querySelector(`.conn[data-i="${k}"]`);
   const setCount=()=>{ const e=$('conn-count'); if(e) e.textContent=`${i} / ${n}곳`; };
-  const done=k=>{ const L=$('conn-list'); if(!L) return;
-    const d=L.querySelector(`.conn[data-i="${k}"] .dot`), st=L.querySelector(`[data-st="${k}"]`),
-          g=L.querySelector(`[data-got="${k}"]`);
-    if(d)d.className='dot on'; if(st)st.textContent='완료';
-    if(g){ let t=''; try{ t=SRC_ALL[k][3](c); }catch(e){ t=''; } g.textContent=t; } };
-  const one=()=>{ const L=$('conn-list'); if(!L||S.scanStop) return;
-    if(i>=n){ setTimeout(()=>{ if(!S.scanStop){ S.ob=2; drawOb(); runScan(); } },900); return; }
-    const k=i, total=SRC_ALL[k][4]||1000;
-    const d=L.querySelector(`.conn[data-i="${k}"] .dot`);
-    if(d)d.className='dot load';
-    let ph=0;
-    const phase=()=>{ if(S.scanStop) return;
-      const st=$('conn-list')?.querySelector(`[data-st="${k}"]`);
-      if(!st) return;
-      if(ph<CONN_PHASE.length){ st.textContent=CONN_PHASE[ph][0];
-        setTimeout(phase, total*CONN_PHASE[ph][1]); ph++; }
-      else { done(k); i++; setCount(); setTimeout(one, 200); } };
-    phase(); };
-  setCount(); setTimeout(one,450); }
+  const st=(k,s,cls)=>{ const e=$('conn-list')?.querySelector(`[data-st="${k}"]`);
+    if(e){ e.textContent=s; e.style.color=cls||''; } };
+  const dot=(k,cl)=>{ const e=q(k)?.querySelector('.dot'); if(e) e.className='dot'+(cl?' '+cl:''); };
+  const note=s=>{ const e=$('conn-auth'); if(e) e.textContent=s; };
+  const done=k=>{ dot(k,'on'); st(k,'완료');
+    const g=$('conn-list')?.querySelector(`[data-got="${k}"]`);
+    if(g){ let v=''; try{ v=SRC_ALL[k][3](c); }catch(e){ v=''; } g.textContent=v; }
+    i++; setCount();
+    note(i>=n?'전부 받았습니다':`${n-i}곳 응답 대기 중`);
+    if(i>=n) setTimeout(()=>{ if(!S.scanStop){ S.ob=2; drawOb(); runScan(); } }, 800); };
+
+  /* 한 경로가 걷는 길 · 조회 → (가끔 재시도) → 수신 → 완료 */
+  const lane=k=>{ if(S.scanStop) return;
+    const base=(SRC_ALL[k][4]||1000)*MS_K*rnd(JIT[0],JIT[1]);
+    const retry=Math.random()<RETRY_P;
+    dot(k,'load'); st(k,'조회 중');
+    let at=base*rnd(0.34,0.55);
+    if(retry){
+      setTimeout(()=>{ if(!S.scanStop) st(k,'응답 지연 · 재시도', 'var(--warn)'); }, at);
+      at+=rnd(700,1600);
+      setTimeout(()=>{ if(!S.scanStop) st(k,'조회 중', ''); }, at);
+    }
+    at+=base*rnd(0.30,0.48)+PAD*rnd(0.82,1.18);
+    setTimeout(()=>{ if(!S.scanStop) st(k,'수신 중'); }, at);
+    at+=base*rnd(0.22,0.40);
+    setTimeout(()=>{ if(!S.scanStop) done(k); }, at); };
+
+  SRC_ALL.forEach((_,k)=>{ dot(k,''); st(k,'대기'); });
+  note('간편인증 진행 중'); setCount();
+  setTimeout(()=>{ if(S.scanStop) return;
+    note(`${n}곳에 동시 요청`);
+    SRC_ALL.forEach((_,k)=>lane(k)); }, AUTH_MS); }
 
 /* 대조 · 제도를 하나씩 판정하며 흘립니다 */
 /* 대상 제도 전체 규모. 한 사람에게 대조하면 대부분은 다른 지역·다른 대상이라
