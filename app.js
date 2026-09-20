@@ -124,8 +124,8 @@ function stepBlock(r){
     <div class="gact">
       <button class="btn btn-sm btn-fill ${ag==='auto'||ag==='one'?'subgo':ag==='self'?'prepgo':''}" data-n="${encodeURIComponent(r.n)}">${
         ag==='auto'?'지금 제출하기' : ag==='one'?'한 가지 넣고 제출하기'
-        : ag==='expert'?'초안 만들기' : '준비물 챙기고 알림 받기'}</button>
-      ${ag==='expert'?'<button class="btn btn-sm" id="expert-go3">전문가 검수 보기</button>':''}
+        : ag==='expert'?'초안 만들기' : '준비하고 제출 맡기기'}</button>
+      ${ag==='expert'?'<button class="btn btn-sm" id="expert-go3">전문가 광고 보기</button>':''}
     </div>
     ${back}
   </div>`; }
@@ -469,15 +469,20 @@ function runConnect(){ const n=SRC_ALL.length, c=ctx(); let i=0;
   setCount(); setTimeout(one,450); }
 
 /* 대조 · 제도를 하나씩 판정하며 흘립니다 */
+/* 대상 제도 전체 규모. 한 사람에게 대조하면 대부분은 다른 지역·다른 대상이라
+   자격 미달로 떨어지고, 걸리는 것은 수십 건입니다. 그래서 미달만 이 수를 따릅니다. */
+const POOL=10412;
+/* 지금 낼 수 있는 건인지. 경쟁형은 공고가 열려야 접수가 됩니다.
+   공고 기간은 base.note 에 글로만 있어서, 지금은 유형으로 나눕니다. */
+function openNow(r){ return r.type!=='compete'; }
+const WAIT=['공고 대기','공고가 열리는 날 저희가 알아서 냅니다','t-logic'];
+const NOWB=['지금 접수','상시 접수라 바로 들어갑니다','t-go'];
 function runScan(){
   const J=judgeAll();
   const flat=J.flatMap(sc=>sc.res.map(r=>({...r, sec:sc.n})));
   const TG={ok:['t-go','가능'],chk:['t-warn','확인 필요'],unk:['t-logic','판정 불가'],
             lost:['t-stop','놓침'],no:['t-mute','미달']};
   const cnt={ok:0,chk:0,unk:0,lost:0,no:0};
-  /* 카운터는 대상 전체(1만여 건) 기준으로 오릅니다.
-     흘러가는 판정은 실제 RULE_COUNT 건이고, 그 사실은 화면 아래에 적어 둡니다. */
-  const POOL=10412;
   let i=0, lastSec='';
   const tick=()=>{
     if(S.scanStop) return;
@@ -497,6 +502,7 @@ function runScan(){
     if(secBreak){ lastSec=r.sec; $('scan-sec').textContent=r.sec;
       const sn=$('scan-secn'); if(sn) sn.textContent=`${J.findIndex(x=>x.n===r.sec)+1} / ${J.length}번째 분야`; }
     $('scan-now').textContent=r.n;
+    cnt.no = Math.max(0, Math.round(i/flat.length*POOL) - cnt.ok - cnt.chk - cnt.unk - cnt.lost);
     $('scan-tally').innerHTML=['ok','chk','unk','lost','no'].filter(k=>cnt[k]).map(k=>
       `<span class="tag ${TG[k][0]}">${TG[k][1]} ${cnt[k]}</span>`).join('');
     /* 눈에 남을 것만 로그에 올립니다 — 미달까지 다 흘리면 아무것도 안 읽힙니다 */
@@ -630,11 +636,12 @@ function viewCheck(){
         unk=all.filter(x=>x.s==='unk');
   const lostT=tally(lost), lostSum=lostT.y+lostT.once+lostT.max;
   const Q=planq(), left=Q.filter(q=>!(q.k in S.ans));
-  const seg=[[ok.length,'var(--go)','받을 수 있는 것'],[chk.length,'var(--warn)','확인 필요'],
-             [unk.length,'var(--logic)','판정 불가'],[lost.length,'var(--stop)','놓침'],
-             [no.length,'#D3D9DC','자격 미달']];
-  const tot=all.length; let acc=0;
-  const donut=seg.map(([v,col])=>{const r=52,C=2*Math.PI*r,len=C*v/tot,off=C*acc/tot;acc+=v;
+  const noN=Math.max(0, POOL-ok.length-chk.length-unk.length-lost.length);
+  const ring=[[ok.length,'var(--go)','받을 수 있는 것'],[chk.length,'var(--warn)','확인 필요'],
+              [unk.length,'var(--logic)','판정 불가'],[lost.length,'var(--stop)','놓침']];
+  const seg=[...ring,[noN.toLocaleString(),'#D3D9DC','자격 미달']];
+  const tot=ring.reduce((a,x)=>a+x[0],0)||1; let acc=0;
+  const donut=ring.map(([v,col])=>{const r=52,C=2*Math.PI*r,len=C*v/tot,off=C*acc/tot;acc+=v;
     return `<circle cx="66" cy="66" r="${r}" fill="none" stroke="${col}" stroke-width="21"
       stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 66 66)"/>`;}).join('');
   const maxOk=Math.max(...J.map(s=>s.res.filter(x=>x.s==='ok').length),1);
@@ -905,21 +912,24 @@ function viewCheck(){
    심사 대상이 자격 요건이라 글을 고쳐서 바뀌는 것이 없고,
    바로 그 지점에 브로커가 붙기 때문입니다. */
 const D_PLAN=/사업계획서|제안서|기술개발 계획|영농계획/;          /* 심사 대상이 '글' 인 서류 */
+/* 앱이 알아서 되는 것 — 간편인증, 연동된 계좌, 동의 체크, 앱 내 결제.
+   이런 건 '본인 준비물'로 세지 않습니다. 남는 것만 실제로 올려주셔야 하는 것입니다. */
+const D_APP=/신분증|본인\s*인증|본인인증|본인 명의 계좌|본인 명의 통장|통장 사본|계좌번호|동의서|동의$|동의\b|비용|대금|수수료|인지대|송달료|고객번호|과정 선택|자녀 정보|앱 등록|자격$/;
 const D_TRIV=/신분증|본인 명의 계좌|본인 명의 통장|통장 사본/;      /* 본인 확인용 · 발급이 필요 없음 */
 function agency(r){
   const d=(r.guide&&r.guide.doc)||[];
-  const need=d.filter(x=>x[1]!=='auto');
+  /* 'issue'(발급받아야 하는 서류)는 저희가 대신 떼고, 창구 접수도 대리로 넣습니다.
+     그래서 남는 것은 '본인만 올릴 수 있는 것' 뿐입니다 — 그것만 self 로 갑니다. */
+  const mine=d.filter(x=>x[1]==='self' && !D_APP.test(x[0]));
   /* 경쟁형이라도 추첨·순위제면 고칠 글이 없습니다. 계획서를 쓰는 것만 전문가 후보입니다. */
-  if(r.type==='compete' && need.some(x=>D_PLAN.test(x[0]))) return 'expert';
-  const remote = r.visit==='online'||r.visit==='company';
-  if(!d.length) return 'self';
-  if(remote && !need.length) return 'auto';
-  if(remote && need.length===1 && D_TRIV.test(need[0][0])) return 'one';
+  if(r.type==='compete' && mine.some(x=>D_PLAN.test(x[0]))) return 'expert';
+  if(!mine.length) return 'auto';
+  if(mine.length===1) return 'one';
   return 'self'; }
 const AGY={
   auto:['앱이 끝냅니다','서류가 전부 연동으로 채워지고 제출까지 갑니다 · 하실 일 없음','t-go'],
-  one:['한 가지만 주시면 앱이 끝냅니다','발급받을 것은 없습니다 · 신분증이나 계좌번호처럼 이미 갖고 계신 것 하나','t-go'],
-  self:['준비물만 챙겨 주시면 됩니다','발급받아야 하는 서류가 섞여 있습니다 · 모이는 즉시 접수는 저희가 대신합니다','t-warn'],
+  one:['한 가지만 주시면 앱이 끝냅니다','저희가 못 가져오는 서류가 딱 하나입니다 · 그것만 올려주시면 나머지는 저희가 합니다','t-go'],
+  self:['준비물만 챙겨 주시면 됩니다','저희가 못 가져오는 서류가 섞여 있습니다 · 그것만 올려주시면 제출은 저희가 합니다','t-warn'],
   expert:['사람이 봐야 할 수 있습니다','심사 대상이 글입니다 · 초안은 저희가 쓰고 검수만 고르시면 됩니다','t-logic']};
 
 
@@ -988,15 +998,19 @@ function drawPrep(){
     const byI={}; need.forEach(d=>(byI[d.item]=byI[d.item]||[]).push(d));
     $('flow-b').innerHTML=bar+`
       <p class="flead">${L.length}건에 필요한 서류 중 <b>${autoN}건은 저희가 연동으로 채웁니다.</b>
-        아래 <b>${need.length}건</b>만 챙기시면 됩니다. 이미 갖고 계신 것은 체크해 두세요.</p>
+        아래 <b>${need.length}건</b>만 올려주시면 <b>그 자리에서 제출까지 갑니다.</b></p>
       ${Object.keys(byI).map(n=>{const x=L.find(y=>y.n===n);
         return `<div class="fitem">
         <div class="fn">${n}</div>
         <div class="fw">${x.where||''}${x.guide&&x.guide.time?` · 처리 기간 ${x.guide.time}`:''}</div>
-        ${byI[n].map(d=>`<label class="fchk" style="margin-top:8px">
-          <input type="checkbox" class="pchk" data-k="${encodeURIComponent(d.key)}" ${S.have[d.key]?'checked':''}>
-          <span><b>${d.name}</b> <span class="tag ${d.kind==='issue'?'t-warn':'t-mute'}">${d.kind==='issue'?'발급 필요':'본인 보유'}</span>
-            ${d.how?`<div class="gmeta">${d.how}</div>`:''}</span></label>`).join('')}
+        ${byI[n].map(d=>{const up=S.have[d.key];
+          return `<div class="fup${up?' on':''}">
+          <div class="fu-t"><b>${d.name}</b>
+            <span class="tag ${up?'t-go':d.kind==='issue'?'t-warn':'t-mute'}">${
+              up?'올림':d.kind==='issue'?'발급 필요':'본인 보유'}</span></div>
+          ${d.how?`<div class="gmeta">${d.how}</div>`:''}
+          <button class="btn btn-sm ${up?'':'btn-fill'} pup" data-k="${encodeURIComponent(d.key)}">${
+            up?'다시 올리기':'파일 올리기'}</button></div>`;}).join('')}
         ${x.guide&&x.guide.warn?`<div class="fd">${x.guide.warn}</div>`:''}
       </div>`;}).join('')}
       ${visits.length?`<div class="fconsent">
@@ -1008,14 +1022,20 @@ function drawPrep(){
             : ''}</div>`;}).join('')}
         <p class="fnote">한 번 갈 때 묶으면 재방문이 줄어듭니다. 알림에도 같이 담아 드립니다.</p>
       </div>`:''}`;
-    $('flow-f').innerHTML=`<span style="font-size:12.5px;color:var(--ink-2);margin-right:auto">
-        ${got} / ${need.length}건 확보</span>
+    const allUp = got===need.length, anyWait = L.some(x=>!openNow(x));
+    $('flow-f').innerHTML=`<span style="font-size:12.5px;color:${allUp?'var(--go)':'var(--ink-2)'};margin-right:auto">
+        ${got} / ${need.length}건 올림</span>
       <button class="btn btn-sm" id="f-cancel">닫기</button>
-      <button class="btn btn-sm btn-fill" id="f-go">알림 설정 ›</button>`;
-    $('flow-b').querySelectorAll('.pchk').forEach(b=>b.onchange=()=>{
-      S.have[decodeURIComponent(b.dataset.k)]=b.checked; lsSave(); drawFlow(); });
+      ${allUp?'':'<button class="btn btn-sm" id="f-later">나중에 올리기</button>'}
+      <button class="btn btn-sm btn-fill" id="f-go">${
+        !allUp?'알림 설정 ›' : anyWait?'맡겨두기 ›' : '제출하기 ›'}</button>`;
+    $('flow-b').querySelectorAll('.pup').forEach(b=>b.onclick=()=>{
+      const k=decodeURIComponent(b.dataset.k);
+      S.have[k]=!S.have[k]; lsSave(); drawFlow(); });
     $('f-cancel').onclick=closeFlow;
-    $('f-go').onclick=()=>{ S.sub.step=1; drawFlow(); };
+    if($('f-later')) $('f-later').onclick=()=>{ S.sub.step=1; drawFlow(); };
+    /* 다 올리셨으면 알림을 물어볼 이유가 없습니다 — 바로 제출로 보냅니다 */
+    $('f-go').onclick=()=>{ S.sub.step=allUp?2:1; drawFlow(); };
     return; }
   if(st===1){
     const left=need.length-got;
@@ -1083,15 +1103,20 @@ function drawPrep(){
   if(st===2){
     const rest2=need.filter(d=>!S.have[d.key]);
     $('flow-b').innerHTML=bar+`
-      <p class="flead">${rest2.length?`남은 준비물 ${rest2.length}건이 채워지면 <b>그대로 제출됩니다.</b>`:'<b>지금 바로 제출됩니다.</b>'}
+      <p class="flead">${(()=>{ const w=L.filter(x=>!openNow(x)).length, n=L.length-w;
+        if(rest2.length) return `남은 준비물 ${rest2.length}건이 채워지면 <b>그대로 제출됩니다.</b>`;
+        if(w&&n) return `${n}건은 <b>지금 바로</b> 들어가고, ${w}건은 <b>공고가 열리는 날</b> 저희가 냅니다.`;
+        if(w) return `아직 공고가 열리지 않았습니다. <b>열리는 날 저희가 알아서 냅니다.</b>`;
+        return '<b>지금 바로 제출됩니다.</b>'; })()}
         지금 한 번만 확인해 주시면 다시 들어오실 필요가 없습니다.</p>
       <div class="fconsent" style="margin-bottom:9px">
         <div class="ch">보낼 것</div>
-        ${L.map(x=>{const r=route(x); const on=!S.sub.deleg.skip[x.n];
+        ${L.map(x=>{const r=route(x), on=!S.sub.deleg.skip[x.n], W=openNow(x)?NOWB:WAIT;
           return `<label class="fchk" style="margin-top:9px">
           <input type="checkbox" class="dskip" data-n="${encodeURIComponent(x.n)}" ${on?'checked':''}>
-          <span><b>${x.n}</b> <span class="tag ${RT[r][2]}">${RT[r][0]}</span>
-            <div class="gmeta">${x.where||''}${x.where?' · ':''}${RT[r][1]}</div></span></label>`;}).join('')}
+          <span><b>${x.n}</b> <span class="tag ${W[2]}">${W[0]}</span>
+            <span class="tag ${RT[r][2]}">${RT[r][0]}</span>
+            <div class="gmeta">${W[1]} · ${RT[r][1]}</div></span></label>`;}).join('')}
         <p class="fnote">체크를 풀면 이번에 보내지 않고 준비물과 절차만 남겨 둡니다.</p>
       </div>
       <div class="fconsent">
@@ -1134,6 +1159,8 @@ function drawPrep(){
         ? L.filter(x=>!S.sub.deleg.skip[x.n]).map(x=>{const r=route(x);
             return `<div class="cl">· ${x.n} <span class="tag ${RT[r][2]}">${RT[r][0]}</span></div>`;}).join('')
         : '<div class="cl">· 없음 — 이번에는 보낼 것을 고르지 않으셨습니다</div>'}
+      ${L.filter(x=>!S.sub.deleg.skip[x.n]&&!openNow(x)).length
+        ? `<p class="fnote" style="margin-top:7px">공고 대기 중인 건은 <b>열리는 날 저희가 냅니다.</b> 그날 알림도 같이 갑니다.</p>`:''}
       ${L.filter(x=>S.sub.deleg.skip[x.n]).map(x=>`<div class="cl" style="color:var(--ink-3)">· ${x.n} — 이번에는 보내지 않음</div>`).join('')}
       <p class="fnote">제출이 끝나면 접수번호를 남겨 드립니다. 그 전에는 언제든 취소하실 수 있습니다.</p>
     </div>
