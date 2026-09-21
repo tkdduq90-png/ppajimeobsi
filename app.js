@@ -49,10 +49,22 @@ function ctx(){ const c=JSON.parse(JSON.stringify(me())), a=S.ans;
      코드가 없으면 '' 이고, 업종을 보는 규칙은 그때 UNK 로 떨어집니다 */
   c.biz.field=c.biz.on?ksicField(c.biz.ksic):'';
   return c; }
+/* 지자체 제도 · data/local-*.js (행정안전부 공공서비스 정보에서 자동 변환)
+   rules.js 가 먼저 로드되므로 RULE_COUNT 등은 원문 대조한 101건 기준 그대로입니다. */
+if(typeof LOCAL_RULES!=='undefined' && !SECTORS.some(s=>s.k==='local'))
+  SECTORS.push({k:'local', n:'우리 동네', items:LOCAL_RULES});
+const LOCAL_COUNT = (typeof LOCAL_RULES!=='undefined') ? LOCAL_RULES.length : 0;
+const chkOf = k => !k ? null : (typeof k==='object' ? k : (SOURCES[k]||null));
+
 function judgeAll(){ const c=ctx();
-  return SECTORS.map(s=>({...s, res:s.items.map(it=>({n:it.n, type:it.type||'cash', where:it.where, visit:it.visit,
-    chk:it.chk?SOURCES[it.chk]||null:null, base:it.base||null, bonus:it.bonus||null, guide:it.guide||null,
-    ads:it.ads||null, ...it.f(c)}))})); }
+  return SECTORS.map(s=>{
+    const res=s.items.map(it=>({n:it.n, type:it.type||'cash', where:it.where, visit:it.visit,
+      chk:chkOf(it.chk), base:it.base||null, bonus:it.bonus||null, guide:it.guide||null,
+      ads:it.ads||null, ...it.f(c)}));
+    /* 지자체 제도는 대부분 다른 동네 것이라 화면에 늘어놓지 않습니다. 몇 건을 봤는지만 남깁니다 */
+    if(s.k!=='local') return {...s, res};
+    const keep=res.filter(r=>r.s!=='no');
+    return {...s, res:keep, seen:res.length, hidden:res.length-keep.length}; }); }
 
 /* ═══════════ 두 화면의 역할 분리 ═══════════════════════════
    같은 제도가 점검에도 할 일에도 나옵니다. 같은 내용을 두 번 쓰면
@@ -89,7 +101,11 @@ function whyBlock(r,c){
       <div class="gh">출처에서 읽은 내용</div>
       ${list.map(S=>`<div class="gsrc">${S.facts.map(f=>`<div class="gfact">${f}</div>`).join('')}
         <div class="gfrom">${S.t} · 확인 ${S.d} · <a href="${S.u}" target="_blank" rel="noopener">원문</a></div></div>`).join('')}
-    </div>`:`<div class="gsec"><div class="gh">출처</div>
+    </div>`: (r.chk&&r.chk.lvl==='api') ? `<div class="gsec"><div class="gh">출처</div>
+      <div class="gmeta">${r.chk.src} · 확인 ${r.chk.d}</div>
+      <div class="gmeta">기관이 등록한 자료를 그대로 옮겼습니다. 공고 원문과는 아직 대조하지 않았으니
+        신청 전에 <a href="${r.chk.u}" target="_blank" rel="noopener">기관 상세 페이지</a>를 한 번 확인하세요.</div></div>`
+    :`<div class="gsec"><div class="gh">출처</div>
       <div class="gmeta">읽어서 저장한 문장이 아직 없습니다. 금액과 요건을 다시 확인해야 합니다.</div></div>`}
     ${compLine(r,c)}
     ${r.s==='ok'?`<div class="gnext">
@@ -170,6 +186,8 @@ function compLine(r,c){ if(r.type!=='compete'||r.s!=='ok') return '';
 /* 출처 한 줄 · 확인한 것과 확인하지 않은 것을 구분해 보여줍니다 */
 const srcLine=r=> !r.chk
   ? `<div class="src nochk">출처 미확인 · 금액과 요건을 다시 확인해야 합니다</div>`
+  : r.chk.lvl==='api'
+  ? `<div class="src part">${r.chk.src} · 확인 ${r.chk.d} · 공고 원문과는 아직 대조하지 않았습니다 · <a href="${r.chk.u}" target="_blank" rel="noopener">상세</a></div>`
   : r.chk.lvl==='org'
   ? `<div class="src part">소관 기관만 확인 · 금액과 요건은 아직 대조하지 않았습니다 · <a href="${r.chk.u}" target="_blank" rel="noopener">${r.chk.t}</a></div>`
   : `<div class="src">확인 ${r.chk.d} · <a href="${r.chk.u}" target="_blank" rel="noopener">${r.chk.t}</a> · 읽은 내용 ${r.chk.facts.length}줄</div>`;
@@ -488,9 +506,11 @@ function runConnect(){ const n=SRC_ALL.length, c=ctx(); let i=0;
     SRC_ALL.forEach((_,k)=>lane(k)); }, AUTH_MS); }
 
 /* 대조 · 제도를 하나씩 판정하며 흘립니다 */
-/* 대상 제도 전체 규모. 한 사람에게 대조하면 대부분은 다른 지역·다른 대상이라
-   자격 미달로 떨어지고, 걸리는 것은 수십 건입니다. 그래서 미달만 이 수를 따릅니다. */
-const POOL=10412;
+/* 대상 제도 전체 규모 · 행정안전부 공공서비스 정보 API 에서 직접 센 수 (2026-09-21).
+   10,931건 중 82.5% 인 9,018건이 시군구·광역시도 등 지자체 소관입니다.
+   한 사람에게 대조하면 대부분은 다른 지역·다른 대상이라 자격 미달로 떨어지고,
+   걸리는 것은 수십 건입니다. 그래서 미달만 이 수를 따릅니다. */
+const POOL=10931;
 /* 지금 낼 수 있는 건인지. 경쟁형은 공고가 열려야 접수가 됩니다.
    공고 기간은 base.note 에 글로만 있어서, 지금은 유형으로 나눕니다. */
 function openNow(r){ return r.type!=='compete'; }
@@ -880,6 +900,7 @@ function viewCheck(){
           ORG_COUNT?` · <span style="color:var(--warn)">${ORG_COUNT}건은 소관 기관만 확인</span>했고 수치는 아직 대조하지 않았습니다`:''}${
           none?` · ${none}건은 출처 미확인`:''}${
           !ORG_COUNT&&!none?` · <b>전 항목이 기관 자료와 대조됐습니다</b>`:''}</div>
+        ${LOCAL_COUNT?`<div style="font-size:12.5px;color:var(--warn);margin-top:3px">그 밖에 <b>서울 지자체 제도 ${LOCAL_COUNT.toLocaleString()}건</b>은 행정안전부 등록 자료에서 자동으로 옮긴 것이라 공고 원문과는 아직 대조하지 않았습니다</div>`:''}
         <div style="font-size:12.5px;color:var(--ink-2);margin-top:3px">항목을 누르면 <b>그렇게 판정한 이유와, 기관 자료에서 읽은 원문 문장</b>이 나옵니다 · 준비물과 절차는 <b>할 일</b>에 있습니다 (${GUIDE_COUNT}건 정리 완료)</div></div>
       <div class="num" style="font-size:22px;font-weight:600">${pct}%</div></div>
     <div class="rmbar" style="margin-bottom:0;display:flex">
@@ -888,22 +909,42 @@ function viewCheck(){
   <div class="card pad" style="margin-bottom:8px">
       <div style="font-size:13px;color:var(--ink-2);margin-bottom:9px">눌러서 그 분야로 이동합니다 · 색이 진할수록 가능 건수가 많습니다 · 0인 분야도 검토는 끝났습니다</div>
       <div class="grid13">${J.map(sec=>{const n=sec.res.filter(x=>x.s==='ok').length;
-        return `<button class="cellx jump" data-k="${sec.k}" style="${shade(n)};text-align:left;width:100%">
+        return `<button class="cellx jump" data-k="${sec.k}" style="${shade(n)};text-align:left;width:100%${
+          S.sec[sec.k]?';box-shadow:0 0 0 2.5px var(--go) inset':''}">
           <div class="cn">${sec.n}</div><div class="cv num">${n}</div></button>`;}).join('')}</div>
       <p style="font-size:12.5px;color:var(--ink-2);margin-top:10px">
         <b style="color:var(--logic)">판정 불가</b>는 요건이 미달이라는 뜻이 아니라, 연동으로 가져올 수 없는 정보라 저희가 결론을 내지 못한 항목입니다.</p>
   </div>
   `;})()}
-  ${J.map(sec=>{
+  ${J.filter(sec=>S.sec[sec.k]).map(sec=>{
     const o=sec.res.filter(x=>x.s==='ok').length, k=sec.res.filter(x=>x.s==='chk').length,
           u=sec.res.filter(x=>x.s==='unk').length;
     return `<details class="acc" id="sec-${sec.k}" ${S.sec[sec.k]?'open':''} data-k="${sec.k}">
       <summary><div><div class="ttl">${sec.n}</div>
-        <div class="meta">${sec.res.length}건 검토 · ${o?`가능 ${o}건`:'가능 없음'}${k?` · 확인 필요 ${k}건`:''}${u?` · 판정 불가 ${u}건`:''}</div></div>
+        <div class="meta">${(sec.seen||sec.res.length).toLocaleString()}건 검토 · ${o?`가능 ${o}건`:'가능 없음'}${k?` · 확인 필요 ${k}건`:''}${u?` · 판정 불가 ${u}건`:''}${
+          sec.hidden?` · 다른 동네·다른 대상 ${sec.hidden.toLocaleString()}건은 목록에서 뺐습니다`:''}</div></div>
         <div class="rt">${o?`<span class="tag t-go">${o}</span>`:`<span class="tag t-mute">0</span>`}
           <span class="chev">›</span></div></summary>
       ${(()=>{const ord={ok:0,chk:1,unk:2,lost:3,no:4};
-        return [...sec.res].sort((x,y)=>ord[x.s]-ord[y.s]).map(r=>{
+        /* 지자체 제도는 수가 많아 기본으로 '가능'만 보여줍니다.
+           확인 필요는 금액이 기관 자료에 안 적힌 건이라 접어둬도 손해가 없습니다. */
+        let rows=[...sec.res].sort((x,y)=>ord[x.s]-ord[y.s]);
+        let more='';
+        if(sec.k==='local' && !S.localAll){
+          /* 먼저 보여줄 것 — 금액이 확정된 '가능'. 금액이 숫자로 없는 가능·소득 미확인은 접어둡니다 */
+          const lead=r=>r.s==='ok' && r.mv && Object.keys(r.mv).length;
+          const noAmt=rows.filter(r=>r.s==='ok' && !lead(r)).length, unkN=rows.filter(r=>r.s==='chk').length;
+          rows=rows.filter(r=>lead(r) || r.s==='lost' || r.s==='unk');
+          if(noAmt||unkN) more=`<div class="ritem" style="text-align:center;padding:12px">
+            <button class="btn btn-sm" id="local-more">${noAmt+unkN}건 더 보기</button>
+            <div class="gmeta" style="margin-top:6px">${[
+              noAmt?`받을 수 있지만 금액이 기관 자료에 숫자로 없는 것 ${noAmt}건`:'',
+              unkN?`소득 기준이 등록돼 있지 않아 확인이 필요한 것 ${unkN}건`:''].filter(Boolean).join(' · ')}</div></div>`;
+        } else if(sec.k==='local'){
+          more=`<div class="ritem" style="text-align:center;padding:12px">
+            <button class="btn btn-sm" id="local-less">가능한 것만 보기</button></div>`;
+        }
+        return rows.map(r=>{
         const tg={ok:['t-go','가능'],chk:['t-warn','확인 필요'],unk:['t-logic','판정 불가'],
                   no:['t-mute','불가'],lost:['t-stop','놓침']}[r.s];
         const can=r.s!=='no', open=can&&S.item===r.n, key=encodeURIComponent(r.n);
@@ -917,8 +958,9 @@ function viewCheck(){
           <div class="r">${r.amt?`<b>${r.amt}</b>`:''}
             <div style="margin-top:3px"><span class="tag ${tg[0]}">${tg[1]}</span></div></div>
           </${can?'button':'div'}>
-          ${open?whyBlock(r,c):''}</div>`;}).join('');})()}
-    </details>`;}).join('')}`}`;
+          ${open?whyBlock(r,c):''}</div>`;}).join('')+more;})()}
+    </details>`;}).join('') || `<div class="card pad" style="text-align:center;color:var(--ink-2);font-size:13.5px">
+      위에서 분야를 누르면 <b>그 분야만</b> 여기에 펼쳐집니다</div>`}`}`;
 }
 
 /* ═══════════ 대행 분류 ═══════════════════════════════════
@@ -1634,8 +1676,13 @@ function bind(){
     setTimeout(()=>$('expert-close')?.scrollIntoView({behavior:'smooth',block:'center'}),40); });
   const xc=$('expert-close'); if(xc) xc.onclick=()=>keep(()=>{ S.expert=false; });
   main.querySelectorAll('.jump').forEach(b=>b.onclick=()=>{
-    const k=b.dataset.k; S.tab='sector'; S.sec={}; S.sec[k]=true; draw();
-    afterPaint(()=>{ const el=$('sec-'+k); if(el){ el.scrollIntoView({block:'start'}); flash(el); } }); });
+    const k=b.dataset.k, was=!!S.sec[k];
+    S.tab='sector'; S.sec={}; S.item=null; S.localAll=false;
+    if(!was) S.sec[k]=true;
+    draw();
+    if(!was) afterPaint(()=>{ const el=$('sec-'+k); if(el){ el.scrollIntoView({block:'start',behavior:'smooth'}); flash(el); } }); });
+  const lm=$('local-more'); if(lm) lm.onclick=()=>keep(()=>{ S.localAll=true; });
+  const ll=$('local-less'); if(ll) ll.onclick=()=>keep(()=>{ S.localAll=false; });
   main.querySelectorAll('.ask-sample').forEach(b=>b.onclick=()=>{
     const i=+b.dataset.i; if(!S.asked.includes(i)) S.asked.push(i); draw(); });
   const ag=$('ask-go'); if(ag) ag.onclick=()=>{ if(!S.asked.includes(0)) S.asked.push(0); draw(); };
