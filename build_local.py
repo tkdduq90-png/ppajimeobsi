@@ -102,7 +102,7 @@ TEXT_TARGET = [
   (r'노인|어르신|65세\s*이상|고령',        '어르신',        "(c.age>=65)"),
   (r'장애',                             '장애인',        "c.misc.disabled"),
   (r'임산부|임신|난임|출산',               '임신·출산 가정', "(c.fam.pregnant||c.fam.infant)"),
-  (r'기초생활|차상위|수급자|저소득|취약계층', '저소득 가구',    "(c.misc.welfare||(c.home.incomeRate||100)<=60)"),
+  (r'기초생활|차상위|수급자|저소득', '저소득 가구',    "(c.misc.welfare||(c.home.incomeRate||100)<=60)"),
   (r'농업|농가|농촌|농산물|농식품|농기계|농지|축산|가축|임업|산림|임산물|어업|어가|수산|어선|선박|해양|초지|채종|과실|원예|화훼|양봉|종자|귀농|귀어|식물', '농림어업인', "c.misc.farm"),
   (r'보훈|국가유공|참전|유공자',            '국가보훈 대상자', "false"),
   (r'한부모|조손',                        '한부모 가정',    "c.misc.single"),
@@ -111,9 +111,68 @@ TEXT_TARGET = [
   (r'군인|군무원|장병|전역',               '군인·군무원',    "false"),
   (r'언론|교원|교사|공무원|간호|의료인|연구자|연구원|지도자|종사자|강사|체육인|예술인|광산|광업|발전소\s*주변', '해당 직업·지역 종사자', "false"),
   (r'구직|실업|취업준비|미취업',            '구직자',        "(!c.work.on&&!c.biz.on)"),
+  (r'쪽방|고시원|반지하|비주택|주택\s*이외', '비주택 거주자',   "false"),
+  (r'청년몰|입점\s*(중|상인|업체)|전통시장\s*상인', '해당 시장 입점 상인', "false"),
   (r'대학생|대학원',                      '대학생',        "c.fam.college"),
 ]
 TEXT_RE = [(re.compile(p), n, e) for p, n, e in TEXT_TARGET]
+
+# 사업자 코드 · 서비스명과 대조해 풀어낸 매핑 (2026-09-22)
+#   JA1101 예비창업 · JA1102 영업 중 · JA1103 폐업(예정)
+#   JA1201 음식점업 · JA1202 제조업·소공인 · JA1299 기타 업종 (셋 다 Y 면 소상공인 전 업종)
+#   JA2102 사회복지시설·법인
+#   JA2101·JA2103·JA22xx 는 부처마다 쓰는 방식이 달라 관문으로 쓰지 않습니다
+FIELD_TXT = [
+  (r'음식점|외식|식당|요식',                    ['음식점업']),
+  (r'숙박|관광사업|여행업',                      ['숙박업']),
+  (r'제조|소공인|공장|조선|선박|플랜트',            ['제조업']),
+  (r'건설업|건설사|건설기업',                    ['건설업']),
+  (r'운수|물류|화물|택배|운송업',                 ['운수·창고업']),
+  (r'도소매|소매업|도매업|전통시장\s*상인',         ['도소매업']),
+  (r'소프트웨어|정보통신|ICT|SW\b',              ['정보통신업']),
+  (r'통신판매|온라인\s*(쇼핑|판매|몰)|전자상거래|이커머스', ['통신판매업']),
+]
+FIELD_RE = [(re.compile(p), f) for p, f in FIELD_TXT]
+YEARS_RE = re.compile(r'(?:창업|업력|설립|개업)\s*(?:후|한\s*지)?\s*(\d{1,2})\s*년\s*(이내|미만|이하|이상|초과)')
+EMP_RE   = re.compile(r'상시\s*근로자\s*(?:수\s*)?(\d{1,4})\s*(?:인|명)\s*(미만|이하)')
+
+def biz_gate(cond, row):
+    """사업자 요건 관문 · (관문들, 실제로 확인한 요건이 있는지, 예비창업 전용인지)"""
+    g, sure, pre = [], False, False
+    txt = (row.get('서비스명') or '') + ' ' + (row.get('지원대상') or '')
+    s11 = [k for k in ('JA1101','JA1102','JA1103') if cond.get(k) == 'Y']
+    if s11 == ['JA1101']:
+        pre = True; sure = True
+        g.append("c.biz.on ? NO('예비창업자 대상입니다 · 이미 사업자가 있습니다')")
+        g.append("!c.biz.plan ? NO('창업을 준비하는 분 대상입니다')")
+    elif s11 == ['JA1103']:
+        sure = True; g.append("!c.biz.close ? NO('폐업했거나 폐업 예정인 사업자 대상입니다')")
+    s12 = [k for k in ('JA1201','JA1202','JA1299') if cond.get(k) == 'Y']
+    if s12 == ['JA1201']:
+        sure = True; g.append("c.biz.field!=='음식점업' ? NO('음식점업 대상입니다')")
+    elif s12 == ['JA1202']:
+        sure = True; g.append("c.biz.field!=='제조업' ? NO('제조업·소공인 대상입니다')")
+    if s12:
+        sure = True; g.append("!isSosang(c.biz) ? NO('소상공인 대상입니다 · 상시근로자 기준을 넘습니다')")
+    s21 = [k for k in ('JA2101','JA2102','JA2103') if cond.get(k) == 'Y']
+    if s21 == ['JA2102']:
+        g.append("true ? NO('사회복지시설·법인 대상입니다')")
+    fs = sorted({f for rx, fl in FIELD_RE if rx.search(txt) for f in fl})
+    if fs:
+        sure = True; g.append(f"!{json.dumps(fs, ensure_ascii=False)}.includes(c.biz.field) ? NO('{'·'.join(fs)} 대상입니다')")
+    m = YEARS_RE.search(txt)
+    if m:
+        n, w = int(m.group(1)), m.group(2); sure = True
+        if w in ('이상', '초과'):
+            g.append(f"(c.biz.years||0){'<' if w=='이상' else '<='}{n} ? NO('업력 {n}년 {w} 대상입니다')")
+        else:
+            lim = n if w != '미만' else n - 0.01
+            g.append(f"(c.biz.years||0)>{lim:g} ? NO('업력 {n}년 {w} 대상입니다')")
+    m = EMP_RE.search(txt)
+    if m:
+        n = int(m.group(1)); op = '>=' if m.group(2) == '미만' else '>'
+        sure = True; g.append(f"(c.biz.emp||0){op}{n} ? NO('상시근로자 {n}명 {m.group(2)} 대상입니다')")
+    return g, sure, pre
 
 # 소관 기관만으로 대상이 분명한 경우 — 본문에 업종 말이 없어도 걸러야 합니다
 AGENCY_FARM = re.compile(r'농림축산식품부|농촌진흥청|산림청|해양수산부|농어촌공사|수산자원|농림수산|농업정책보험|축산물품질|국립수산|국립농산물')
@@ -122,7 +181,23 @@ AGENCY_FARM = re.compile(r'농림축산식품부|농촌진흥청|산림청|해�
 # 질환 — 질환이 있는 분에게는 지금도 해당될 수 있습니다
 ILL   = re.compile(r'희귀|난치|중증|암\s*환자|암환자|치매|질환')
 # 사건 — 그 일이 생겨야만 받습니다. 질환 여부와 무관합니다
-EVENT = re.compile(r'감염병|격리|재난|재해|피해자|피해\s*지원|피해사건|사고|산재|산업재해|실종|유족|장례|화재|범죄|학대|폭력|위기\s*가구|긴급')
+# 제도 이름·소관 기관에 박힌 대상 — 대상 코드보다 우선합니다.
+#   본문은 '장애인·다문화·북한이탈주민 등' 처럼 나열이 많아 여기서는 보지 않습니다.
+HARD_NAME = [
+  (re.compile(r'다문화|결혼이민|북한이탈|탈북'), '다문화·북한이탈 가정', 'false'),
+  (re.compile(r'보훈|국가유공|참전|유공자'),     '국가보훈 대상자',     'false'),
+  (re.compile(r'교원|교사|공무원|군인|군무원|장병|언론인|의료인|연구자|체육인|예술인|과학기술인'), '해당 직업 종사자', 'false'),
+  (re.compile(r'입양'),                          '입양 가정',          'false'),
+  (re.compile(r'노숙|쪽방'),                      '노숙인',            'false'),
+  (re.compile(r'장애'),                          '장애인',            'c.misc.disabled'),
+  (re.compile(r'스마트팜|영농|농업인|어업인|귀농|귀어'), '농림어업인',    'c.misc.farm'),
+]
+HARD_AGENCY = re.compile(r'국가보훈부|보훈복지의료공단|보훈교육연구원')
+
+# 이름에 있으면 사건 제도입니다
+EVENT = re.compile(r'사망|위기\s*임신|보호\s*출산|조산아|저체중|감염병|격리|재난|재해|피해자|피해\s*지원|피해사건|사고|산재|산업재해|실종|유족|장례|화재|범죄|학대|폭력|위기\s*가구|긴급|도산|체불|파산')
+# 대상 본문에서는 강한 말만 — 본문은 '빈곤위기가구·유족 포함' 처럼 나열이 많아 넓게 읽으면 틀립니다
+EVENT_BODY = re.compile(r'감염병|격리|피해자(?!.*포함)|도산|체불|파산|실종|사고\s*(를|로|피해)')
 
 def target_gate(cond, row=None):
     """(관문 식 | None, 상태)  상태: code · text · open · unk"""
@@ -215,7 +290,13 @@ def build(svc, cond, region, gu=None, core=(), national=False):
         if lo is not None or hi is not None: stat['연령 조건 있음'] += 1
 
         # 판정 함수 — 지역과 나이만 확정으로 가르고, 나머지는 모른다고 합니다
-        gates = [] if national else [f"!(c.region||'').includes('{esc(area)}') ? NO('{esc(area)} 주민 대상입니다')"]
+        # 구·군·시가 붙은 기관은 그 구 주민만, 광역 기관(서울특별시·서울특별시교육청 등)은 광역 주민 전체
+        gu_ = re.search(r'\s(\S+[구군시])(?:\s|$)', org + ' ')
+        if national: gates = []
+        elif gu_:    gates = [f"!(c.region||'').includes('{esc(gu_.group(1))}') ? NO('{esc(gu_.group(1))} 주민 대상입니다')"]
+        else:
+            short = re.sub(r'(특별자치시|특별자치도|특별시|광역시|도)$', '', region)
+            gates = [f"!(c.region||'').startsWith('{esc(short)}') ? NO('{esc(short)} 주민 대상입니다')"]
         if lo: gates.append(f"c.age<{lo} ? NO('만 {lo}세 이상이어야 합니다')")
         if hi: gates.append(f"c.age>{hi} ? NO('만 {hi}세 이하여야 합니다')")
         if gender == 'f': gates.append("c.sex==='m' ? NO('여성 대상입니다')")
@@ -223,16 +304,28 @@ def build(svc, cond, region, gu=None, core=(), national=False):
 
         # 누구를 위한 제도인지 · 개인/가구가 끼어 있으면 누구나, 사업자만이면 사업자만
         who = r.get('사용자구분') or ''
-        if who and not re.search(r'개인|가구', who) and re.search(r'소상공인|법인|시설|단체', who):
-            gates.append("!c.biz.on ? NO('사업자 대상입니다')"); stat['사용자 · 사업자 전용'] += 1
+        biz_only = bool(who and not re.search(r'개인|가구', who) and re.search(r'소상공인|법인|시설|단체', who))
+        bz, biz_sure, pre = biz_gate(c, r) if biz_only else ([], False, False)
+        if biz_only:
+            if not pre: gates.append("!c.biz.on ? NO('사업자 대상입니다')")
+            gates += bz
+            stat['사용자 · 사업자 전용'] += 1
+            stat['사업 요건 · ' + ('확인함' if biz_sure else '못 함')] += 1
 
         txt_all = (r.get('서비스명') or '') + ' ' + (r.get('지원대상') or '')
         if AGENCY_FARM.search(org):
             gates.append("!c.misc.farm ? NO('농림어업인 대상입니다')"); stat['대상 · 소관 기관으로 거름'] += 1
-        if EVENT.search(txt_all):
+        if EVENT.search(r.get('서비스명') or '') or EVENT_BODY.search(r.get('지원대상') or ''):
             gates.append("true ? NO('해당 상황이 생겼을 때 받는 제도입니다')"); stat['대상 · 사건 발생 시'] += 1
         elif ILL.search(txt_all):
             gates.append("!c.misc.chronic ? NO('해당 질환이 있는 분 대상입니다')"); stat['대상 · 질환'] += 1
+
+        nm = r.get('서비스명') or ''
+        hard = [(lab, e) for rx, lab, e in HARD_NAME if rx.search(nm)]
+        if HARD_AGENCY.search(org) and not any(l == '국가보훈 대상자' for l, _ in hard): hard.append(('국가보훈 대상자', 'false'))
+        for lab, e in hard:     # 이름에 박힌 대상은 모두 갖춰야 합니다 (여성장애인 출산 → 장애 그리고 출산)
+            gates.append(f"!({e}) ? NO('{lab} 대상입니다')")
+        if hard: stat['대상 · 이름·기관으로 거름'] += 1
 
         tg, how_t = target_gate(c, r)
         stat['대상 · ' + {'code':'코드로 거름','text':'본문에서 거름','open':'누구나','unk':'알 수 없음'}[how_t]] += 1
@@ -245,7 +338,9 @@ def build(svc, cond, region, gu=None, core=(), national=False):
             gates.append(f"(c.home.incomeRate||0)>{cap:g} ? NO('중위 '+c.home.incomeRate+'% · 기준 {cap:g}% 이하 ({how_})')")
         if src == 'unk':
             gates.append("true ? CHK('소득 기준 미확인','기관 자료에 소득 기준이 코드로 등록돼 있지 않습니다')")
-        if how_t == 'unk' and not (who and not re.search(r'개인|가구', who)):
+        if biz_only and not biz_sure:
+            gates.append("true ? CHK('사업자 대상 · 세부 요건 확인 필요','업종·업력·기업규모 요건을 기관 자료에서 찾지 못했습니다')")
+        elif how_t == 'unk':
             gates.append("true ? CHK('대상 확인 필요','기관 자료에 대상이 분류돼 있지 않아 누가 받는지 확정하지 못했습니다')")
 
         if v:
