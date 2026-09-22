@@ -49,20 +49,48 @@ function ctx(){ const c=JSON.parse(JSON.stringify(me())), a=S.ans;
      코드가 없으면 '' 이고, 업종을 보는 규칙은 그때 UNK 로 떨어집니다 */
   c.biz.field=c.biz.on?ksicField(c.biz.ksic):'';
   return c; }
-/* 지자체 제도 · data/local-*.js (행정안전부 공공서비스 정보에서 자동 변환)
-   rules.js 가 먼저 로드되므로 RULE_COUNT 등은 원문 대조한 101건 기준 그대로입니다. */
-if(typeof LOCAL_RULES!=='undefined' && !SECTORS.some(s=>s.k==='local'))
-  SECTORS.push({k:'local', n:'우리 동네', items:LOCAL_RULES});
-const LOCAL_COUNT = (typeof LOCAL_RULES!=='undefined') ? LOCAL_RULES.length : 0;
+/* 지자체 제도 · data/local/<지역>.js (행정안전부 공공서비스 정보에서 자동 변환)
+   전국을 한꺼번에 실으면 11MB 라 폰에서 못 엽니다. 사는 곳의 파일만 그때 받아옵니다.
+   rules.js 의 RULE_COUNT 등은 원문 대조한 101건 기준 그대로이고, 지자체분은 섞이지 않습니다. */
+const LOCAL_FILE={서울:'seoul',경기:'gyeonggi',부산:'busan',인천:'incheon',대구:'daegu',광주:'gwangju',
+  대전:'daejeon',울산:'ulsan',세종:'sejong',강원:'gangwon',충북:'chungbuk',충남:'chungnam',
+  전북:'jeonbuk',전남:'jeonnam',경북:'gyeongbuk',경남:'gyeongnam',제주:'jeju'};
+window.LOCAL_BY=window.LOCAL_BY||{};
+if(typeof LOCAL_RULES!=='undefined' && !LOCAL_BY['서울']) LOCAL_BY['서울']=LOCAL_RULES;   /* 예전 파일 호환 */
+const regionKey = c => ((c&&c.region)||'').split(' ')[0];
+const localOf  = c => LOCAL_BY[regionKey(c)] || [];
+const LOCAL_WAIT={};
+function ensureLocal(key){
+  if(!key || !LOCAL_FILE[key] || LOCAL_BY[key] || LOCAL_WAIT[key]) return;
+  LOCAL_WAIT[key]=1;
+  const s=document.createElement('script');
+  s.src='data/local/'+LOCAL_FILE[key]+'.js';
+  s.onload =()=>{ delete LOCAL_WAIT[key]; if(document.getElementById('main')) draw(); };
+  s.onerror=()=>{ LOCAL_BY[key]=[]; delete LOCAL_WAIT[key]; };   /* 그 지역 파일이 아직 없으면 조용히 넘어갑니다 */
+  document.head.appendChild(s); }
+/* 전국 공통 · data/national.js (중앙행정기관·공공기관 1,630건). 누구에게나 걸리니 사는 곳과 무관하게 받습니다 */
+let NAT_WAIT=false;
+function ensureNational(){
+  if(window.NATIONAL || NAT_WAIT) return; NAT_WAIT=true;
+  const s=document.createElement('script'); s.src='data/national.js';
+  s.onload =()=>{ NAT_WAIT=false; if(document.getElementById('main')) draw(); };
+  s.onerror=()=>{ window.NATIONAL=[]; NAT_WAIT=false; };
+  document.head.appendChild(s); }
+const WIDE = k => k==='local' || k==='nat';     /* 자동 변환분 · 많아서 걸리는 것만 보여줍니다 */
 const chkOf = k => !k ? null : (typeof k==='object' ? k : (SOURCES[k]||null));
 
 function judgeAll(){ const c=ctx();
-  return SECTORS.map(s=>{
+  ensureLocal(regionKey(c)); ensureNational();
+  const L=localOf(c), N=window.NATIONAL||[];
+  const ALL=[...SECTORS,
+    ...(N.length?[{k:'nat',   n:'전국 제도', items:N}]:[]),
+    ...(L.length?[{k:'local', n:'우리 동네', items:L}]:[])];
+  return ALL.map(s=>{
     const res=s.items.map(it=>({n:it.n, type:it.type||'cash', where:it.where, visit:it.visit,
       chk:chkOf(it.chk), base:it.base||null, bonus:it.bonus||null, guide:it.guide||null,
       ads:it.ads||null, ...it.f(c)}));
     /* 지자체 제도는 대부분 다른 동네 것이라 화면에 늘어놓지 않습니다. 몇 건을 봤는지만 남깁니다 */
-    if(s.k!=='local') return {...s, res};
+    if(!WIDE(s.k)) return {...s, res};
     const keep=res.filter(r=>r.s!=='no');
     return {...s, res:keep, seen:res.length, hidden:res.length-keep.length}; }); }
 
@@ -900,7 +928,8 @@ function viewCheck(){
           ORG_COUNT?` · <span style="color:var(--warn)">${ORG_COUNT}건은 소관 기관만 확인</span>했고 수치는 아직 대조하지 않았습니다`:''}${
           none?` · ${none}건은 출처 미확인`:''}${
           !ORG_COUNT&&!none?` · <b>전 항목이 기관 자료와 대조됐습니다</b>`:''}</div>
-        ${LOCAL_COUNT?`<div style="font-size:12.5px;color:var(--warn);margin-top:3px">그 밖에 <b>서울 지자체 제도 ${LOCAL_COUNT.toLocaleString()}건</b>은 행정안전부 등록 자료에서 자동으로 옮긴 것이라 공고 원문과는 아직 대조하지 않았습니다</div>`:''}
+        ${(window.NATIONAL||[]).length?`<div style="font-size:12.5px;color:var(--warn);margin-top:3px">그 밖에 <b>전국 공통 제도 ${NATIONAL.length.toLocaleString()}건</b>(중앙행정기관·공공기관)도 행정안전부 등록 자료에서 자동으로 옮긴 것입니다</div>`:''}
+        ${localOf(c).length?`<div style="font-size:12.5px;color:var(--warn);margin-top:3px">그 밖에 <b>${regionKey(c)} 지자체 제도 ${localOf(c).length.toLocaleString()}건</b>은 행정안전부 등록 자료에서 자동으로 옮긴 것이라 공고 원문과는 아직 대조하지 않았습니다</div>`:''}
         <div style="font-size:12.5px;color:var(--ink-2);margin-top:3px">항목을 누르면 <b>그렇게 판정한 이유와, 기관 자료에서 읽은 원문 문장</b>이 나옵니다 · 준비물과 절차는 <b>할 일</b>에 있습니다 (${GUIDE_COUNT}건 정리 완료)</div></div>
       <div class="num" style="font-size:22px;font-weight:600">${pct}%</div></div>
     <div class="rmbar" style="margin-bottom:0;display:flex">
@@ -930,7 +959,7 @@ function viewCheck(){
            확인 필요는 금액이 기관 자료에 안 적힌 건이라 접어둬도 손해가 없습니다. */
         let rows=[...sec.res].sort((x,y)=>ord[x.s]-ord[y.s]);
         let more='';
-        if(sec.k==='local' && !S.localAll){
+        if(WIDE(sec.k) && !S.localAll){
           /* 먼저 보여줄 것 — 금액이 확정된 '가능'. 금액이 숫자로 없는 가능·소득 미확인은 접어둡니다 */
           const lead=r=>r.s==='ok' && r.mv && Object.keys(r.mv).length;
           const noAmt=rows.filter(r=>r.s==='ok' && !lead(r)).length, unkN=rows.filter(r=>r.s==='chk').length;
@@ -940,7 +969,7 @@ function viewCheck(){
             <div class="gmeta" style="margin-top:6px">${[
               noAmt?`받을 수 있지만 금액이 기관 자료에 숫자로 없는 것 ${noAmt}건`:'',
               unkN?`소득 기준이 등록돼 있지 않아 확인이 필요한 것 ${unkN}건`:''].filter(Boolean).join(' · ')}</div></div>`;
-        } else if(sec.k==='local'){
+        } else if(WIDE(sec.k)){
           more=`<div class="ritem" style="text-align:center;padding:12px">
             <button class="btn btn-sm" id="local-less">가능한 것만 보기</button></div>`;
         }
@@ -976,6 +1005,8 @@ const D_PLAN=/사업계획서|제안서|기술개발 계획|영농계획/;      
 /* 앱이 알아서 되는 것 — 간편인증, 연동된 계좌, 동의 체크, 앱 내 결제.
    이런 건 '본인 준비물'로 세지 않습니다. 남는 것만 실제로 올려주셔야 하는 것입니다. */
 const D_APP=/신분증|본인\s*인증|본인인증|본인 명의 계좌|본인 명의 통장|통장 사본|계좌번호|동의서|동의$|동의\b|비용|대금|수수료|인지대|송달료|고객번호|과정 선택|자녀 정보|앱 등록|자격$/;
+/* 대신 뗄 수 없는 발급 — 본인 명의 금융상품 가입은 금융실명법상 본인이 해야 합니다 */
+const D_OWN=/전용 카드|카드 발급|체크카드|신용카드|계좌 개설|통장 개설|계좌를 만|청약통장/;
 const D_TRIV=/신분증|본인 명의 계좌|본인 명의 통장|통장 사본/;      /* 본인 확인용 · 발급이 필요 없음 */
 function agency(r){
   const d=(r.guide&&r.guide.doc)||[];
@@ -984,6 +1015,9 @@ function agency(r){
   const mine=d.filter(x=>x[1]==='self' && !D_APP.test(x[0]));
   /* 경쟁형이라도 추첨·순위제면 고칠 글이 없습니다. 계획서를 쓰는 것만 전문가 후보입니다. */
   if(r.type==='compete' && mine.some(x=>D_PLAN.test(x[0]))) return 'expert';
+  /* 발급이 필요한 것 중 금융상품은 저희가 대신 못 합니다 — 그 하나만 본인이 합니다 */
+  const own=d.filter(x=>x[1]==='issue' && D_OWN.test(x[0]+' '+(x[2]||'')));
+  if(!mine.length && own.length) return 'one';
   if(!mine.length) return 'auto';
   if(mine.length===1) return 'one';
   return 'self'; }

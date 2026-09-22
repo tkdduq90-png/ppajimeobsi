@@ -62,10 +62,84 @@ def income_gate(row, cond):
         v = int(m.group(1))
         return 'text', v - 0.01 if m.group(2) == '미만' else v
     flags = [cond.get(k) == 'Y' for k, _ in BRACKETS]
-    if not any(flags): return 'unk', None
+    if not any(flags):
+        # 코드가 비어 있으면 대부분 소득을 안 보는 사업입니다 (전국 공통 538건 중 98%).
+        # 본문에 소득 얘기가 있을 때만 모른다고 합니다.
+        if re.search(r'소득|중위|차상위|수급자|저소득', txt): return 'unk', None
+        return 'none', None
     if all(flags): return 'none', None
     top = max(cap for (k, cap), f in zip(BRACKETS, flags) if f)
     return 'flag', top
+
+# 대상 특성 코드 · 서비스명과 대조해 풀어낸 매핑 (2026-09-21)
+#   값이 1~16개 Y 면 그 대상 전용, 17개 전부 Y 거나 0개면 제한 없음/미상.
+#   JA0322 는 성격이 제각각인 '기타' 라 관문으로 쓰지 않습니다.
+TARGET = [
+  ('JA0301', '난임·예비부모',  "c.fam.pregnant"),
+  ('JA0302', '임산부',        "c.fam.pregnant"),
+  ('JA0303', '출산·입양 가정', "(c.fam.infant||c.fam.pregnant)"),
+  ('JA0313', '농업인',        "c.misc.farm"),
+  ('JA0314', '어업인',        "c.misc.farm"),
+  ('JA0315', '축산인',        "c.misc.farm"),
+  ('JA0316', '임업인',        "c.misc.farm"),
+  ('JA0317', '초등학생 가정',  "(c.fam.elem>0)"),
+  ('JA0318', '중학생 가정',    "(c.fam.mid>0)"),
+  ('JA0319', '고등학생 가정',  "(c.fam.high>0)"),
+  ('JA0320', '대학생',        "c.fam.college"),
+  ('JA0326', '근로자',        "c.work.on"),
+  ('JA0327', '구직자',        "(!c.work.on&&!c.biz.on)"),
+  ('JA0328', '장애인',        "c.misc.disabled"),
+  ('JA0329', '국가보훈 대상자', "false"),
+  ('JA0330', '질병·질환이 있는 분', "c.misc.chronic"),
+]
+ALLT = [k for k, _, _ in TARGET] + ['JA0322']
+
+# 코드가 믿을 수 없을 때 본문에서 읽는 대상어 · (정규식, 이름, 조건식)
+#   조건식이 'false' 인 것은 이 앱이 아직 모르는 신분입니다 — 해당 없음으로 봅니다.
+TEXT_TARGET = [
+  (r'영유아|유아|어린이집|아동(?!청소년)|초등', '자녀를 둔 가정',  "(c.fam.kids>0)"),
+  (r'청소년|중학생|고등학생|학생',          '학생 자녀 가정',  "(c.fam.mid>0||c.fam.high>0||c.fam.college)"),
+  (r'노인|어르신|65세\s*이상|고령',        '어르신',        "(c.age>=65)"),
+  (r'장애',                             '장애인',        "c.misc.disabled"),
+  (r'임산부|임신|난임|출산',               '임신·출산 가정', "(c.fam.pregnant||c.fam.infant)"),
+  (r'기초생활|차상위|수급자|저소득|취약계층', '저소득 가구',    "(c.misc.welfare||(c.home.incomeRate||100)<=60)"),
+  (r'농업|농가|농촌|농산물|농식품|농기계|농지|축산|가축|임업|산림|임산물|어업|어가|수산|어선|선박|해양|초지|채종|과실|원예|화훼|양봉|종자|귀농|귀어|식물', '농림어업인', "c.misc.farm"),
+  (r'보훈|국가유공|참전|유공자',            '국가보훈 대상자', "false"),
+  (r'한부모|조손',                        '한부모 가정',    "c.misc.single"),
+  (r'다문화|결혼이민|북한이탈|탈북',         '다문화·북한이탈 가정', "false"),
+  (r'노숙|쪽방',                          '노숙인',        "false"),
+  (r'군인|군무원|장병|전역',               '군인·군무원',    "false"),
+  (r'언론|교원|교사|공무원|간호|의료인|연구자|연구원|지도자|종사자|강사|체육인|예술인|광산|광업|발전소\s*주변', '해당 직업·지역 종사자', "false"),
+  (r'구직|실업|취업준비|미취업',            '구직자',        "(!c.work.on&&!c.biz.on)"),
+  (r'대학생|대학원',                      '대학생',        "c.fam.college"),
+]
+TEXT_RE = [(re.compile(p), n, e) for p, n, e in TEXT_TARGET]
+
+# 소관 기관만으로 대상이 분명한 경우 — 본문에 업종 말이 없어도 걸러야 합니다
+AGENCY_FARM = re.compile(r'농림축산식품부|농촌진흥청|산림청|해양수산부|농어촌공사|수산자원|농림수산|농업정책보험|축산물품질|국립수산|국립농산물')
+
+# 그 일이 생겨야 받는 제도 — 지금 받을 수 있는 것으로 세면 안 됩니다
+# 질환 — 질환이 있는 분에게는 지금도 해당될 수 있습니다
+ILL   = re.compile(r'희귀|난치|중증|암\s*환자|암환자|치매|질환')
+# 사건 — 그 일이 생겨야만 받습니다. 질환 여부와 무관합니다
+EVENT = re.compile(r'감염병|격리|재난|재해|피해자|피해\s*지원|피해사건|사고|산재|산업재해|실종|유족|장례|화재|범죄|학대|폭력|위기\s*가구|긴급')
+
+def target_gate(cond, row=None):
+    """(관문 식 | None, 상태)  상태: code · text · open · unk"""
+    ys = [k for k in ALLT if cond.get(k) == 'Y']
+    hit = [(n, e) for k, n, e in TARGET if k in ys]
+    if ys and len(ys) < 15 and hit:                  # 코드가 특정 대상을 가리키는 경우만 믿습니다
+        names = '·'.join(n for n, _ in hit[:3])
+        return f"!({'||'.join(e for _, e in hit)}) ? NO('{names} 대상입니다')", 'code'
+    # 코드 없음 · JA0322 만 · 전부 Y — 실제 대상은 본문에만 있습니다
+    txt = (row.get('서비스명') or '') + ' ' + (row.get('지원대상') or '') if row else ''
+    found = [(n, e) for rx, n, e in TEXT_RE if rx.search(txt)]
+    if found:
+        names = '·'.join(n for n, _ in found[:3])
+        return f"!({'||'.join(e for _, e in found)}) ? NO('{names} 대상입니다')", 'text'
+    if row and re.search(r'누구나|전\s*국민|모든\s*(국민|주민|시민|구민)|제한\s*없', txt):
+        return None, 'open'
+    return None, 'unk'
 
 def cycle(txt):
     """해마다인지 한 번인지. 애매하면 once 로 둡니다(적게 세는 쪽)."""
@@ -91,18 +165,31 @@ def how(row):
     steps = [s for s in re.split(r'\|\||,', raw) if s.strip()][:4]
     return steps or ['신청처 확인', '신청서 제출', '자격 확인', '지급']
 
-def build(svc, cond, region, gu=None):
+def norm(s):
+    s = re.sub(r'[\s·()\-—\[\]]', '', s or '')
+    s = re.sub(r'^(서울시|서울특별시)', '', s)
+    return re.sub(r'(지원|사업|지급)$', '', s)
+
+def build(svc, cond, region, gu=None, core=(), national=False):
+    CORE = {norm(n): n for n in core}
     byid = {r['서비스ID']: r for r in cond}
     rows = []
     for r in svc:
         org = r.get('소관기관명') or ''
-        if not org.startswith(region): continue
-        if gu and gu not in org: continue
+        if national:
+            if r.get('소관기관유형') not in ('중앙행정기관', '공공기관'): continue
+        else:
+            if not org.startswith(region): continue
+            if gu and gu not in org: continue
         rows.append(r)
 
     items, stat = [], collections.Counter()
     for r in rows:
         sid = r['서비스ID']
+        # 중앙 제도를 지자체가 자기 이름으로 다시 등록한 것 — 원문 대조한 쪽을 씁니다
+        if norm(r.get('서비스명')) in CORE:
+            stat['중복 · 핵심 제도와 같음'] += 1
+            continue
         c = byid.get(sid, {})
         name = clean(r.get('서비스명'), 40)
         org = clean(r.get('소관기관명'))
@@ -128,11 +215,28 @@ def build(svc, cond, region, gu=None):
         if lo is not None or hi is not None: stat['연령 조건 있음'] += 1
 
         # 판정 함수 — 지역과 나이만 확정으로 가르고, 나머지는 모른다고 합니다
-        gates = [f"!(c.region||'').includes('{esc(area)}') ? NO('{esc(area)} 주민 대상입니다')"]
+        gates = [] if national else [f"!(c.region||'').includes('{esc(area)}') ? NO('{esc(area)} 주민 대상입니다')"]
         if lo: gates.append(f"c.age<{lo} ? NO('만 {lo}세 이상이어야 합니다')")
         if hi: gates.append(f"c.age>{hi} ? NO('만 {hi}세 이하여야 합니다')")
         if gender == 'f': gates.append("c.sex==='m' ? NO('여성 대상입니다')")
         if gender == 'm': gates.append("c.sex==='f' ? NO('남성 대상입니다')")
+
+        # 누구를 위한 제도인지 · 개인/가구가 끼어 있으면 누구나, 사업자만이면 사업자만
+        who = r.get('사용자구분') or ''
+        if who and not re.search(r'개인|가구', who) and re.search(r'소상공인|법인|시설|단체', who):
+            gates.append("!c.biz.on ? NO('사업자 대상입니다')"); stat['사용자 · 사업자 전용'] += 1
+
+        txt_all = (r.get('서비스명') or '') + ' ' + (r.get('지원대상') or '')
+        if AGENCY_FARM.search(org):
+            gates.append("!c.misc.farm ? NO('농림어업인 대상입니다')"); stat['대상 · 소관 기관으로 거름'] += 1
+        if EVENT.search(txt_all):
+            gates.append("true ? NO('해당 상황이 생겼을 때 받는 제도입니다')"); stat['대상 · 사건 발생 시'] += 1
+        elif ILL.search(txt_all):
+            gates.append("!c.misc.chronic ? NO('해당 질환이 있는 분 대상입니다')"); stat['대상 · 질환'] += 1
+
+        tg, how_t = target_gate(c, r)
+        stat['대상 · ' + {'code':'코드로 거름','text':'본문에서 거름','open':'누구나','unk':'알 수 없음'}[how_t]] += 1
+        if tg: gates.append(tg)
 
         src, cap = income_gate(r, c)
         stat['소득 · ' + {'text':'본문 숫자','flag':'구간 코드','none':'제한 없음','unk':'알 수 없음'}[src]] += 1
@@ -141,6 +245,8 @@ def build(svc, cond, region, gu=None):
             gates.append(f"(c.home.incomeRate||0)>{cap:g} ? NO('중위 '+c.home.incomeRate+'% · 기준 {cap:g}% 이하 ({how_})')")
         if src == 'unk':
             gates.append("true ? CHK('소득 기준 미확인','기관 자료에 소득 기준이 코드로 등록돼 있지 않습니다')")
+        if how_t == 'unk' and not (who and not re.search(r'개인|가구', who)):
+            gates.append("true ? CHK('대상 확인 필요','기관 자료에 대상이 분류돼 있지 않아 누가 받는지 확정하지 못했습니다')")
 
         if v:
             tail = (f"OK('{esc(clean(r.get('지원유형')) or '지원')} {v}만',"
@@ -169,6 +275,9 @@ def main():
     ap.add_argument('--gu', default=None)
     ap.add_argument('--src', default='out')
     ap.add_argument('--out', default=None)
+    ap.add_argument('--key', default=None, help='앱 쪽 지역 키 (서울·경기·부산 …) · c.region 앞 단어')
+    ap.add_argument('--core', default=None, help='핵심 제도 이름 목록 JSON (중복 제거용)')
+    ap.add_argument('--national', action='store_true', help='중앙행정기관·공공기관 전국 공통분')
     a = ap.parse_args()
 
     def load(n):
@@ -177,16 +286,22 @@ def main():
         return [json.loads(l) for l in io.open(p, encoding='utf-8')]
 
     svc, cond = load('serviceList.jsonl'), load('supportConditions.jsonl')
-    items, stat, total = build(svc, cond, a.region, a.gu)
-    out = a.out or f"data/local-{a.region}.js"
+    core = json.load(io.open(a.core, encoding='utf-8')) if a.core else []
+    items, stat, total = build(svc, cond, a.region, a.gu, core, a.national)
+    key = a.key or re.sub(r'(특별자치시|특별자치도|특별시|광역시|도)$', '', a.region)
+    SLUG = {'서울':'seoul','경기':'gyeonggi','부산':'busan','인천':'incheon','대구':'daegu','광주':'gwangju',
+            '대전':'daejeon','울산':'ulsan','세종':'sejong','강원':'gangwon','충북':'chungbuk','충남':'chungnam',
+            '전북':'jeonbuk','전남':'jeonnam','경북':'gyeongbuk','경남':'gyeongnam','제주':'jeju'}
+    out = a.out or ('data/national.js' if a.national else f"data/local/{SLUG.get(key, key)}.js")
     os.makedirs(os.path.dirname(out) or '.', exist_ok=True)
-    head = (f"/* {a.region} 지자체 제도 {len(items)}건 · 행정안전부 공공서비스 정보에서 자동 변환\n"
+    label = '중앙행정기관·공공기관 전국 공통' if a.national else f'{a.region} 지자체'
+    head = (f"/* {label} 제도 {len(items)}건 · 행정안전부 공공서비스 정보에서 자동 변환\n"
             f"   생성 {date.today()} · build_local.py\n"
             f"   전부 chk.lvl='api' 입니다 — 기관 등록 자료 기준이고 공고 원문과 대조한 것이 아닙니다.\n"
-            f"   금액이 적혀 있지 않은 건은 CHK 로 나갑니다. 모르는 것은 모른다고 표시합니다. */\n"
-            f"const LOCAL_RULES=[\n")
+            f"   금액이 숫자로 없는 것은 가능으로 두고 금액만 비웁니다. 소득 기준이 없는 것만 CHK 입니다. */\n"
+            + ("window.NATIONAL=[\n" if a.national else f"(window.LOCAL_BY=window.LOCAL_BY||{{}})['{key}']=[\n"))
     io.open(out, 'w', encoding='utf-8').write(head + '\n'.join(items) + '\n];\n')
-    print(f"{a.region} {total}건 중 {len(items)}건 변환 → {out}")
+    print(f"{label} {total}건 중 {len(items)}건 변환 → {out}")
     for k, v in stat.most_common(): print(f"  {v:>5}  {k}")
 
 if __name__ == '__main__':
