@@ -240,6 +240,36 @@ const PLANQ=[
   s:'계약 전에 확인해야 하는 것이 있습니다', a:[['no','없습니다'],['yes','있습니다']]}
 ];
 const planq=()=>{const c=me(); return PLANQ.filter(q=>q.need(c));};
+/* 기관 연결을 기다리는 동안 계획을 여쭤봅니다.
+   시민용은 자기 폰에서 바로 답하고, 창구는 시민 태블릿에 띄워 시민이 직접 누릅니다
+   (출산·폐업 계획처럼 옆 사람이 듣기 민감한 질문이 섞여 있습니다).
+   대조 전에 답하면 대조부터, 대조 중에 답해도 결과에는 반영됩니다 */
+function ctQHTML(){
+  const qs=planq();
+  if(!qs.length && !S.counter) return '';
+  const left=qs.filter(q=>!(q.k in S.ans)), done=qs.length-left.length, q=left[0];
+  if(S.counter){
+    /* 여쭤볼 게 없는 분에게도 태블릿은 켜 둡니다 — 지금 무슨 일을 하는지 시민께 보여드립니다 */
+    const nm=(typeof me==='function'&&me().name)||'';
+    if(!qs.length){
+      const scr = S.ob===2
+        ? `<div class="k">잠시만 기다려 주세요</div><h4>받으실 수 있는 제도를<br>찾고 있습니다</h4><p>정부·구청 제도 1만여 건을 하나씩 맞춰보고 있습니다.</p>`
+        : `<div class="k">잠시만 기다려 주세요</div><h4>${nm?nm+' 님 ':''}정보를<br>가져오고 있습니다</h4><p>여쭤볼 것이 없어 바로 결과를 보여드립니다.</p>`;
+      return `<div class="ctq-st" style="color:var(--ink-3)">여쭤볼 계획 질문이 없는 분입니다</div>
+        <div class="ctab"><div class="scr">${scr}</div><div class="lab">시민용 태블릿</div></div>`; }
+    const scr = !left.length
+      ? `<div class="k">${qs.length}개 모두 답하셨습니다</div><h4>감사합니다</h4><p>담당자가 결과를 안내해 드립니다.</p>`
+      : `<div class="k">여쭤볼게요 · ${done+1} / ${qs.length}</div><h4>${q.q}</h4><p>${q.s}</p>
+         <div class="tb">${q.a.map(([v,l])=>`<button class="qopt" data-k="${q.k}" data-v="${v}">${l}</button>`).join('')}</div>`;
+    return `<div class="ctq-st">${left.length?`시민 태블릿에 계획 질문을 띄웠습니다 · 시민이 직접 답합니다`:`계획 질문 ${qs.length}개 반영 완료`}</div>
+      <div class="ctab"><div class="scr">${scr}</div><div class="lab">시민용 태블릿</div></div>`; }
+  if(!left.length) return `<div class="ctq ok"><b>계획까지 반영했습니다</b></div>`;
+  return `<div class="ctq"><div class="ctq-h">기다리는 동안 답해 주세요 <span>${done+1} / ${qs.length}</span></div>
+    <div class="ctq-q">${q.q}</div><div class="ctq-s">${q.s}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">${q.a.map(([v,l])=>`<button class="btn btn-sm qopt" data-k="${q.k}" data-v="${v}">${l}</button>`).join('')}</div>
+    <div class="ctq-n">연동으로는 알 수 없는 계획입니다. 건너뛰셔도 결과는 그대로 나옵니다.</div></div>`; }
+function bindCtQ(){ const box=$('ct-q'); if(!box) return;
+  box.querySelectorAll('.qopt').forEach(b=>b.onclick=()=>{ S.ans[b.dataset.k]=b.dataset.v; lsSave(); box.innerHTML=ctQHTML(); bindCtQ(); }); }
 
 /* ═══════════ 화면 사이 이동 ═══════════════════════════════
    버튼을 눌렀는데 '어딘가로 갔다' 로 끝나면 안 됩니다.
@@ -269,12 +299,25 @@ function stage(s){ S.stage=s;
   $('onboard').classList.toggle('hide', s!=='onboard');
   $('app-shell').classList.toggle('hide', s!=='app');
   $('b2g').classList.toggle('hide', s!=='b2g');
+  const ct=$('counter'); if(ct) ct.classList.toggle('hide', s!=='counter');
+  const cb=$('ct-ob'); if(cb) cb.classList.toggle('hide', !(s==='onboard' && S.counter));
+  $('onboard').classList.toggle('wide', s==='onboard' && !!S.counter);   /* 창구(PC)는 가로 배치 */
   window.scrollTo(0,0);
+  if(s==='counter' && window.Counter) Counter.show();
   if(s==='onboard') drawOb();
   if(s==='b2g') drawB2G();
   if(s==='app'){ ident(); drawNav(); draw(); } }
 document.querySelectorAll('.start').forEach(b=>b.onclick=()=>{ S.scanStop=false; S.ob=0; stage('onboard'); });
 document.querySelectorAll('.b2g-open').forEach(b=>b.onclick=()=>stage('b2g'));
+/* 온보딩이 끝났을 때 · 창구 상담 중이면 창구 결과로, 아니면 시민용 점검으로 */
+function obDone(){ if(S.counter && window.Counter){ stage('counter'); Counter.afterScan(); } else { S.view='check'; stage('app'); } }
+/* 기관용 창구 · 같은 저장소면 counter.html, 미리보기면 게시된 창구 주소 */
+const COUNTER_URL = '#counter';
+document.querySelectorAll('.counter-link').forEach(x=>{ x.href=COUNTER_URL; x.removeAttribute('target');
+  x.onclick=e=>{ e.preventDefault(); S.scanStop=true; stage('counter'); }; });
+document.addEventListener('click',e=>{ const x=e.target.closest&&e.target.closest('a[href="#counter"]');
+  if(x && !x.classList.contains('counter-link')){ e.preventDefault(); stage('counter'); } });
+window.addEventListener('load',()=>{ if(location.hash==='#counter') stage('counter'); });
 $('b2g-back').onclick=()=>stage('landing');
 
 /* ═══════════ 기관용 (B2G) ═══════════════════════════════════
@@ -287,6 +330,10 @@ function drawB2G(){
   const srcTag=k=>{const x=SOURCES[k];
     return `<div class="src">확인 ${x.d} · <a href="${x.u}" target="_blank" rel="noopener">${x.t}</a> · 읽은 내용 ${x.facts.length}줄</div>`;};
   $('b2g-body').innerHTML=`
+  <a class="card pad" href="${COUNTER_URL}" target="_blank" rel="noopener" style="display:block;margin:18px 0 0;text-decoration:none;color:inherit;background:var(--go-bg);box-shadow:none">
+    <div style="font-size:12.5px;font-weight:700;color:var(--go)">행정복지센터 창구용</div>
+    <div style="font-size:17px;font-weight:800;margin-top:3px">방문한 시민을 그 자리에서 조회하고 신청까지 받는 화면 ›</div>
+    <div style="font-size:13px;color:var(--ink-2);margin-top:4px">동의 → 시민 휴대폰 인증 → 1만여 건 대조 → 현장 신청 · 접수번호 · 기관장 현황</div></a>
   <div class="b2g-quote">정책은 무수히 많은데 그 정책의 정보가 없어서
     제3자 개입이 생깁니다.<br>
     앱 하나로 판정과 근거를 공개해 개입의 원인을 없앱니다.
@@ -367,6 +414,21 @@ function drawB2G(){
   </section>
 
   <section class="sect">
+    <h2>복지멤버십과 무엇이 다른가</h2>
+    <p class="sub">정부가 이미 행정복지센터에서 맞춤형 급여 안내(복지멤버십)를 합니다. 창구 담당자가 가장 먼저 묻는 것이 이 차이입니다.</p>
+    <table class="b2g-tbl">
+      <tr><th style="width:150px"></th><th>복지멤버십</th><th>빠짐없이 창구</th></tr>
+      <tr><td>대조하는 제도</td><td>복지 급여 163종 (2026)</td><td><b>10,931건</b> · 행정안전부 공공서비스 정보 전체</td></tr>
+      <tr><td>우리 구 제도</td><td>지자체 자체 사업은 일부만</td><td><b>구청·산하 공단이 등록한 제도 전부</b> (동대문구 70건)</td></tr>
+      <tr><td>결과가 나오는 때</td><td>가입 후 판정 · 최대 30일 안에 안내</td><td><b>창구에서 그 자리에서</b></td></tr>
+      <tr><td>다루는 영역</td><td>복지</td><td>복지 + 세금 환급 · 채무조정 · 상속 · 창업 · 민원</td></tr>
+      <tr><td>안 되는 이유</td><td>받을 가능성을 안내</td><td>요건마다 대조 결과와 <b>근거 문장</b></td></tr>
+      <tr><td>신청</td><td>각 기관에 따로</td><td>체크한 제도를 <b>창구에서 한 번에 접수</b></td></tr>
+    </table>
+    <p class="sub" style="font-size:12px;margin-top:8px">복지멤버십은 대체하는 것이 아니라 함께 씁니다. 복지 급여는 복지멤버십 가입을 권하고, 그 밖의 1만여 건을 창구에서 봅니다.</p>
+  </section>
+
+  <section class="sect">
     <h2>기관이 얻는 것</h2>
     <table class="b2g-tbl">
       <tr><th style="width:150px">기관 과제</th><th>이 앱이 하는 일</th></tr>
@@ -380,6 +442,10 @@ function drawB2G(){
         기준을 1% 움직였을 때 대상자가 얼마나 변하는지 사전에 볼 수 있습니다.</td></tr>
       <tr><td>정보 최신성</td><td>제도 하나가 바뀌면 규칙 한 줄만 고칩니다.
         기관별 안내 페이지를 각자 고치는 것보다 반영이 빠릅니다.</td></tr>
+      <tr><td>사각지대 발굴 실적</td><td>상담마다 '받을 수 있었는데 몰랐던 것' 이 기록됩니다.
+        복지 사각지대 발굴 지표로 그대로 보고할 수 있습니다.</td></tr>
+      <tr><td>상담 시간</td><td>창구 담당자가 제도를 외울 필요가 없습니다. 1만여 건을 한 번에 대조하고 근거까지 보여줍니다.</td></tr>
+      <tr><td>개인정보 부담</td><td>조회한 정보는 상담이 끝나면 지웁니다. 누가 언제 조회했는지만 남깁니다.</td></tr>
     </table>
   </section>
 
@@ -392,6 +458,9 @@ function drawB2G(){
         <div class="d">기관이 가진 신청자 정보로 요건 대조 결과와 근거를 돌려줍니다. 화면은 기관 것을 씁니다.</div></div>
       <div><div class="k">C</div><div class="t">화이트라벨</div>
         <div class="d">지자체 이름으로 앱 전체를 제공합니다. 규칙 데이터는 공유하고 지역 제도만 덧붙입니다.</div></div>
+      <div><div class="k">D</div><div class="t">행정복지센터 창구</div>
+        <div class="d">방문한 시민을 담당자가 조회하고 그 자리에서 신청까지 받습니다. 행정망 연계 없이 시민 본인 인증으로 시작합니다.
+        <a href="#counter" style="color:var(--go);font-weight:700">창구 화면 보기 ›</a></div></div>
     </div>
   </section>
 
@@ -435,7 +504,7 @@ const SRC_ALL=[
    c=>`오늘 열려 있는 공고를 ${SECTOR_COUNT}개 분야로 분류했습니다`, 1350]
 ];
 
-function drawOb(){ const ob=$('ob-body');
+function drawOb(){ const ob=$('ob-body'); ob.classList.toggle('scan2', S.ob===2); ob.classList.toggle('conn1', S.ob===1); setTimeout(bindCtQ,0);
   if(S.ob===0){
     ob.innerHTML=`<h2>본인 확인</h2>
     <p class="sub">실제 서비스에서는 간편인증 한 번으로 끝납니다.
@@ -453,8 +522,7 @@ function drawOb(){ const ob=$('ob-body');
 
   if(S.ob===1){
     ob.innerHTML=`<h2>정보를 가져오는 중입니다</h2>
-    <p class="sub">간편인증 <b>한 번</b>이면 됩니다. 요청은 <b>아홉 곳에 동시에</b> 나가고,
-      기관 서버 사정에 따라 돌아오는 순서는 매번 다릅니다. 이후에는 배경에서 갱신됩니다.</p>
+    <div id="ct-q">${ctQHTML()}</div>
     <div class="scanhead" style="margin-bottom:10px">
       <div><b>연결 가능한 곳</b><div class="s" id="conn-auth">간편인증 진행 중</div></div>
       <div class="num" id="conn-count">0 / ${SRC_ALL.length}곳</div></div>
@@ -465,24 +533,24 @@ function drawOb(){ const ob=$('ob-body');
         <span class="s" data-st="${i}">대기</span></div>`).join('')}</div>
     <p class="sub" style="margin-top:10px">가져온 내용은 이 기기 안에서만 판정에 씁니다.</p>
     <button class="btn btn-sm" id="conn-skip">건너뛰기</button>`;
-    $('conn-skip').onclick=()=>{ S.scanStop=true; S.view='check'; stage('app'); };
+    $('conn-skip').onclick=()=>{ S.scanStop=true; obDone(); };
     return; }
 
   /* 대조 화면 · 제도를 하나씩 실제로 판정하면서 보여줍니다.
      연출이 아니라 judgeAll() 의 결과를 순서대로 흘리는 것입니다. */
   if(S.ob===2){
     ob.innerHTML=`<h2>제도 1만여 건을 하나씩 대조합니다</h2>
-    <p class="sub">중앙부처와 시·도, 시·군·구, 공공기관과 위탁기관이 운영하는 제도 전부입니다.
-      0건인 분야도 건너뛰지 않습니다 — 안 되는 이유까지 남겨야 하기 때문입니다.</p>
+    <p class="sub">중앙부처와 시·도, 시·군·구, 공공기관이 운영하는 제도 전부입니다.</p>
     <div class="scanbar"><span id="scan-fill" style="width:0%"></span></div>
     <div class="scanhead">
       <div><b id="scan-sec">준비 중</b><div class="s" id="scan-now">&nbsp;</div></div>
       <div style="text-align:right"><div class="num" id="scan-cnt">0건 검토</div>
         <div class="s" id="scan-secn" style="margin-top:2px">&nbsp;</div></div></div>
     <div class="scantally" id="scan-tally"></div>
+    <div id="ct-q">${ctQHTML()}</div>
     <div class="card pad scanlog" id="scan-log"></div>
     <button class="btn btn-sm" id="scan-skip" style="margin-top:10px">건너뛰기</button>`;
-    $('scan-skip').onclick=()=>{ S.scanStop=true; S.view='check'; stage('app'); };
+    $('scan-skip').onclick=()=>{ S.scanStop=true; obDone(); };
     return; }
 
   if(S.ob===3){ ob.innerHTML=formHTML(); bindForm(); return; }
@@ -551,6 +619,12 @@ function runScan(){
             lost:['t-stop','놓침'],no:['t-mute','미달']};
   const cnt={ok:0,chk:0,unk:0,lost:0,no:0};
   let i=0, lastSec='';
+  /* 걸린 제도 수와 상관없이 약 18초에 끝나게 나눠 씁니다.
+     원문 대조한 핵심 제도가 걸리면 읽을 틈을 더 주고, 자동 판정분(전국·우리 동네)은 빠르게 흘립니다. */
+  const WIDE_N = new Set(J.filter(x=>WIDE(x.k)).map(x=>x.n));
+  const wt=r=> r.s==='no' ? 1 : WIDE_N.has(r.sec) ? 1.2 : 5;
+  const BUDGET=12500, W=flat.reduce((s,r)=>s+wt(r),0)||1;
+  const delay=r=> Math.max(8, Math.min(260, BUDGET*wt(r)/W));
   const tick=()=>{
     if(S.scanStop) return;
     const log=$('scan-log'); if(!log) return;
@@ -560,7 +634,7 @@ function runScan(){
       const sn=$('scan-secn'); if(sn) sn.textContent=`${J.length} / ${J.length}번째 분야`;
       $('scan-now').textContent=`가능 ${cnt.ok}건 · 확인 필요 ${cnt.chk}건 · 판정 불가 ${cnt.unk}건`;
       const sk=$('scan-skip'); if(sk) sk.textContent='결과 보기';
-      setTimeout(()=>{ if(!S.scanStop){ S.view='check'; stage('app'); } },1300);
+      setTimeout(()=>{ if(!S.scanStop){ obDone(); } },1300);
       return; }
     const r=flat[i]; cnt[r.s]++; i++;
     $('scan-fill').style.width=Math.round(i/flat.length*100)+'%';
@@ -578,10 +652,10 @@ function runScan(){
       row.innerHTML=`<span class="tag ${TG[r.s][0]}">${TG[r.s][1]}</span>
         <span class="sn">${r.n}</span><span class="sa">${r.amt||''}</span>`;
       log.prepend(row);
-      while(log.children.length>7) log.lastChild.remove(); }
+      while(log.children.length>(S.counter?12:7)) log.lastChild.remove(); }
     /* 미달은 빠르게, 걸린 건은 읽을 시간을 줍니다.
        분야가 바뀌는 순간에는 한 박자 쉽니다 — 15개 분야를 넘어간다는 것이 보여야 합니다. */
-    setTimeout(tick, (r.s==='no'?60:260) + (secBreak?400:0)); };
+    setTimeout(tick, delay(r) + (secBreak?320:0)); };
   S.scanStop=false; setTimeout(tick,500); }
 
 /* ═══════════ 직접 입력 ═══════════ */
@@ -734,7 +808,9 @@ function viewCheck(){
   const TY={cash:'현금으로 받는 것',save:'감면으로 아끼는 것',loan:'빌릴 수 있는 한도',
             compete:'선발되어야 받는 것',admin:'해두면 좋은 것'};
   const byType={}; J.forEach(sc=>sc.res.filter(x=>x.s==='ok').forEach(x=>{(byType[x.type]=byType[x.type]||[]).push({...x, sec:sc.n})}));
-  const cT=tally(byType.cash);
+  const isAuto=x=>x.chk&&x.chk.lvl==='api';
+  const cT=tally((byType.cash||[]).filter(x=>!isAuto(x)));
+  const autoCash=(byType.cash||[]).filter(isAuto).length;
 
   const facts=[`만 ${c.age}세`, c.region.split(' ')[0],
     c.work.on?'재직 중':c.work.freelance?'프리랜서':c.work.insured>0?'구직 중':null,
@@ -802,7 +878,7 @@ function viewCheck(){
 
   const typeLedger=()=>`<div class="ledger">
     ${['save','loan','compete','admin'].filter(t=>byType[t]&&byType[t].length).map(t=>{
-      const T=tally(byType[t]);
+      const T=tally(byType[t].filter(x=>!isAuto(x)));        /* 합계는 원문 대조한 제도만 */
       const v={save:T.y, loan:T.cap, compete:T.max, admin:0}[t];
       const unit={save:'연 절감', loan:'한도 합', compete:'선정 시 최대', admin:''}[t];
       const note={save:'세금과 공과금에서 줄어듭니다', loan:'받는 돈이 아니라 빌리는 돈입니다',
@@ -830,10 +906,6 @@ function viewCheck(){
       법인이냐 개인이냐가 아니라 이 업종코드로 창업지원 제외 업종과 세액감면 대상 업종을 갈랐습니다.</div>`:''}
   </div>
 
-  ${found.length?`<div class="notice n-go" style="margin-bottom:12px">
-    <h3>조회 중 미수령 금액 ${found.length}건을 찾았습니다</h3>
-    <p>${found.map(f=>`${f[0]} <b>${f[1]}</b>`).join(' · ')}</p></div>`:''}
-
   ${cross.length?`<div class="notice n-warn" style="margin-bottom:12px">
     <h3>역할이 겹쳐 생기는 문제 ${cross.length}건</h3>
     ${cross.map(x=>`<p style="margin-top:5px"><b>${x[0]}</b><br>${x[1]}</p>`).join('')}</div>`:''}
@@ -856,7 +928,7 @@ function viewCheck(){
     </div>
     <p style="font-size:12px;color:var(--ink-3);line-height:1.55">
       월 단위 급여는 12개월로 환산했고 한 번만 받는 돈은 따로 뒀습니다.
-      '최대' 로 고시된 제도는 그 상한을 썼습니다.${cT.none?` 금액이 정해지지 않은 ${cT.none}건은 합계에서 뺐습니다.`:''}
+      '최대' 로 고시된 제도는 그 상한을 썼습니다.${cT.none?` 금액이 정해지지 않은 ${cT.none}건은 합계에서 뺐습니다.`:''}${autoCash?` 기관 등록 자료로 판정한 ${autoCash}건은 금액이 확정되지 않아 합계에 넣지 않았습니다.`:''}
       대출 한도와 선정돼야 받는 사업비는 받는 돈이 아니므로 아래에 분리했습니다.</p>
 
     <div class="vsplit">
@@ -896,18 +968,15 @@ function viewCheck(){
       <button class="btn btn-sm jump" data-k="debt" style="margin-top:9px">채무·재기 보러 가기 ›</button></div>`;})():''}
 
     ${left.length?`<div class="notice n-warn" style="margin:10px 0 0">
-      <h3>${left.length}가지만 더 알려주시면 판정이 정확해집니다</h3>
-      <p>연동으로는 알 수 없는 <b>계획과 의도</b>입니다. 답하지 않으셔도 위 결과는 그대로 유효합니다.</p>
+      <h3>건너뛰신 질문 ${left.length}개가 남았습니다</h3>
+      <p>연동으로는 알 수 없는 <b>계획과 의도</b>입니다. 답하시면 판정이 정확해집니다.</p>
       <div style="margin-top:9px">
         <p style="font-size:15px;font-weight:600;margin-bottom:2px">${left[0].q}</p>
         <p style="font-size:12.5px;color:var(--warn);margin-bottom:8px">${left[0].s}</p>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           ${left[0].a.map(([v,l])=>`<button class="btn btn-sm qopt" data-k="${left[0].k}" data-v="${v}">${l}</button>`).join('')}
         </div></div></div>`
-    :`<div class="notice n-go" style="margin:10px 0 0">
-      <h3>추가로 여쭤볼 것이 없습니다</h3>
-      <p>계획까지 모두 반영했습니다.
-        <button class="btn btn-sm" id="re-q" style="margin-left:4px">다시 답하기</button></p></div>`}
+    :''}
   </div>
 
   <div class="seg">

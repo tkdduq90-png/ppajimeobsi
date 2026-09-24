@@ -190,6 +190,7 @@ HARD_NAME = [
   (re.compile(r'입양'),                          '입양 가정',          'false'),
   (re.compile(r'노숙|쪽방'),                      '노숙인',            'false'),
   (re.compile(r'장애'),                          '장애인',            'c.misc.disabled'),
+  (re.compile(r'노인|어르신|고령'),                 '어르신',            '(c.age>=65)'),
   (re.compile(r'스마트팜|영농|농업인|어업인|귀농|귀어'), '농림어업인',    'c.misc.farm'),
 ]
 HARD_AGENCY = re.compile(r'국가보훈부|보훈복지의료공단|보훈교육연구원')
@@ -199,15 +200,35 @@ EVENT = re.compile(r'사망|위기\s*임신|보호\s*출산|조산아|저체중|
 # 대상 본문에서는 강한 말만 — 본문은 '빈곤위기가구·유족 포함' 처럼 나열이 많아 넓게 읽으면 틀립니다
 EVENT_BODY = re.compile(r'감염병|격리|피해자(?!.*포함)|도산|체불|파산|실종|사고\s*(를|로|피해)')
 
+# '누구나' 신호 — 대상 코드나 대상어보다 먼저 봅니다
+OPEN_RE = re.compile(r'누구나|전\s*국민|국민\s*(모두|누구)|모든\s*(국민|주민|시민|구민)|제한\s*(없|무)|'
+                     r'일반\s*(국민|인|대상)|관내\s*(성인|주민|구민)|^\W*(대\s*상\s*[:：]?\s*)?[가-힣]{1,6}(구|시|군)\s*민\W*$')
+# 우선·특별·가점 대상 — 자격이 아니라 가산점입니다. 이 문장의 대상어로는 거르지 않습니다
+PRIO_RE = re.compile(r'우선\s*(공급|선발|지원|순위|대상)?|특별\s*대상|가점|우대|감면\s*대상|감면\s*혜택')
+
+def general_part(txt):
+    """우선·특별 대상 문장을 걷어낸 본문"""
+    parts = re.split(r'[○※\n]|(?<=[.)])\s|\s-\s', txt or '')
+    return ' '.join(p for p in parts if not PRIO_RE.search(p))
+
+def is_open(row):
+    t = (row.get('지원대상') or '').strip()
+    return bool(OPEN_RE.search(t)) or bool(OPEN_RE.search(general_part(t)))
+
 def target_gate(cond, row=None):
     """(관문 식 | None, 상태)  상태: code · text · open · unk"""
+    if row and is_open(row):                         # 누구나 · 관내 성인 · ○○구민 — 코드보다 먼저
+        return None, 'open'
     ys = [k for k in ALLT if cond.get(k) == 'Y']
     hit = [(n, e) for k, n, e in TARGET if k in ys]
-    if ys and len(ys) < 15 and hit:                  # 코드가 특정 대상을 가리키는 경우만 믿습니다
+    body = (row.get('지원대상') or '') if row else ''
+    # 본문에 우선·특별 대상이 있으면 코드는 그 우선 대상을 찍은 것일 수 있습니다 — 믿지 않습니다
+    prio = bool(PRIO_RE.search(body))
+    if ys and len(ys) < 15 and hit and not prio:     # 코드가 특정 대상을 가리키는 경우만 믿습니다
         names = '·'.join(n for n, _ in hit[:3])
         return f"!({'||'.join(e for _, e in hit)}) ? NO('{names} 대상입니다')", 'code'
     # 코드 없음 · JA0322 만 · 전부 Y — 실제 대상은 본문에만 있습니다
-    txt = (row.get('서비스명') or '') + ' ' + (row.get('지원대상') or '') if row else ''
+    txt = (row.get('서비스명') or '') + ' ' + general_part(row.get('지원대상') or '') if row else ''
     found = [(n, e) for rx, n, e in TEXT_RE if rx.search(txt)]
     if found:
         names = '·'.join(n for n, _ in found[:3])
@@ -313,7 +334,8 @@ def build(svc, cond, region, gu=None, core=(), national=False):
             stat['사업 요건 · ' + ('확인함' if biz_sure else '못 함')] += 1
 
         txt_all = (r.get('서비스명') or '') + ' ' + (r.get('지원대상') or '')
-        if AGENCY_FARM.search(org):
+        open_txt = is_open(r)
+        if AGENCY_FARM.search(org) and not open_txt and not re.search(r'일자리|도우미|채용|체험|견학|교육생', r.get('서비스명') or ''):
             gates.append("!c.misc.farm ? NO('농림어업인 대상입니다')"); stat['대상 · 소관 기관으로 거름'] += 1
         if EVENT.search(r.get('서비스명') or '') or EVENT_BODY.search(r.get('지원대상') or ''):
             gates.append("true ? NO('해당 상황이 생겼을 때 받는 제도입니다')"); stat['대상 · 사건 발생 시'] += 1
@@ -322,9 +344,9 @@ def build(svc, cond, region, gu=None, core=(), national=False):
 
         nm = r.get('서비스명') or ''
         hard = [(lab, e) for rx, lab, e in HARD_NAME if rx.search(nm)]
-        if HARD_AGENCY.search(org) and not any(l == '국가보훈 대상자' for l, _ in hard): hard.append(('국가보훈 대상자', 'false'))
-        for lab, e in hard:     # 이름에 박힌 대상은 모두 갖춰야 합니다 (여성장애인 출산 → 장애 그리고 출산)
-            gates.append(f"!({e}) ? NO('{lab} 대상입니다')")
+        if HARD_AGENCY.search(org) and not open_txt and not any(l == '국가보훈 대상자' for l, _ in hard): hard.append(('국가보훈 대상자', 'false'))
+        if hard:                # '장애인·노인 보조기기' 처럼 이름의 나열은 어느 하나면 됩니다
+            gates.append(f"!({'||'.join(e for _, e in hard)}) ? NO('{'·'.join(l for l, _ in hard)} 대상입니다')")
         if hard: stat['대상 · 이름·기관으로 거름'] += 1
 
         tg, how_t = target_gate(c, r)
