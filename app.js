@@ -49,6 +49,56 @@ function ctx(){ const c=JSON.parse(JSON.stringify(me())), a=S.ans;
      코드가 없으면 '' 이고, 업종을 보는 규칙은 그때 UNK 로 떨어집니다 */
   c.biz.field=c.biz.on?ksicField(c.biz.ksic):'';
   return c; }
+/* ═══════════ 조건표 판정 ═══════════════════════════════════
+   기관 등록 자료의 '지원대상·선정기준' 을 사람이 읽고 조건표(cond/*.json)로 옮긴 제도는
+   정규식이 아니라 이 함수로 판정합니다. 자격은 확정, 금액은 기관 등록 자료 그대로입니다.
+     all  모두 갖춰야 함 · any  하나면 됨
+     '모름:…' 앱이 모르는 사실 → 시민께 여쭤볼 것
+     '특수:…' 드문 신분(보훈·다문화 등) → 해당 없음                                   */
+const CP={
+  '노인65':c=>c.age>=65, '노인60':c=>c.age>=60,
+  '수급자':c=>c.misc.welfare?true:((c.home.incomeRate||100)<=40?'chk':false),
+  '생계의료수급':c=>c.misc.welfare?true:((c.home.incomeRate||100)<=40?'chk':false),
+  '차상위':c=>c.misc.welfare?true:((c.home.incomeRate||100)<=50?'chk':false),
+  '저소득':c=>c.misc.welfare||(c.home.incomeRate||100)<=60,
+  '장기요양':c=>(c.misc.chronic&&c.age>=65)?'chk':false,
+  '장애인':c=>!!c.misc.disabled, '한부모':c=>!!c.misc.single,
+  '출생아':c=>!!c.fam.infant, '출산가정':c=>!!(c.fam.pregnant||c.fam.infant),
+  '아동자녀':c=>c.fam.kids>0, '다둥이':c=>c.fam.kids>=2, '셋째자녀':c=>c.fam.kids>=3,
+  '학생자녀':c=>(c.fam.elem||0)+(c.fam.mid||0)+(c.fam.high||0)>0,
+  '초등자녀':c=>(c.fam.elem||0)>0, '중고생자녀':c=>(c.fam.mid||0)+(c.fam.high||0)>0,
+  '1인가구':c=>hhSize(c)===1, '홀몸어르신':c=>c.age>=65&&hhSize(c)===1,
+  '세입자':c=>!!c.home.rent, '차량':c=>(c.home.car||0)>0, '이사':c=>!!c.admin.moving,
+  '미취업':c=>!c.work.on&&!c.biz.on, '예비창업':c=>!c.biz.on&&!!c.biz.plan,
+  '질환':c=>c.misc.chronic?'chk':false,
+};
+const CL={'노인65':'만 65세 이상','노인60':'만 60세 이상','수급자':'기초생활수급자','생계의료수급':'생계·의료급여 수급자',
+  '차상위':'차상위계층','저소득':'저소득 가구','장기요양':'장기요양 등급자','장애인':'장애인','한부모':'한부모 가정',
+  '출생아':'올해 출생아가 있는 가정','출산가정':'임신·출산 가정','아동자녀':'자녀가 있는 가정','다둥이':'자녀 2명 이상 가정',
+  '셋째자녀':'자녀 3명 이상 가정','학생자녀':'초·중·고 학생이 있는 가정','초등자녀':'초등학생 자녀','중고생자녀':'중·고등학생 자녀',
+  '1인가구':'1인 가구','홀몸어르신':'홀로 사는 어르신','세입자':'세입자','차량':'차량 보유자','이사':'이사하는 분',
+  '미취업':'미취업자','예비창업':'창업을 준비하는 분','질환':'해당 질환이 있는 분'};
+const cLab=g=>{ const s=String(g).replace(/^(모름|특수):/,''); return CL[s]||s; };
+const cVal=(g,c)=>{ if(/^모름:/.test(g)) return 'chk'; if(/^특수:/.test(g)) return false; const f=CP[g]; return f?f(c):false; };
+function condJudge(x,c,m){ m=m||{};
+  if(m.area && !(c.region||'').includes(m.area)) return NO(`${m.area} 주민 대상입니다`);
+  if(x.who==='O') return NO('기관·단체가 신청하는 제도입니다');
+  if(x.who==='B' && !c.biz.on) return NO('사업자 대상입니다');
+  if(x.event) return NO('해당하는 일이 생겼을 때 받는 제도입니다');
+  const [lo,hi]=x.age||[null,null];
+  if(lo!=null && c.age<lo) return NO(`만 ${lo}세 이상 대상입니다`);
+  if(hi!=null && c.age>hi) return NO(`만 ${hi}세 이하 대상입니다`);
+  if(x.inc && (c.home.incomeRate||100)>x.inc) return NO(`중위소득 ${x.inc}% 이하 대상입니다 · 현재 ${c.home.incomeRate}%`);
+  const ask=[];
+  for(const g of x.all||[]){ const v=cVal(g,c); if(v===false) return NO(`${cLab(g)} 대상입니다`); if(v==='chk') ask.push(cLab(g)); }
+  if((x.any||[]).length){ const vs=x.any.map(g=>[g,cVal(g,c)]);
+    if(!vs.some(([,v])=>v===true)){
+      const q=vs.filter(([,v])=>v==='chk').map(([g])=>cLab(g));
+      if(q.length) ask.push(q.join(' 또는 '));
+      else return NO(`${x.any.filter(g=>!/^특수:/.test(g)).slice(0,3).map(cLab).join(' · ')||cLab(x.any[0])} 중 하나에 해당해야 합니다`); } }
+  if(ask.length) return CHK(m.amt||'확인 필요', `확인할 것 · ${ask.join(' · ')}`);
+  return OK(m.amt||'지원', m.why||'자격 요건을 충족합니다', m.note||'', m.mv||null); }
+
 /* 지자체 제도 · data/local/<지역>.js (행정안전부 공공서비스 정보에서 자동 변환)
    전국을 한꺼번에 실으면 11MB 라 폰에서 못 엽니다. 사는 곳의 파일만 그때 받아옵니다.
    rules.js 의 RULE_COUNT 등은 원문 대조한 101건 기준 그대로이고, 지자체분은 섞이지 않습니다. */
@@ -129,7 +179,11 @@ function whyBlock(r,c){
       <div class="gh">출처에서 읽은 내용</div>
       ${list.map(S=>`<div class="gsrc">${S.facts.map(f=>`<div class="gfact">${f}</div>`).join('')}
         <div class="gfrom">${S.t} · 확인 ${S.d} · <a href="${S.u}" target="_blank" rel="noopener">원문</a></div></div>`).join('')}
-    </div>`: (r.chk&&r.chk.lvl==='api') ? `<div class="gsec"><div class="gh">출처</div>
+    </div>`: (r.chk&&r.chk.lvl==='cond') ? `<div class="gsec"><div class="gh">출처</div>
+      <div class="gmeta">${r.chk.src} · 확인 ${r.chk.d}</div>
+      <div class="gmeta">기관이 등록한 지원대상·선정기준을 조건표로 옮겨 <b>자격을 확인</b>했습니다.
+        금액은 등록 자료에 적힌 그대로라 <a href="${r.chk.u}" target="_blank" rel="noopener">기관 상세 페이지</a>에서 한 번 더 보세요.</div></div>`
+    : (r.chk&&r.chk.lvl==='api') ? `<div class="gsec"><div class="gh">출처</div>
       <div class="gmeta">${r.chk.src} · 확인 ${r.chk.d}</div>
       <div class="gmeta">기관이 등록한 자료를 그대로 옮겼습니다. 공고 원문과는 아직 대조하지 않았으니
         신청 전에 <a href="${r.chk.u}" target="_blank" rel="noopener">기관 상세 페이지</a>를 한 번 확인하세요.</div></div>`
@@ -166,9 +220,11 @@ function stepBlock(r){
     ${adBlock(r)}
     <div class="gfoot">${g.time?`처리 기간 ${g.time}`:''}${r.where?` · 신청처 ${r.where}`:''}</div>
     <div class="gact">
-      <button class="btn btn-sm btn-fill ${ag==='auto'||ag==='one'?'subgo':ag==='self'?'prepgo':''}" data-n="${encodeURIComponent(r.n)}">${
+      ${ag==='verify'
+        ? `<a class="btn btn-sm btn-fill" href="${(r.chk&&r.chk.u)||'#'}" target="_blank" rel="noopener">원문에서 자격 확인 ›</a>`
+        : `<button class="btn btn-sm btn-fill ${ag==='auto'||ag==='one'?'subgo':ag==='self'?'prepgo':''}" data-n="${encodeURIComponent(r.n)}">${
         ag==='auto'?'지금 제출하기' : ag==='one'?'한 가지 넣고 제출하기'
-        : ag==='expert'?'초안 만들기' : '준비하고 제출 맡기기'}</button>
+        : ag==='expert'?'초안 만들기' : '준비하고 제출 맡기기'}</button>`}
       ${ag==='expert'?'<button class="btn btn-sm" id="expert-go3">전문가 광고 보기</button>':''}
     </div>
     ${back}
@@ -214,6 +270,8 @@ function compLine(r,c){ if(r.type!=='compete'||r.s!=='ok') return '';
 /* 출처 한 줄 · 확인한 것과 확인하지 않은 것을 구분해 보여줍니다 */
 const srcLine=r=> !r.chk
   ? `<div class="src nochk">출처 미확인 · 금액과 요건을 다시 확인해야 합니다</div>`
+  : r.chk.lvl==='cond'
+  ? `<div class="src">${r.chk.src} · 확인 ${r.chk.d} · 자격 확인됨 · 금액은 등록 자료 기준 · <a href="${r.chk.u}" target="_blank" rel="noopener">상세</a></div>`
   : r.chk.lvl==='api'
   ? `<div class="src part">${r.chk.src} · 확인 ${r.chk.d} · 공고 원문과는 아직 대조하지 않았습니다 · <a href="${r.chk.u}" target="_blank" rel="noopener">상세</a></div>`
   : r.chk.lvl==='org'
@@ -256,18 +314,32 @@ function ctQHTML(){
         ? `<div class="k">잠시만 기다려 주세요</div><h4>받으실 수 있는 제도를<br>찾고 있습니다</h4><p>정부·구청 제도 1만여 건을 하나씩 맞춰보고 있습니다.</p>`
         : `<div class="k">잠시만 기다려 주세요</div><h4>${nm?nm+' 님 ':''}정보를<br>가져오고 있습니다</h4><p>여쭤볼 것이 없어 바로 결과를 보여드립니다.</p>`;
       return `<div class="ctq-st" style="color:var(--ink-3)">여쭤볼 계획 질문이 없는 분입니다</div>
-        <div class="ctab"><div class="scr">${scr}</div><div class="lab">시민용 태블릿</div></div>`; }
+        <div class="ctab"><div class="scr">${scr}<div class="tprog" id="tq-prog">${tabProg()}</div></div><div class="lab">시민용 태블릿</div></div>`; }
     const scr = !left.length
       ? `<div class="k">${qs.length}개 모두 답하셨습니다</div><h4>감사합니다</h4><p>담당자가 결과를 안내해 드립니다.</p>`
       : `<div class="k">여쭤볼게요 · ${done+1} / ${qs.length}</div><h4>${q.q}</h4><p>${q.s}</p>
          <div class="tb">${q.a.map(([v,l])=>`<button class="qopt" data-k="${q.k}" data-v="${v}">${l}</button>`).join('')}</div>`;
     return `<div class="ctq-st">${left.length?`시민 태블릿에 계획 질문을 띄웠습니다 · 시민이 직접 답합니다`:`계획 질문 ${qs.length}개 반영 완료`}</div>
-      <div class="ctab"><div class="scr">${scr}</div><div class="lab">시민용 태블릿</div></div>`; }
+      <div class="ctab"><div class="scr">${scr}<div class="tprog" id="tq-prog">${tabProg()}</div></div><div class="lab">시민용 태블릿</div></div>`; }
   if(!left.length) return `<div class="ctq ok"><b>계획까지 반영했습니다</b></div>`;
   return `<div class="ctq"><div class="ctq-h">기다리는 동안 답해 주세요 <span>${done+1} / ${qs.length}</span></div>
     <div class="ctq-q">${q.q}</div><div class="ctq-s">${q.s}</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">${q.a.map(([v,l])=>`<button class="btn btn-sm qopt" data-k="${q.k}" data-v="${v}">${l}</button>`).join('')}</div>
     <div class="ctq-n">연동으로는 알 수 없는 계획입니다. 건너뛰셔도 결과는 그대로 나옵니다.</div></div>`; }
+function tabProg(){
+  if(S.ob===1){ const L=[...document.querySelectorAll('#conn-list .conn')], n=L.length||9;
+    const done=L.filter(e=>{const s=e.querySelector('[data-st]'); return s&&s.textContent==='완료';})
+               .map(e=>(e.querySelector('.n')||{}).firstChild?e.querySelector('.n').firstChild.textContent.trim():'');
+    return `<div class="tp-h"><span>기관 연결</span><b>${done.length} / ${n}곳</b></div>
+      <div class="tp-bar"><i style="width:${done.length/n*100}%"></i></div>
+      ${done.slice(-4).reverse().map(x=>`<div class="tp-li">✓ ${x}</div>`).join('')}`; }
+  if(S.ob===2){ const c=($('scan-cnt')||{}).textContent||'0건 검토', m=(($('scan-tally')||{}).textContent||'').match(/가능\s*(\d+)/);
+    const f=parseFloat((($('scan-fill')||{}).style||{}).width)||0;
+    return `<div class="tp-h"><span>제도 확인</span><b>${c.replace(' 검토','')}</b></div>
+      <div class="tp-bar"><i style="width:${f}%"></i></div>
+      <div class="tp-big">받으실 수 있는 것 <b>${m?m[1]:0}건</b> 찾는 중</div>`; }
+  return ''; }
+function updTabProg(){ const e=$('tq-prog'); if(e) e.innerHTML=tabProg(); }
 function bindCtQ(){ const box=$('ct-q'); if(!box) return;
   box.querySelectorAll('.qopt').forEach(b=>b.onclick=()=>{ S.ans[b.dataset.k]=b.dataset.v; lsSave(); box.innerHTML=ctQHTML(); bindCtQ(); }); }
 
@@ -304,11 +376,18 @@ function stage(s){ S.stage=s;
   $('onboard').classList.toggle('wide', s==='onboard' && !!S.counter);   /* 창구(PC)는 가로 배치 */
   window.scrollTo(0,0);
   if(s==='counter' && window.Counter) Counter.show();
+  document.querySelectorAll('#demo-bar [data-go]').forEach(b=>b.classList.toggle('on',
+    b.dataset.go===(s==='counter'?'counter':s==='b2g'?'b2g':'landing')));
   if(s==='onboard') drawOb();
   if(s==='b2g') drawB2G();
   if(s==='app'){ ident(); drawNav(); draw(); } }
 document.querySelectorAll('.start').forEach(b=>b.onclick=()=>{ S.scanStop=false; S.ob=0; stage('onboard'); });
 document.querySelectorAll('.b2g-open').forEach(b=>b.onclick=()=>stage('b2g'));
+/* 시연용 전환 띠 · 창구를 떠날 때는 창구가 바꿔둔 지역을 되돌립니다 */
+document.querySelectorAll('#demo-bar [data-go]').forEach(b=>b.onclick=()=>{
+  const g=b.dataset.go; S.scanStop=true;
+  if((S.stage==='counter'||S.counter) && g!=='counter' && window.Counter){ Counter.exit(); if(g!=='landing') stage(g); return; }
+  S.counter=false; stage(g); });
 /* 온보딩이 끝났을 때 · 창구 상담 중이면 창구 결과로, 아니면 시민용 점검으로 */
 function obDone(){ if(S.counter && window.Counter){ stage('counter'); Counter.afterScan(); } else { S.view='check'; stage('app'); } }
 /* 기관용 창구 · 같은 저장소면 counter.html, 미리보기면 게시된 창구 주소 */
@@ -567,7 +646,7 @@ const AUTH_MS=1600, MS_K=2.3, JIT=[0.62,1.55], RETRY_P=0.26, PAD=4000;
 function runConnect(){ const n=SRC_ALL.length, c=ctx(); let i=0;
   const rnd=(lo,hi)=>lo+Math.random()*(hi-lo);
   const q=k=>$('conn-list')?.querySelector(`.conn[data-i="${k}"]`);
-  const setCount=()=>{ const e=$('conn-count'); if(e) e.textContent=`${i} / ${n}곳`; };
+  const setCount=()=>{ const e=$('conn-count'); if(e) e.textContent=`${i} / ${n}곳`; updTabProg(); };
   const st=(k,s,cls)=>{ const e=$('conn-list')?.querySelector(`[data-st="${k}"]`);
     if(e){ e.textContent=s; e.style.color=cls||''; } };
   const dot=(k,cl)=>{ const e=q(k)?.querySelector('.dot'); if(e) e.className='dot'+(cl?' '+cl:''); };
@@ -630,7 +709,7 @@ function runScan(){
     const log=$('scan-log'); if(!log) return;
     if(i>=flat.length){
       $('scan-sec').textContent='대조 끝';
-      $('scan-cnt').textContent=`${POOL.toLocaleString()}건 검토`;
+      $('scan-cnt').textContent=`${POOL.toLocaleString()}건 검토`; setTimeout(updTabProg,0);
       const sn=$('scan-secn'); if(sn) sn.textContent=`${J.length} / ${J.length}번째 분야`;
       $('scan-now').textContent=`가능 ${cnt.ok}건 · 확인 필요 ${cnt.chk}건 · 판정 불가 ${cnt.unk}건`;
       const sk=$('scan-skip'); if(sk) sk.textContent='결과 보기';
@@ -638,7 +717,7 @@ function runScan(){
       return; }
     const r=flat[i]; cnt[r.s]++; i++;
     $('scan-fill').style.width=Math.round(i/flat.length*100)+'%';
-    $('scan-cnt').textContent=`${Math.round(i/flat.length*POOL).toLocaleString()}건 검토`;
+    $('scan-cnt').textContent=`${Math.round(i/flat.length*POOL).toLocaleString()}건 검토`; setTimeout(updTabProg,0);
     const secBreak = r.sec!==lastSec;
     if(secBreak){ lastSec=r.sec; $('scan-sec').textContent=r.sec;
       const sn=$('scan-secn'); if(sn) sn.textContent=`${J.findIndex(x=>x.n===r.sec)+1} / ${J.length}번째 분야`; }
@@ -778,9 +857,13 @@ function viewCheck(){
   const lostT=tally(lost), lostSum=lostT.y+lostT.once+lostT.max;
   const Q=planq(), left=Q.filter(q=>!(q.k in S.ans));
   const noN=Math.max(0, POOL-ok.length-chk.length-unk.length-lost.length);
-  const ring=[[ok.length,'var(--go)','받을 수 있는 것'],[chk.length,'var(--warn)','확인 필요'],
+  /* 확인 필요를 둘로 — 시민이 답하면 풀리는 것 / 저희 자료가 모자라 못 정한 것.
+     판정 보류는 자격 미달처럼 링에서 빼고 범례에만 둡니다 (수백 건이라 링을 덮습니다) */
+  const GAP=/분류돼 있지 않|확정하지 못했|코드로 등록돼 있지 않|찾지 못했/;
+  const ask=chk.filter(x=>!GAP.test(x.why||'')), gap=chk.filter(x=>GAP.test(x.why||''));
+  const ring=[[ok.length,'var(--go)','받을 수 있는 것'],[ask.length,'var(--warn)','여쭤볼 것'],
               [unk.length,'var(--logic)','판정 불가'],[lost.length,'var(--stop)','놓침']];
-  const seg=[...ring,[noN.toLocaleString(),'#D3D9DC','자격 미달']];
+  const seg=[...ring,[gap.length.toLocaleString(),'#AEB5BD','판정 보류 · 자료 부족'],[noN.toLocaleString(),'#D3D9DC','자격 미달']];
   const tot=ring.reduce((a,x)=>a+x[0],0)||1; let acc=0;
   const donut=ring.map(([v,col])=>{const r=52,C=2*Math.PI*r,len=C*v/tot,off=C*acc/tot;acc+=v;
     return `<circle cx="66" cy="66" r="${r}" fill="none" stroke="${col}" stroke-width="21"
@@ -806,11 +889,12 @@ function viewCheck(){
   const sig=c.credit.arrears>0||c.credit.drop<-40||c.credit.dsr>70||c.credit.multi;
 
   const TY={cash:'현금으로 받는 것',save:'감면으로 아끼는 것',loan:'빌릴 수 있는 한도',
-            compete:'선발되어야 받는 것',admin:'해두면 좋은 것'};
-  const byType={}; J.forEach(sc=>sc.res.filter(x=>x.s==='ok').forEach(x=>{(byType[x.type]=byType[x.type]||[]).push({...x, sec:sc.n})}));
-  const isAuto=x=>x.chk&&x.chk.lvl==='api';
-  const cT=tally((byType.cash||[]).filter(x=>!isAuto(x)));
-  const autoCash=(byType.cash||[]).filter(isAuto).length;
+            compete:'선발되어야 받는 것',admin:'해두면 좋은 것',auto:'기관 자료로 찾은 것'};
+  const isAuto=x=>x.chk&&x.chk.lvl==='api';                              /* 자격 미확정 */
+  const amtU=x=>x.chk&&(x.chk.lvl==='api'||x.chk.lvl==='cond');          /* 금액 미확정 */
+  const byType={}; J.forEach(sc=>sc.res.filter(x=>x.s==='ok').forEach(x=>{ const k=isAuto(x)?'auto':x.type; (byType[k]=byType[k]||[]).push({...x, sec:sc.n}); }));
+  const cT=tally((byType.cash||[]).filter(x=>!amtU(x)));
+  const autoCash=(byType.auto||[]).length+(byType.cash||[]).filter(amtU).length;
 
   const facts=[`만 ${c.age}세`, c.region.split(' ')[0],
     c.work.on?'재직 중':c.work.freelance?'프리랜서':c.work.insured>0?'구직 중':null,
@@ -869,20 +953,24 @@ function viewCheck(){
 
   const goStep=n=>`<button class="btn btn-sm gotostep" data-i="${encodeURIComponent(n)}"
       style="margin-top:7px">준비물 보러 가기 ›</button>`;
-  const listPanel=t=>(byType[t]||[]).map(x=>`<div class="trow">
+  const listPanel=t=>(byType[t]||[]).slice(0,40).map(x=>`<div class="trow">
       <div><div class="t">${x.n}</div>
         <div class="d">${x.why||''}${x.where?` · <span style="color:var(--ink-3)">${x.where}</span>`:''}</div>
         ${srcLine(x)}${goStep(x.n)}</div>
       <div class="r">${x.amt?`<b>${x.amt}</b>`:''}
-        <div style="font-size:11.5px;margin-top:2px">${x.sec}</div></div></div>`).join('');
+        <div style="font-size:11.5px;margin-top:2px">${x.sec}</div></div></div>`).join('')
+    +((byType[t]||[]).length>40?`<div class="trow" style="color:var(--ink-3);font-size:12.5px">그 밖에 ${(byType[t]||[]).length-40}건은 분야별로 보기에서 보실 수 있습니다</div>`:'');
 
   const typeLedger=()=>`<div class="ledger">
-    ${['save','loan','compete','admin'].filter(t=>byType[t]&&byType[t].length).map(t=>{
-      const T=tally(byType[t].filter(x=>!isAuto(x)));        /* 합계는 원문 대조한 제도만 */
-      const v={save:T.y, loan:T.cap, compete:T.max, admin:0}[t];
-      const unit={save:'연 절감', loan:'한도 합', compete:'선정 시 최대', admin:''}[t];
-      const note={save:'세금과 공과금에서 줄어듭니다', loan:'받는 돈이 아니라 빌리는 돈입니다',
-                  compete:'경쟁을 거쳐 선정돼야 받습니다', admin:'해두면 다른 자격이 열립니다'}[t];
+    ${['cash','save','loan','compete','admin','auto'].filter(t=>byType[t]&&byType[t].length).map(t=>{
+      const T=tally(byType[t].filter(x=>!amtU(x)));        /* 합계는 금액까지 원문 대조한 제도만 */
+      /* 대출은 여러 개를 동시에 다 받을 수 없으니 한도를 더하지 않고 가장 큰 것 하나 */
+      const maxCap=Math.max(0,...byType[t].filter(x=>!amtU(x)).map(x=>(x.mv&&x.mv.cap)||0));
+      const v={cash:T.y, save:T.y, loan:maxCap, compete:T.max, admin:0, auto:0}[t];
+      const unit={cash:'연 환산', save:'연 절감', loan:'가장 큰 한도', compete:'선정 시 최대', admin:'', auto:''}[t];
+      const note={cash:'통장으로 들어오는 돈입니다 · 위 금액과 같습니다', save:'세금과 공과금에서 줄어듭니다', loan:'받는 돈이 아니라 빌리는 돈입니다',
+                  compete:'경쟁을 거쳐 선정돼야 받습니다', admin:'해두면 다른 자격이 열립니다',
+                  auto:'기관 등록 자료로 찾았습니다 · 원문에서 자격을 확인해야 합니다'}[t];
       const on=S.type===t;
       return `<button class="lrow typebtn${on?' on':''}" data-t="${t}" style="width:100%;text-align:left">
         <div><div class="t">${TY[t]}</div><div class="d">${note}</div></div>
@@ -1078,6 +1166,8 @@ const D_APP=/신분증|본인\s*인증|본인인증|본인 명의 계좌|본인 
 const D_OWN=/전용 카드|카드 발급|체크카드|신용카드|계좌 개설|통장 개설|계좌를 만|청약통장/;
 const D_TRIV=/신분증|본인 명의 계좌|본인 명의 통장|통장 사본/;      /* 본인 확인용 · 발급이 필요 없음 */
 function agency(r){
+  /* 기관 등록 자료로 자동 판정한 제도는 자격이 확정되지 않았습니다 — 대신 제출한다고 말하지 않습니다 */
+  if(r.chk && r.chk.lvl==='api') return 'verify';
   const d=(r.guide&&r.guide.doc)||[];
   /* 'issue'(발급받아야 하는 서류)는 저희가 대신 떼고, 창구 접수도 대리로 넣습니다.
      그래서 남는 것은 '본인만 올릴 수 있는 것' 뿐입니다 — 그것만 self 로 갑니다. */
@@ -1094,7 +1184,8 @@ const AGY={
   auto:['앱이 끝냅니다','서류가 전부 연동으로 채워지고 제출까지 갑니다 · 하실 일 없음','t-go'],
   one:['한 가지만 주시면 앱이 끝냅니다','저희가 못 가져오는 서류가 딱 하나입니다 · 그것만 올려주시면 나머지는 저희가 합니다','t-go'],
   self:['준비물만 챙겨 주시면 됩니다','저희가 못 가져오는 서류가 섞여 있습니다 · 그것만 올려주시면 제출은 저희가 합니다','t-warn'],
-  expert:['사람이 봐야 할 수 있습니다','심사 대상이 글입니다 · 초안은 저희가 쓰고 검수만 고르시면 됩니다','t-logic']};
+  expert:['사람이 봐야 할 수 있습니다','심사 대상이 글입니다 · 초안은 저희가 쓰고 검수만 고르시면 됩니다','t-logic'],
+  verify:['자격부터 확인할 것','기관 등록 자료로 찾은 제도입니다 · 원문에서 자격을 확인한 뒤 신청하세요','t-mute']};
 
 
 /* ═══════════ 제출 흐름 ═══════════════════════════════════
@@ -1330,8 +1421,10 @@ function drawPrep(){
     </div>
     <p class="fnote">체크하신 준비물은 <b>이 기기에</b> 저장했습니다. 서버로 보내지 않았습니다.
       다른 기기에서도 이어서 하시려면 <b>내 정보</b>에서 암호화 백업을 켜시면 됩니다.</p>`;
-  $('flow-f').innerHTML=`<button class="btn btn-sm" id="f-close2">닫기</button>
+  $('flow-f').innerHTML=`<button class="btn btn-sm" id="f-sms" style="margin-right:auto">문자로 받기</button>
+    <button class="btn btn-sm" id="f-close2">닫기</button>
     <button class="btn btn-sm btn-fill" id="f-done">할 일로 돌아가기</button>`;
+  $('f-sms').onclick=()=>{ const b=$('f-sms'); b.textContent='문자를 보냈습니다 ✓'; b.disabled=true; };
   $('f-close2').onclick=closeFlow;
   $('f-done').onclick=()=>{ closeFlow(); S.view='todo'; drawNav(); draw(); }; }
 
@@ -1400,8 +1493,10 @@ function drawFlow(){
       <div class="cl">④ 사후관리 · 이 지원을 받은 뒤 생기는 의무(사업비 정산 · 유지 조건)를 기한 전에 알려드립니다</div>
       <p class="fnote">접수번호는 기관이 발급한 번호가 그대로 들어옵니다. 기관별 처리 현황은 자동으로 갱신됩니다.</p>
     </div>`;
-  $('flow-f').innerHTML=`<button class="btn btn-sm" id="f-close2">닫기</button>
+  $('flow-f').innerHTML=`<button class="btn btn-sm" id="f-sms" style="margin-right:auto">문자로 받기</button>
+    <button class="btn btn-sm" id="f-close2">닫기</button>
     <button class="btn btn-sm btn-fill" id="f-done">할 일로 돌아가기</button>`;
+  $('f-sms').onclick=()=>{ const b=$('f-sms'); b.textContent='문자를 보냈습니다 ✓'; b.disabled=true; };
   $('f-close2').onclick=closeFlow;
   $('f-done').onclick=()=>{ closeFlow(); S.view='todo'; drawNav(); draw(); }; }
 function runSubmit(){
@@ -1434,7 +1529,7 @@ function viewTodo(){
   const cl=s=>s==='done'?'done':s==='now'?'now':s==='lost'?'lost':s==='cond'?'lock':'todo';
 
   /* 판정 다음 · 누가 하는가 */
-  const byAg={auto:[],one:[],self:[],expert:[]};
+  const byAg={auto:[],one:[],self:[],expert:[],verify:[]};
   ok.forEach(x=>byAg[agency(x)].push(x));
   /* 손이 덜 가는 것부터 · 창구 방문이 있으면 뒤로 */
   const load=r=>((r.guide&&r.guide.doc)||[]).filter(x=>x[1]!=='auto').length
@@ -1452,8 +1547,9 @@ function viewTodo(){
   <h2 class="sec" style="margin-top:0">판정 다음 · 누가 하는지 먼저 나눕니다</h2>
   <p style="font-size:13px;color:var(--ink-2);line-height:1.6;margin-bottom:10px">
     받을 수 있다는 것을 아는 것과 실제로 받는 것은 다른 일입니다.
-    가능 ${ok.length}건을 <b>앱이 끝내는 것 · 준비물만 챙기시면 되는 것 · 사람 손이 필요한 것</b>으로 나눴습니다.</p>
-  ${['auto','one','self','expert'].filter(k=>byAg[k].length).map(k=>{
+    가능 ${ok.length}건을 <b>앱이 끝내는 것 · 준비물만 챙기시면 되는 것 · 사람 손이 필요한 것</b>으로 나눴습니다.
+    ${byAg.verify.length?`기관 등록 자료로 찾은 ${byAg.verify.length}건은 맨 아래 <b>자격부터 확인할 것</b>에 따로 두었습니다.`:''}</p>
+  ${['auto','one','self','expert','verify'].filter(k=>byAg[k].length).map(k=>{
     const A=AGY[k], L=byAg[k];
     const has=L.some(x=>x.n===S.item);
     /* 특정 항목을 보러 온 상태면 그 묶음만 엽니다 — 목표가 화면 위로 올라옵니다 */

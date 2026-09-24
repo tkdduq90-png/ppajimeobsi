@@ -161,7 +161,9 @@ function tabFor(){ const p=K.p&&D.p[K.p], nm=esc(K.f.name||(p&&p.name)||'');
       ${cur?`<div class="tcur"><div class="k2">지금 설명 중</div><b>${esc(cur.n)}</b><div class="ta">${esc(cur.a||'')}</div>
         ${cur.x?`<p>${esc(cur.x).slice(0,140)}</p>`:''}</div>`
        : sel.length?`<div class="k2">담당자가 안내해 드린 것 ${sel.length}건</div>${li(sel)}`
-       : `<p style="color:#4E5968;margin-top:14px">담당자가 하나씩 설명해 드립니다.</p>`}`; }
+       : (()=>{ const top=p.rows.filter(r=>r.g==='core'&&r.s==='ok'&&r.a).slice(0,4);
+           return top.length?`<div class="k2">이런 것들이 있습니다</div>${li(top)}<p style="color:#8B95A1;font-size:14px;margin-top:10px">담당자가 하나씩 설명해 드립니다.</p>`
+             :`<p style="color:#4E5968;margin-top:14px">담당자가 하나씩 설명해 드립니다.</p>`; })()}`; }
   if(K.view==='letter') return `<div class="k">안내문</div><h3>${nm} 님께 드릴<br>안내문입니다</h3>
       <div class="k2">담긴 제도 ${sel.length}건</div>${li(sel)}
       <p style="color:#4E5968;margin-top:12px">출력해 드리거나 문자로 보내 드립니다.</p>`;
@@ -173,7 +175,8 @@ function tabFor(){ const p=K.p&&D.p[K.p], nm=esc(K.f.name||(p&&p.name)||'');
     if(K.step===2) return `<div class="k">제출 중</div><h3>신청서를<br>보내고 있습니다</h3><p style="color:#4E5968">잠시만 기다려 주세요.</p>`;
     if(K.step===3) return `<div class="k">접수 완료</div><h3>${L.length}건이<br>접수됐습니다</h3>
       ${L.map(x=>`<div class="tli"><b>${esc(x.r.n)}</b><span style="font-family:ui-monospace,Menlo,monospace">${esc(K.done[x.k]||'')}</span></div>`).join('')}
-      <p style="color:#4E5968;margin-top:12px">접수번호를 문자로 보내 드립니다.</p>`; }
+      <button class="p big" id="t-sms" style="margin-top:16px">문자로 받기</button>
+      <p style="color:#8B95A1;font-size:14px;margin-top:8px">접수번호와 다음 일정을 휴대폰으로 보내 드립니다.</p>`; }
   return ''; }
 function stRow(state,txt){ return `<div class="st"><span class="dot ${state}"></span><span>${txt}</span></div>`; }
 
@@ -418,6 +421,7 @@ function draw(){const a=$('ct-app');
   a.querySelectorAll('[data-s]').forEach(c=>c.onchange=()=>{const k=c.dataset.s;c.checked?K.sel.add(k):K.sel.delete(k);const y=window.scrollY;draw();window.scrollTo(0,y);});
   const m=$('more');if(m)m.onclick=()=>{K.more[K.tab+(K.filter||'')]=1;const y=window.scrollY;draw();window.scrollTo(0,y);};
   $('new').onclick=()=>{K.p=null;K.f={name:'',birth:'',phone:'',reason:''};K.typed=false;go('home');};$('letter').onclick=()=>go('letter');$('apply').onclick=()=>{K.step=0;go('apply');};}
+ const ts=$('t-sms'); if(ts) ts.onclick=()=>{ ts.textContent='문자를 보냈습니다 ✓'; ts.disabled=true; toast('시민이 문자로 받기를 눌렀습니다'); };
  if(K.view==='apply'){ $('ap-back').onclick=()=>{K.step=0;go('result');};
   a.querySelectorAll('[data-dk]').forEach(cb=>cb.onchange=()=>{ K.docs=K.docs||{}; K.docs[cb.dataset.dk]=cb.checked; const y=window.scrollY, ok=$('ap-ok').checked; draw(); $('ap-ok').checked=ok; $('ap-sign').disabled=!ok; window.scrollTo(0,y); });
   const ok=$('ap-ok'); if(ok){ ok.onchange=()=>{$('ap-sign').disabled=!ok.checked;}; $('ap-sign').onclick=()=>{K.step=1;draw();runApply();}; }
@@ -431,7 +435,6 @@ function show(){ enterRegion(); ensureNational(); ensureLocal('서울'); buildDa
   if(!K.p || !D.p[K.p]) K.view='home'; draw(); }
 function afterScan(){ enterRegion(); buildData(); K.view='result'; K.tab='core'; K.open=null; S.counter=false; draw(); window.scrollTo(0,0); }
 function exit(){ K.p=null; K.view='home'; S.counter=false; leaveRegion(); lsSave&&lsSave(); stage('landing'); }
-$('ct-back').onclick=exit;
 document.getElementById('ct-ob-x').onclick=()=>{ S.scanStop=true; S.counter=false; stage('counter'); };
 return {show, afterScan, exit};
 })();

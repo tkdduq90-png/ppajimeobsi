@@ -266,7 +266,11 @@ def norm(s):
     s = re.sub(r'^(서울시|서울특별시)', '', s)
     return re.sub(r'(지원|사업|지급)$', '', s)
 
-def build(svc, cond, region, gu=None, core=(), national=False):
+SEOUL_GU = ['종로구','중구','용산구','성동구','광진구','동대문구','중랑구','성북구','강북구','도봉구','노원구','은평구','서대문구',
+            '마포구','양천구','강서구','구로구','금천구','영등포구','동작구','관악구','서초구','강남구','송파구','강동구']
+
+def build(svc, cond, region, gu=None, core=(), national=False, ctab=None):
+    ctab = ctab or {}
     CORE = {norm(n): n for n in core}
     byid = {r['서비스ID']: r for r in cond}
     rows = []
@@ -275,7 +279,8 @@ def build(svc, cond, region, gu=None, core=(), national=False):
         if national:
             if r.get('소관기관유형') not in ('중앙행정기관', '공공기관'): continue
         else:
-            if not org.startswith(region): continue
+            # '동대문구시설관리공단' 처럼 광역 이름 없이 구 이름으로 시작하는 산하 기관도 그 지역 것입니다
+            if not (org.startswith(region) or (region == '서울특별시' and any(org.startswith(g) for g in SEOUL_GU))): continue
             if gu and gu not in org: continue
         rows.append(r)
 
@@ -313,6 +318,9 @@ def build(svc, cond, region, gu=None, core=(), national=False):
         # 판정 함수 — 지역과 나이만 확정으로 가르고, 나머지는 모른다고 합니다
         # 구·군·시가 붙은 기관은 그 구 주민만, 광역 기관(서울특별시·서울특별시교육청 등)은 광역 주민 전체
         gu_ = re.search(r'\s(\S+[구군시])(?:\s|$)', org + ' ')
+        if not gu_:
+            g0 = next((g for g in SEOUL_GU if org.startswith(g)), None)
+            if g0: gu_ = re.search(r'(.+)', g0)
         if national: gates = []
         elif gu_:    gates = [f"!(c.region||'').includes('{esc(gu_.group(1))}') ? NO('{esc(gu_.group(1))} 주민 대상입니다')"]
         else:
@@ -374,10 +382,21 @@ def build(svc, cond, region, gu=None, core=(), national=False):
             tail = (f"OK('{esc(clean(r.get('지원유형')) or '지원')}',"
                     f"'{esc(clean(r.get('지원대상'), 60))}','금액은 기관 자료에 숫자로 적혀 있지 않습니다')")
         fsrc = '\n    : '.join(gates + [tail])
+        lvl, srcnote = 'api', ''
+        # 조건표가 있는 제도 — 정규식 대신 사람이 옮긴 조건으로 판정합니다
+        if sid in ctab:
+            area = gu_.group(1) if (not national and gu_) else (None if national else re.sub(r'(특별자치시|특별자치도|특별시|광역시|도)$', '', region))
+            m = {'amt': f"{clean(r.get('지원유형')) or '지원'} {v}만" if v else (clean(r.get('지원유형')) or '지원'),
+                 'why': clean(r.get('지원대상'), 60)}
+            if v: m['mv'] = {kind: round(v*mul, 1)}
+            if area: m['area'] = area
+            fsrc = f"condJudge({json.dumps(ctab[sid], ensure_ascii=False)},c,{json.dumps(m, ensure_ascii=False)})"
+            lvl, srcnote = 'cond', ' · 조건표 대조'
+            stat['조건표로 판정'] += 1
 
         items.append(f"""  {{n:'{esc(name)}', type:'cash', where:'{esc(org)}', visit:'center',
-   chk:{{d:'{date.today()}', src:'행정안전부 공공서비스 정보 · {esc(org)} 등록분',
-        u:'{esc(r.get('상세조회URL') or '')}', lvl:'api'}},
+   chk:{{d:'{date.today()}', src:'행정안전부 공공서비스 정보 · {esc(org)} 등록분{srcnote}',
+        u:'{esc(r.get('상세조회URL') or '')}', lvl:'{lvl}'}},
    guide:{{what:'{esc(clean(r.get('지원내용'), 110))}',
      doc:{json.dumps(docs(r), ensure_ascii=False)},
      how:{json.dumps(how(r), ensure_ascii=False)},
@@ -395,6 +414,7 @@ def main():
     ap.add_argument('--key', default=None, help='앱 쪽 지역 키 (서울·경기·부산 …) · c.region 앞 단어')
     ap.add_argument('--core', default=None, help='핵심 제도 이름 목록 JSON (중복 제거용)')
     ap.add_argument('--national', action='store_true', help='중앙행정기관·공공기관 전국 공통분')
+    ap.add_argument('--cond', action='append', default=[], help='조건표 JSON (서비스ID → 조건) · 여러 번 줄 수 있음')
     a = ap.parse_args()
 
     def load(n):
@@ -404,7 +424,10 @@ def main():
 
     svc, cond = load('serviceList.jsonl'), load('supportConditions.jsonl')
     core = json.load(io.open(a.core, encoding='utf-8')) if a.core else []
-    items, stat, total = build(svc, cond, a.region, a.gu, core, a.national)
+    ctab = {}
+    for p in a.cond:
+        d = json.load(io.open(p, encoding='utf-8')); d.pop('_', None); ctab.update(d)
+    items, stat, total = build(svc, cond, a.region, a.gu, core, a.national, ctab)
     key = a.key or re.sub(r'(특별자치시|특별자치도|특별시|광역시|도)$', '', a.region)
     SLUG = {'서울':'seoul','경기':'gyeonggi','부산':'busan','인천':'incheon','대구':'daegu','광주':'gwangju',
             '대전':'daejeon','울산':'ulsan','세종':'sejong','강원':'gangwon','충북':'chungbuk','충남':'chungnam',
