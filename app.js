@@ -71,13 +71,18 @@ const CP={
   '세입자':c=>!!c.home.rent, '차량':c=>(c.home.car||0)>0, '이사':c=>!!c.admin.moving,
   '미취업':c=>!c.work.on&&!c.biz.on, '예비창업':c=>!c.biz.on&&!!c.biz.plan,
   '질환':c=>c.misc.chronic?'chk':false,
+  '청년':c=>c.age>=19&&c.age<=39, '무주택':c=>!c.home.own, '근로자':c=>!!c.work.on, '프리랜서':c=>!!c.work.freelance,
+  '농어업인':c=>!!c.misc.farm, '임신':c=>!!c.fam.pregnant, '영유아자녀':c=>!!c.fam.infant,
+  '사업자':c=>!!c.biz.on, '소상공인':c=>!!c.biz.on&&isSosang(c.biz),
 };
 const CL={'노인65':'만 65세 이상','노인60':'만 60세 이상','수급자':'기초생활수급자','생계의료수급':'생계·의료급여 수급자',
   '차상위':'차상위계층','저소득':'저소득 가구','장기요양':'장기요양 등급자','장애인':'장애인','한부모':'한부모 가정',
   '출생아':'올해 출생아가 있는 가정','출산가정':'임신·출산 가정','아동자녀':'자녀가 있는 가정','다둥이':'자녀 2명 이상 가정',
   '셋째자녀':'자녀 3명 이상 가정','학생자녀':'초·중·고 학생이 있는 가정','초등자녀':'초등학생 자녀','중고생자녀':'중·고등학생 자녀',
   '1인가구':'1인 가구','홀몸어르신':'홀로 사는 어르신','세입자':'세입자','차량':'차량 보유자','이사':'이사하는 분',
-  '미취업':'미취업자','예비창업':'창업을 준비하는 분','질환':'해당 질환이 있는 분'};
+  '미취업':'미취업자','예비창업':'창업을 준비하는 분','질환':'해당 질환이 있는 분',
+  '청년':'만 19~39세 청년','무주택':'무주택자','근로자':'근로자','프리랜서':'프리랜서','농어업인':'농어업인',
+  '임신':'임신 중인 분','영유아자녀':'영유아 자녀가 있는 가정','사업자':'사업자','소상공인':'소상공인'};
 const cLab=g=>{ const s=String(g).replace(/^(모름|특수):/,''); return CL[s]||s; };
 const cVal=(g,c)=>{ if(/^모름:/.test(g)) return 'chk'; if(/^특수:/.test(g)) return false; const f=CP[g]; return f?f(c):false; };
 function condJudge(x,c,m){ m=m||{};
@@ -90,6 +95,7 @@ function condJudge(x,c,m){ m=m||{};
   if(hi!=null && c.age>hi) return NO(`만 ${hi}세 이하 대상입니다`);
   if(x.inc && (c.home.incomeRate||100)>x.inc) return NO(`중위소득 ${x.inc}% 이하 대상입니다 · 현재 ${c.home.incomeRate}%`);
   const ask=[];
+  for(const g of x.not||[]){ const v=cVal(g,c); if(v===true) return NO(`${cLab(g)}은(는) 제외됩니다`); if(v==='chk') ask.push(`${cLab(g)} 아님`); }
   for(const g of x.all||[]){ const v=cVal(g,c); if(v===false) return NO(`${cLab(g)} 대상입니다`); if(v==='chk') ask.push(cLab(g)); }
   if((x.any||[]).length){ const vs=x.any.map(g=>[g,cVal(g,c)]);
     if(!vs.some(([,v])=>v===true)){
