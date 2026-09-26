@@ -83,8 +83,10 @@ const CL={'노인65':'만 65세 이상','노인60':'만 60세 이상','수급자
   '미취업':'미취업자','예비창업':'창업을 준비하는 분','질환':'해당 질환이 있는 분',
   '청년':'만 19~39세 청년','무주택':'무주택자','근로자':'근로자','프리랜서':'프리랜서','농어업인':'농어업인',
   '임신':'임신 중인 분','영유아자녀':'영유아 자녀가 있는 가정','사업자':'사업자','소상공인':'소상공인'};
-const cLab=g=>{ const s=String(g).replace(/^(모름|특수):/,''); return CL[s]||s; };
-const cVal=(g,c)=>{ if(/^모름:/.test(g)) return 'chk'; if(/^특수:/.test(g)) return false; const f=CP[g]; return f?f(c):false; };
+const cLab=g=>{ if(String(g).includes('+')) return String(g).split('+').map(h=>cLab(h.trim())).join(' · '); const s=String(g).replace(/^(모름|특수):/,''); return CL[s]||s; };
+const cVal=(g,c)=>{ if(String(g).includes('+')){ const vs=String(g).split('+').map(h=>cVal(h.trim(),c));
+    return vs.includes(false)?false:(vs.includes('chk')?'chk':true); }
+  if(/^모름:/.test(g)) return 'chk'; if(/^특수:/.test(g)) return false; const f=CP[g]; return f?f(c):false; };
 function condJudge(x,c,m){ m=m||{};
   if(m.area && !(c.region||'').includes(m.area)) return NO(`${m.area} 주민 대상입니다`);
   if(x.who==='O') return NO('기관·단체가 신청하는 제도입니다');
