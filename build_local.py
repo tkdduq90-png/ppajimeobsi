@@ -269,7 +269,13 @@ def norm(s):
 SEOUL_GU = ['종로구','중구','용산구','성동구','광진구','동대문구','중랑구','성북구','강북구','도봉구','노원구','은평구','서대문구',
             '마포구','양천구','강서구','구로구','금천구','영등포구','동작구','관악구','서초구','강남구','송파구','강동구']
 
-def build(svc, cond, region, gu=None, core=(), national=False, ctab=None):
+MERGED = {'전남광주통합'}
+ABBR = {'충청북':'충북','충청남':'충남','경상북':'경북','경상남':'경남','전라북':'전북','전라남':'전남'}
+def short_of(region):
+    s = re.sub(r'(특별자치시|특별자치도|특별시|광역시|도)$', '', region)
+    return ABBR.get(s, s)
+
+def build(svc, cond, region, gu=None, core=(), national=False, ctab=None, cond_only=False):
     ctab = ctab or {}
     CORE = {norm(n): n for n in core}
     byid = {r['서비스ID']: r for r in cond}
@@ -290,6 +296,9 @@ def build(svc, cond, region, gu=None, core=(), national=False, ctab=None):
         # 중앙 제도를 지자체가 자기 이름으로 다시 등록한 것 — 원문 대조한 쪽을 씁니다
         if norm(r.get('서비스명')) in CORE:
             stat['중복 · 핵심 제도와 같음'] += 1
+            continue
+        if cond_only and sid not in ctab:
+            stat['조건표 없음 · 이번엔 뺌'] += 1
             continue
         c = byid.get(sid, {})
         name = clean(r.get('서비스명'), 40)
@@ -324,7 +333,7 @@ def build(svc, cond, region, gu=None, core=(), national=False, ctab=None):
         if national: gates = []
         elif gu_:    gates = [f"!(c.region||'').includes('{esc(gu_.group(1))}') ? NO('{esc(gu_.group(1))} 주민 대상입니다')"]
         else:
-            short = re.sub(r'(특별자치시|특별자치도|특별시|광역시|도)$', '', region)
+            short = short_of(region)
             gates = [f"!(c.region||'').startsWith('{esc(short)}') ? NO('{esc(short)} 주민 대상입니다')"]
         if lo: gates.append(f"c.age<{lo} ? NO('만 {lo}세 이상이어야 합니다')")
         if hi: gates.append(f"c.age>{hi} ? NO('만 {hi}세 이하여야 합니다')")
@@ -385,10 +394,11 @@ def build(svc, cond, region, gu=None, core=(), national=False, ctab=None):
         lvl, srcnote = 'api', ''
         # 조건표가 있는 제도 — 정규식 대신 사람이 옮긴 조건으로 판정합니다
         if sid in ctab:
-            area = gu_.group(1) if (not national and gu_) else (None if national else re.sub(r'(특별자치시|특별자치도|특별시|광역시|도)$', '', region))
+            area = gu_.group(1) if (not national and gu_) else (None if national else short_of(region))
             m = {'amt': f"{clean(r.get('지원유형')) or '지원'} {v}만" if v else (clean(r.get('지원유형')) or '지원'),
                  'why': clean(r.get('지원대상'), 60)}
             if v: m['mv'] = {kind: round(v*mul, 1)}
+            if area and area in MERGED: area = None   # 통합 광역(전남광주 등) · 지역 파일을 받는 사람만 보므로 광역 게이트 생략
             if area: m['area'] = area
             fsrc = f"condJudge({json.dumps(ctab[sid], ensure_ascii=False)},c,{json.dumps(m, ensure_ascii=False)})"
             lvl, srcnote = 'cond', ' · 조건표 대조'
@@ -414,6 +424,7 @@ def main():
     ap.add_argument('--key', default=None, help='앱 쪽 지역 키 (서울·경기·부산 …) · c.region 앞 단어')
     ap.add_argument('--core', default=None, help='핵심 제도 이름 목록 JSON (중복 제거용)')
     ap.add_argument('--national', action='store_true', help='중앙행정기관·공공기관 전국 공통분')
+    ap.add_argument('--cond-only', action='store_true', help='조건표가 있는 제도만 싣습니다')
     ap.add_argument('--cond', action='append', default=[], help='조건표 JSON (서비스ID → 조건) · 여러 번 줄 수 있음')
     a = ap.parse_args()
 
@@ -427,8 +438,8 @@ def main():
     ctab = {}
     for p in a.cond:
         d = json.load(io.open(p, encoding='utf-8')); d.pop('_', None); ctab.update(d)
-    items, stat, total = build(svc, cond, a.region, a.gu, core, a.national, ctab)
-    key = a.key or re.sub(r'(특별자치시|특별자치도|특별시|광역시|도)$', '', a.region)
+    items, stat, total = build(svc, cond, a.region, a.gu, core, a.national, ctab, a.cond_only)
+    key = a.key or short_of(a.region)
     SLUG = {'서울':'seoul','경기':'gyeonggi','부산':'busan','인천':'incheon','대구':'daegu','광주':'gwangju',
             '대전':'daejeon','울산':'ulsan','세종':'sejong','강원':'gangwon','충북':'chungbuk','충남':'chungnam',
             '전북':'jeonbuk','전남':'jeonnam','경북':'gyeongbuk','경남':'gyeongnam','제주':'jeju'}

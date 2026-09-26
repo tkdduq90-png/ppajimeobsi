@@ -13,7 +13,7 @@ function buildData(){ const keep=PID, L=(window.LOCAL_BY||{})['서울']||[];
     for(const s of J) for(const r of s.res){
       if(r.s==='chk'){ chk[s.k]=(chk[s.k]||0)+1;
         const gap=/분류돼 있지 않|확정하지 못했|코드로 등록돼 있지 않|찾지 못했/.test(r.why||'');
-        chkRows.push({g:gap?'gap':'chk', from:s.k==='local'?'local':s.k==='nat'?'nat':'core', sn:s.n, n:r.n, s:'chk', a:String(r.amt||'').replace(/\|\|/g,' · '),
+        chkRows.push({g:gap?'gap':(/^해당하시면/.test(r.why||'')?'self':'chk'), from:s.k==='local'?'local':s.k==='nat'?'nat':'core', sn:s.n, n:r.n, s:'chk', a:String(r.amt||'').replace(/\|\|/g,' · '),
           w:r.why||'', wh:String(r.where||'').replace(/\|\|/g,' · '), l:(r.chk&&r.chk.lvl)||'', src:(r.chk&&(r.chk.t||r.chk.src))||'',
           d:(r.chk&&r.chk.d)||'', u:(r.chk&&r.chk.u)||'', x:(r.guide&&r.guide.what)||'', tm:(r.guide&&r.guide.time)||'', v:r.visit||'', y:0, o:0});
         continue; }
@@ -154,7 +154,7 @@ function tabFor(){ const p=K.p&&D.p[K.p], nm=esc(K.f.name||(p&&p.name)||'');
   const li=L=>L.map(r=>`<div class="tli"><b>${esc(r.n)}</b><span>${esc(r.a||'')}</span></div>`).join('');
   if(K.view==='result'){
     const open=K.open&&K.open.split(':'); let cur=null;
-    if(open){ const [pk,g,i]=open; cur = g==='chk'||g==='gap' ? (D.p[pk].chkRows||[])[+i] : D.p[pk].rows[+i]; }
+    if(open){ const [pk,g,i]=open; cur = g==='chk'||g==='gap'||g==='self' ? (D.p[pk].chkRows||[])[+i] : D.p[pk].rows[+i]; }
     return `<div class="k">${nm} 님 조회 결과</div>
       <h3>받으실 수 있는 것<br><span class="tbig">${ok.length}건</span></h3>
       <div class="tsum"><div><span>해마다</span><b>${won(y)}</b></div><div><span>한 번</span><b>${won(o)}</b></div></div>
@@ -272,12 +272,12 @@ function result(){const p=D.p[K.p]; const cc=citizenCards(p);
    <b>시연 환경입니다.</b> 실제 조회 대신 방문 사유와 나이가 비슷한 예시 인물(${esc(p.name)}, 만 ${p.age}세)의 정보로 대조했습니다.
    실제 서비스에서는 인증한 ${esc(K.f.name)} 님의 정보를 그대로 가져옵니다.</div>`:'';
  const G={all:[],local:[],core:[],nat:[],chk:[]}; p.rows.forEach((r,i)=>{ G[r.g].push([r,i]); G.all.push([r,i]); });
- G.gap=[]; (p.chkRows||[]).forEach((r,i)=>(r.g==='gap'?G.gap:G.chk).push([r,i]));
- const ok=g=>g==='chk'||g==='gap'?G[g].length:G[g].filter(([r])=>r.s==='ok').length, lost=p.rows.filter(r=>r.s==='lost').length;
+ G.gap=[]; G.self=[]; (p.chkRows||[]).forEach((r,i)=>(r.g==='gap'?G.gap:r.g==='self'?G.self:G.chk).push([r,i]));
+ const ok=g=>g==='chk'||g==='gap'||g==='self'?G[g].length:G[g].filter(([r])=>r.s==='ok').length, lost=p.rows.filter(r=>r.s==='lost').length;
  const chk=G.chk.length, gap=G.gap.length;
  const cash=r=>r.g==='core'&&r.t==='cash';
  const y=p.rows.filter(cash).reduce((a,r)=>a+(r.y||0),0), o=p.rows.filter(cash).reduce((a,r)=>a+(r.o||0),0);
- const T=[['all','전체'],['core','주요 제도'],['local','동대문구 제도'],['nat','전국 공통'],['chk','여쭤볼 것']];
+ const T=[['all','전체'],['core','주요 제도'],['local','동대문구 제도'],['nat','전국 공통'],['chk','여쭤볼 것'],['self','해당하시면']];
  /* 방문 사유와 관련된 제도를 위로 — 대조 범위는 그대로, 순서만 바꿉니다 */
  const RX={'기초연금':/기초연금|노인|어르신|장기요양|노령/,'어르신 돌봄':/노인|어르신|돌봄|장기요양|치매|요양/,'보육료':/보육|어린이집|유아|아동/,
    '출산·육아':/출산|육아|임신|아동|부모|영아/,'월세':/월세|주거|임대|전세|주택/,'구직·실업':/구직|실업|취업|일자리|내일배움|고용/,'창업':/창업|사업|소상공인|자금/}[K.f.reason];
@@ -306,6 +306,8 @@ function result(){const p=D.p[K.p]; const cc=citizenCards(p);
    <b>${K.filter==='y'?'해마다 받는 것':'한 번 받는 것'}만 보는 중 · ${L.length}건</b><button id="kf-x" style="margin-left:auto;padding:6px 10px">전체 보기</button></div>`:''}
  ${K.tab==='chk'?`<div class="card" style="padding:12px 16px;margin-bottom:10px;background:var(--warn-bg);box-shadow:none;font-size:13px;color:var(--warn);line-height:1.6">
    <b>연동으로 알 수 없는 요건이 하나 남은 제도입니다.</b> 줄마다 무엇을 여쭤보면 되는지 적혀 있습니다.</div>`:''}
+ ${K.tab==='self'?`<div class="card" style="padding:12px 16px;margin-bottom:10px;background:var(--bg);box-shadow:none;font-size:13px;color:var(--ink2);line-height:1.6">
+   <b>특정 상황에 있는 분만 받는 제도입니다.</b> 하나하나 여쭤보지 않고 목록으로 보여드립니다 · 해당하는 게 있으면 눌러서 안내하세요.</div>`:''}
  ${K.tab==='gap'?`<div class="card" style="padding:12px 16px;margin-bottom:10px;background:var(--bg);box-shadow:none;font-size:13px;color:var(--ink2);line-height:1.6">
    <b>기관 자료가 부족해 판정하지 못한 제도입니다.</b> 누구를 위한 제도인지 등록 자료에 분류돼 있지 않습니다.
    시민께 여쭤봐서 풀리는 문제가 아니라 조건 자료를 채워야 하는 목록입니다.</div>`:''}

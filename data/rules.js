@@ -202,7 +202,9 @@ const SECTORS=[
      how:['3월 집중신청기간에 주민센터 또는 교육비원클릭에서 신청', '소득 조사', '학교를 통해 또는 계좌로 지급'],
      warn:'대학생은 대상이 아닙니다. 집중신청기간을 놓쳐도 연중 신청할 수 있지만 지급이 늦어집니다.',
      time:'신청 후 약 1개월 · 연 1회', s:'edu-2026'},
-   f:c=>{ const n=(c.fam.elem||0)+(c.fam.mid||0)+(c.fam.high||0);
+   f:c=>{ if(c.fam.kids && [c.fam.elem,c.fam.mid,c.fam.high].some(v=>v==null))
+       return CHK('확인 필요','초·중·고에 다니는 자녀가 있고 소득이 기준 이하이면 받습니다');
+     const n=(c.fam.elem||0)+(c.fam.mid||0)+(c.fam.high||0);
      if(!n) return c.fam.kids ? NO('초·중·고 재학 자녀가 확인되지 않습니다') : NO('자녀가 없습니다');
      const hh=hhSize(c), cut=benefitCut(c,0.50), inc=incomeAmt(c);
      if(inc>cut) return NO(`${hh}인 가구 기준 ${Math.round(cut/10000)}만 이하여야 합니다 · 소득인정액 ${Math.round(inc/10000)}만`);
@@ -586,7 +588,8 @@ const SECTORS=[
      how:['학기별 신청 기간에 한국장학재단 누리집에서 신청', '가구원 정보 제공 동의', '소득구간 산정 (약 8주)', '학교에 지급'],
      warn:'가구원 동의가 안 되면 소득구간이 산정되지 않아 미지원 처리됩니다. 부모 동의를 반드시 받으세요.', time:'소득구간 산정 약 8주', s:'scholarship-2026'},
    base:{note:'1~3구간 600만 · 4~6구간 440만 · 7~8구간 360만 · 9구간 100만 · 가구원 동의 필수', d:'2026-09-08', u:'https://blog.kwt.co.kr/2026-국가장학금-신청기간-총정리소득분위별-지원금액/'},
-   f:c=>{ if(!c.fam.college) return NO('대학 재학생이 없습니다');
+   f:c=>{ if(c.fam.kids && c.fam.college==null) return CHK('확인 필요','대학에 다니는 자녀가 있으면 소득구간에 따라 받습니다');
+     if(!c.fam.college) return NO('대학 재학생이 없습니다');
      if(c.misc.welfare) return OK('등록금 전액','기초·차상위 전액 지원','학기별 신청',{y:600});
      const v = c.home.incomeRate<=90?600 : c.home.incomeRate<=140?440 : c.home.incomeRate<=200?360 : 100;
      return OK(`연 최대 ${v}만`,`소득구간 추정 · 3자녀 이상 셋째부터는 8구간까지 전액`,'학기별 신청',{y:v}); }}]},

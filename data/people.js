@@ -19,9 +19,14 @@ const BLANK={
   credit:{score:800, drop:0, arrears:0, multi:false, dsr:20},
   refund:{tax:0, local:0, medical:0, dormant:0, pension:0},
   event:{death:false, deathDays:0},
-  admin:{idLatest:true, cert:true, moving:false, passport:0, license:false, licenseDue:99, carCheck:99},
+  admin:{idLatest:true, cert:true, moving:false, passport:0, license:false, licenseDue:99, carCheck:99,
+         resMonths:null, sidoMonths:null},   /* 거주기간(개월) · 주민등록 전입일 연동 */
   misc:{disabled:false, single:false, farm:false, welfare:false, chronic:false, care:false,
-        unpaid:false, arrear:false, grants:[]}
+        unpaid:false, arrear:false, grants:[],
+        /* 조건표 판정용 사실 · 전부 연동으로 가져오는 값입니다 (null = 연동으로도 모름 → 질문) */
+        disabledSevere:false, disabledDev:false, publicRent:false, studentLoan:false, debtAdj:false,
+        soldier:false, ub:false, basicPension:null, disPension:null, nps:null},
+  sex:null, edu:{univ:false}
 };
 const mk=(o)=>{const d=JSON.parse(JSON.stringify(BLANK));
   for(const k in o){ if(typeof o[k]==='object'&&!Array.isArray(o[k])) Object.assign(d[k],o[k]); else d[k]=o[k]; }
@@ -182,6 +187,13 @@ const CTX={
    refund:{tax:0, local:0, dormant:0, pension:0},
    admin:{idLatest:true, cert:false, moving:true, passport:0, license:true, licenseDue:8}})
 };
+
+/* 거주기간(개월) · 주민등록초본 연동값 [시군구, 시도] · 오유진은 첫 직장 따라 관악구로 막 옮김 */
+Object.entries({a:[84,120],b:[60,60],c:[48,96],d:[36,36],e:[96,96],f:[360,360],g:[120,120],h:[30,30],i:[60,60],j:[7,30]})
+  .forEach(([k,[r,s]])=>{ if(CTX[k]){ CTX[k].admin.resMonths=r; CTX[k].admin.sidoMonths=s; } });
+
+/* 성별 · 주민등록 연동값 */
+Object.entries({a:'m',b:'f',c:'m',d:'m',e:'f',f:'f',g:'m',h:'f',i:'m',j:'f'}).forEach(([k,v])=>{ if(CTX[k]) CTX[k].sex=v; });
 
 /* ── 역할 ── */
 const ROLE={

@@ -65,8 +65,12 @@ const CP={
   '장애인':c=>!!c.misc.disabled, '한부모':c=>!!c.misc.single,
   '출생아':c=>!!c.fam.infant, '출산가정':c=>!!(c.fam.pregnant||c.fam.infant),
   '아동자녀':c=>c.fam.kids>0, '다둥이':c=>c.fam.kids>=2, '셋째자녀':c=>c.fam.kids>=3,
-  '학생자녀':c=>(c.fam.elem||0)+(c.fam.mid||0)+(c.fam.high||0)>0,
-  '초등자녀':c=>(c.fam.elem||0)>0, '중고생자녀':c=>(c.fam.mid||0)+(c.fam.high||0)>0,
+  /* 학령은 연동(가족관계·학적)으로 옵니다. 직접 입력처럼 자녀는 있는데 학령을 모르면(null) 떨어뜨리지 않고 확인으로 둡니다 */
+  '자녀':c=>c.fam.kids>0,
+  '학생자녀':c=>!c.fam.kids?false:([c.fam.elem,c.fam.mid,c.fam.high].some(v=>v==null)?'chk':(c.fam.elem||0)+(c.fam.mid||0)+(c.fam.high||0)>0),
+  '초등자녀':c=>!c.fam.kids?false:(c.fam.elem==null?'chk':c.fam.elem>0),
+  '중고생자녀':c=>!c.fam.kids?false:((c.fam.mid==null||c.fam.high==null)?'chk':(c.fam.mid||0)+(c.fam.high||0)>0),
+  '대학생자녀':c=>!c.fam.kids?false:(c.fam.college==null?'chk':!!c.fam.college),
   '1인가구':c=>hhSize(c)===1, '홀몸어르신':c=>c.age>=65&&hhSize(c)===1,
   '세입자':c=>!!c.home.rent, '차량':c=>(c.home.car||0)>0, '이사':c=>!!c.admin.moving,
   '미취업':c=>!c.work.on&&!c.biz.on, '예비창업':c=>!c.biz.on&&!!c.biz.plan,
@@ -74,18 +78,84 @@ const CP={
   '청년':c=>c.age>=19&&c.age<=39, '무주택':c=>!c.home.own, '근로자':c=>!!c.work.on, '프리랜서':c=>!!c.work.freelance,
   '농어업인':c=>!!c.misc.farm, '임신':c=>!!c.fam.pregnant, '영유아자녀':c=>!!c.fam.infant,
   '사업자':c=>!!c.biz.on, '소상공인':c=>!!c.biz.on&&isSosang(c.biz),
+  /* 연동으로 알 수 있는 사실 · 값이 없으면 제도마다 묻지 않고 사실 하나를 한 번 묻습니다 */
+  '여성':c=>c.sex==='f'?true:(c.sex==='m'?false:'chk'),
+  '대학생':c=>c.edu&&c.edu.univ!=null?!!c.edu.univ:'chk',
+  '중증장애':c=>!c.misc.disabled?false:(c.misc.disabledSevere!=null?!!c.misc.disabledSevere:'chk'),
+  '발달장애':c=>!c.misc.disabled?false:(c.misc.disabledDev!=null?!!c.misc.disabledDev:'chk'),
+  '월세':c=>!c.home.rent?false:((c.home.monthly||0)>0),
+  '공공임대':c=>c.misc.publicRent!=null?!!c.misc.publicRent:'chk',
+  '학자금대출':c=>c.misc.studentLoan!=null?!!c.misc.studentLoan:'chk',
+  '채무조정':c=>c.misc.debtAdj?true:((c.credit&&c.credit.arrears>0)?'chk':false),
+  '기초연금':c=>c.age<65?false:(c.misc.basicPension!=null?!!c.misc.basicPension:'chk'),
+  '장애인연금':c=>!c.misc.disabled||c.age<18?false:(c.misc.disPension!=null?!!c.misc.disPension:'chk'),
+  '국민연금':c=>c.misc.nps!=null?!!c.misc.nps:((c.work.on||c.biz.on)?true:'chk'),
+  '구직급여':c=>!!c.misc.ub,
+  '군인':c=>!!c.misc.soldier,
+  /* 사업 사실 · 사업자등록·4대보험·부가세 신고 연동값 */
+  '법인':c=>!!c.biz.on&&c.biz.kind==='corp', '개인사업자':c=>!!c.biz.on&&c.biz.kind!=='corp',
+  '벤처':c=>!!c.biz.on&&!!c.biz.venture, '직원고용':c=>!!c.biz.on&&(c.biz.emp||0)>0,
 };
+/* 수치 사실 · "연소득<=3500" 처럼 기준값을 붙여 씁니다 (금액은 만 원) */
+const annualPay=c=>c.work.on?(c.work.pay||null):(c.biz.on||c.work.freelance?null:0);
+const PF={
+  '연소득':c=>annualPay(c),
+  '부부소득':c=>{ const me=annualPay(c); if(me==null) return null; if(!c.fam.married) return me;
+                 return c.fam.spousePay!=null?me+c.fam.spousePay:null; },
+  '중위':c=>c.home.incomeRate==null?null:c.home.incomeRate,
+  '가구원':c=>hhSize(c),
+  '고용보험':c=>c.work.insured!=null?c.work.insured:null,
+  '업력':c=>c.biz.on?(c.biz.years!=null?c.biz.years:null):null,
+  '직원':c=>c.biz.on?(c.biz.emp!=null?c.biz.emp:null):null,
+  '매출':c=>c.biz.on?(c.biz.rev||null):null,
+  '나이':c=>c.age==null?null:c.age,
+  /* 거주기간(개월) · 주민등록 전입일 연동. 시도 기준은 시군구 기간보다 짧을 수 없습니다 */
+  '거주':c=>c.admin.resMonths!=null?c.admin.resMonths:null,
+  '시도거주':c=>c.admin.sidoMonths!=null?c.admin.sidoMonths:(c.admin.resMonths!=null?c.admin.resMonths:null),
+};
+const PL={'연소득':['연소득','만 원'],'부부소득':['부부합산 연소득','만 원'],'중위':['기준 중위소득','%'],
+          '가구원':['가구원','명'],'고용보험':['고용보험 가입','일'],'업력':['업력','년'],'직원':['상시근로자','명'],'매출':['연매출','만 원'],'나이':['만','세'],'거주':['이 시·군·구에 산 기간',''],'시도거주':['이 시·도에 산 기간','']};
+/* 자녀 나이 · 연동값에 나이가 없으면 학년 묶음으로 가늠하고, 걸치면 묻습니다 */
+const KID_BAND=c=>{ const f=c.fam, b=[]; if(f.infant) b.push([0,2]);
+  for(let i=0;i<(f.elem||0);i++) b.push([7,12]); for(let i=0;i<(f.mid||0);i++) b.push([13,15]);
+  for(let i=0;i<(f.high||0);i++) b.push([16,18]); return b; };
+function kidAge(c,lo,hi){ const f=c.fam;
+  if(Array.isArray(f.kidAges)) return f.kidAges.some(a=>a>=lo&&a<=hi);
+  if(!(f.kids>0)) return false;
+  const b=KID_BAND(c); if(!b.length) return 'chk';
+  if(b.some(([a,z])=>a>=lo&&z<=hi)) return true;
+  if(b.some(([a,z])=>a<=hi&&z>=lo)) return 'chk';
+  return b.length<f.kids?'chk':false; }
+function paramVal(g,c){
+  let m=String(g).match(/^업종=(.+)$/);
+  if(m){ if(!c.biz.on) return false; const f=c.biz.field||ksicField(c.biz.ksic); return f?m[1].split('|').includes(f):'chk'; }
+  m=String(g).match(/^자녀나이=(\d+)~(\d+)$/); if(m) return kidAge(c,+m[1],+m[2]);
+  m=String(g).match(/^(.+?)(<=|>=)(\d+)$/); if(!m||!PF[m[1]]) return undefined;
+  const v=PF[m[1]](c); if(v==null) return 'chk';
+  return m[2]==='<='?v<=+m[3]:v>=+m[3]; }
+function paramLab(g){
+  let m=String(g).match(/^업종=(.+)$/); if(m) return `${m[1].split('|').join('·')} 업종`;
+  m=String(g).match(/^자녀나이=(\d+)~(\d+)$/); if(m) return `만 ${m[1]}~${m[2]}세 자녀`;
+  m=String(g).match(/^(.+?)(<=|>=)(\d+)$/); if(!m||!PL[m[1]]) return null;
+  if(m[1]==='나이') return `만 ${m[3]}세 ${m[2]==='<='?'이하':'이상'}`;
+  if(m[1]==='거주'||m[1]==='시도거주'){ const n=+m[3]; return `${PL[m[1]][0]} ${n%12?n+'개월':(n/12)+'년'} 이상`; }
+  return `${PL[m[1]][0]} ${(+m[3]).toLocaleString()}${PL[m[1]][1]} ${m[2]==='<='?'이하':'이상'}`; }
 const CL={'노인65':'만 65세 이상','노인60':'만 60세 이상','수급자':'기초생활수급자','생계의료수급':'생계·의료급여 수급자',
   '차상위':'차상위계층','저소득':'저소득 가구','장기요양':'장기요양 등급자','장애인':'장애인','한부모':'한부모 가정',
   '출생아':'올해 출생아가 있는 가정','출산가정':'임신·출산 가정','아동자녀':'자녀가 있는 가정','다둥이':'자녀 2명 이상 가정',
-  '셋째자녀':'자녀 3명 이상 가정','학생자녀':'초·중·고 학생이 있는 가정','초등자녀':'초등학생 자녀','중고생자녀':'중·고등학생 자녀',
+  '셋째자녀':'자녀 3명 이상 가정','학생자녀':'초·중·고 학생이 있는 가정','초등자녀':'초등학생 자녀','중고생자녀':'중·고등학생 자녀','자녀':'자녀가 있는 가정','대학생자녀':'대학생 자녀',
   '1인가구':'1인 가구','홀몸어르신':'홀로 사는 어르신','세입자':'세입자','차량':'차량 보유자','이사':'이사하는 분',
   '미취업':'미취업자','예비창업':'창업을 준비하는 분','질환':'해당 질환이 있는 분',
   '청년':'만 19~39세 청년','무주택':'무주택자','근로자':'근로자','프리랜서':'프리랜서','농어업인':'농어업인',
-  '임신':'임신 중인 분','영유아자녀':'영유아 자녀가 있는 가정','사업자':'사업자','소상공인':'소상공인'};
-const cLab=g=>{ if(String(g).includes('+')) return String(g).split('+').map(h=>cLab(h.trim())).join(' · '); const s=String(g).replace(/^(모름|특수):/,''); return CL[s]||s; };
+  '임신':'임신 중인 분','영유아자녀':'영유아 자녀가 있는 가정','사업자':'사업자','소상공인':'소상공인',
+  '여성':'여성','대학생':'대학(원) 재학생','중증장애':'장애의 정도가 심한 장애인','발달장애':'지적·자폐성 장애인',
+  '월세':'월세로 사는 분','공공임대':'공공임대주택 거주','학자금대출':'학자금대출이 있는 분','채무조정':'채무조정 중인 분',
+  '기초연금':'기초연금 수급자','장애인연금':'장애인연금 수급자','국민연금':'국민연금 가입자','구직급여':'구직급여(실업급여) 수급 중',
+  '군인':'군 복무 중인 분','법인':'법인','개인사업자':'개인사업자','벤처':'벤처기업','직원고용':'직원을 고용한 사업자'};
+const cLab=g=>{ if(String(g).includes('+')) return String(g).split('+').map(h=>cLab(h.trim())).join(' · '); const pl=paramLab(g); if(pl) return pl; const s=String(g).replace(/^(모름|특수):/,''); return CL[s]||s; };
 const cVal=(g,c)=>{ if(String(g).includes('+')){ const vs=String(g).split('+').map(h=>cVal(h.trim(),c));
     return vs.includes(false)?false:(vs.includes('chk')?'chk':true); }
+  { const pv=paramVal(g,c); if(pv!==undefined) return pv; }
   if(/^모름:/.test(g)) return 'chk'; if(/^특수:/.test(g)) return false; const f=CP[g]; return f?f(c):false; };
 function condJudge(x,c,m){ m=m||{};
   if(m.area && !(c.region||'').includes(m.area)) return NO(`${m.area} 주민 대상입니다`);
@@ -96,15 +166,19 @@ function condJudge(x,c,m){ m=m||{};
   if(lo!=null && c.age<lo) return NO(`만 ${lo}세 이상 대상입니다`);
   if(hi!=null && c.age>hi) return NO(`만 ${hi}세 이하 대상입니다`);
   if(x.inc && (c.home.incomeRate||100)>x.inc) return NO(`중위소득 ${x.inc}% 이하 대상입니다 · 현재 ${c.home.incomeRate}%`);
-  const ask=[];
-  for(const g of x.not||[]){ const v=cVal(g,c); if(v===true) return NO(`${cLab(g)}은(는) 제외됩니다`); if(v==='chk') ask.push(`${cLab(g)} 아님`); }
-  for(const g of x.all||[]){ const v=cVal(g,c); if(v===false) return NO(`${cLab(g)} 대상입니다`); if(v==='chk') ask.push(cLab(g)); }
+  const ask=[]; let fact=false;
+  /* 묻는 것이 연동 사실(연소득·자녀 나이 등)이면 '확인할 것' — 한 번 답하면 여러 제도가 풀립니다.
+     제도마다 다른 개별 상황('모름:')만 남으면 '해당하시면' — 질문이 아니라 둘러보는 목록입니다 */
+  const isFact=g=>String(g).split('+').some(h=>!/^(모름|특수):/.test(h.trim()) && cVal(h.trim(),c)==='chk');
+  for(const g of x.not||[]){ const v=cVal(g,c); if(v===true) return NO(`${cLab(g)}은(는) 제외됩니다`); if(v==='chk'){ ask.push(`${cLab(g)} 아님`); fact=fact||isFact(g); } }
+  for(const g of x.all||[]){ const v=cVal(g,c); if(v===false) return NO(`${cLab(g)} 대상입니다`); if(v==='chk'){ ask.push(cLab(g)); fact=fact||isFact(g); } }
   if((x.any||[]).length){ const vs=x.any.map(g=>[g,cVal(g,c)]);
     if(!vs.some(([,v])=>v===true)){
-      const q=vs.filter(([,v])=>v==='chk').map(([g])=>cLab(g));
+      const qg=vs.filter(([,v])=>v==='chk').map(([g])=>g), q=qg.map(cLab);
+      if(qg.some(isFact)) fact=true;
       if(q.length) ask.push(q.join(' 또는 '));
       else return NO(`${x.any.filter(g=>!/^특수:/.test(g)).slice(0,3).map(cLab).join(' · ')||cLab(x.any[0])} 중 하나에 해당해야 합니다`); } }
-  if(ask.length) return CHK(m.amt||'확인 필요', `확인할 것 · ${ask.join(' · ')}`);
+  if(ask.length) return CHK(m.amt||'확인 필요', `${fact?'확인할 것':'해당하시면'} · ${ask.join(' · ')}`);
   return OK(m.amt||'지원', m.why||'자격 요건을 충족합니다', m.note||'', m.mv||null); }
 
 /* 지자체 제도 · data/local/<지역>.js (행정안전부 공공서비스 정보에서 자동 변환)
@@ -754,6 +828,9 @@ function formHTML(){ return `<h2>직접 입력해 보기</h2>
     <div class="form-row"><label for="f-region">거주지</label>
       <select id="f-region"><option>서울</option><option>경기</option><option>인천</option>
         <option>부산</option><option>대구</option><option>광주</option><option>대전</option><option>기타</option></select></div>
+    <div class="form-row"><label for="f-stay">이 지역에 산 기간</label>
+      <select id="f-stay"><option value="3">6개월 미만</option><option value="9">6개월~1년</option>
+        <option value="24">1~3년</option><option value="60" selected>3년 이상</option></select></div>
     <div class="form-row"><label>일하는 형태</label>
       <div class="chips" id="f-work">
         <button class="chip" data-v="none">없음</button>
@@ -805,10 +882,13 @@ function bindForm(){
     const age=+$('f-age').value||33, inc=+$('f-income').value;
     const o={name:'직접 입력', sub:`만 ${age}세 · ${$('f-region').value}`, tag:'직접 입력',
       age, region:$('f-region').value,
+      admin:{resMonths:+$('f-stay').value, sidoMonths:+$('f-stay').value},
       home:{own:h==='own', rent:h==='rent', deposit:+$('f-deposit').value||0,
             monthly:+$('f-monthly').value||0, incomeRate:inc, car:0},
       fam:{married:fam.includes('married'), kids:fam.includes('kids')||fam.includes('infant')?
-            (fam.includes('infant')?1:1):0, infant:fam.includes('infant')},
+            (fam.includes('infant')?1:1):0, infant:fam.includes('infant'),
+            /* 학령은 여기서 받지 않습니다 → 모름(null)으로 두어 판정에서 '확인'이 되게 */
+            ...((fam.includes('kids')||fam.includes('infant'))?{elem:null, mid:null, high:null, college:null}:{})},
       misc:{welfare:ms.includes('welfare'), disabled:ms.includes('disabled'), single:fam.includes('single')},
       credit:{score:ms.includes('arrears')?540:790, drop:ms.includes('arrears')?-80:0,
               arrears:ms.includes('arrears')?95:0, multi:ms.includes('arrears'), dsr:ms.includes('arrears')?85:25},
@@ -868,10 +948,12 @@ function viewCheck(){
   /* 확인 필요를 둘로 — 시민이 답하면 풀리는 것 / 저희 자료가 모자라 못 정한 것.
      판정 보류는 자격 미달처럼 링에서 빼고 범례에만 둡니다 (수백 건이라 링을 덮습니다) */
   const GAP=/분류돼 있지 않|확정하지 못했|코드로 등록돼 있지 않|찾지 못했/;
-  const ask=chk.filter(x=>!GAP.test(x.why||'')), gap=chk.filter(x=>GAP.test(x.why||''));
+  const SELF=/^해당하시면/;
+  const ask=chk.filter(x=>!GAP.test(x.why||'')&&!SELF.test(x.why||'')), gap=chk.filter(x=>GAP.test(x.why||'')),
+        self=chk.filter(x=>SELF.test(x.why||''));
   const ring=[[ok.length,'var(--go)','받을 수 있는 것'],[ask.length,'var(--warn)','여쭤볼 것'],
               [unk.length,'var(--logic)','판정 불가'],[lost.length,'var(--stop)','놓침']];
-  const seg=[...ring,[gap.length.toLocaleString(),'#AEB5BD','판정 보류 · 자료 부족'],[noN.toLocaleString(),'#D3D9DC','자격 미달']];
+  const seg=[...ring,[self.length.toLocaleString(),'#C9B98F','해당하시면 받는 것'],[gap.length.toLocaleString(),'#AEB5BD','판정 보류 · 자료 부족'],[noN.toLocaleString(),'#D3D9DC','자격 미달']];
   const tot=ring.reduce((a,x)=>a+x[0],0)||1; let acc=0;
   const donut=ring.map(([v,col])=>{const r=52,C=2*Math.PI*r,len=C*v/tot,off=C*acc/tot;acc+=v;
     return `<circle cx="66" cy="66" r="${r}" fill="none" stroke="${col}" stroke-width="21"
