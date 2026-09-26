@@ -270,6 +270,15 @@ SEOUL_GU = ['종로구','중구','용산구','성동구','광진구','동대문�
             '마포구','양천구','강서구','구로구','금천구','영등포구','동작구','관악구','서초구','강남구','송파구','강동구']
 
 MERGED = {'전남광주통합'}
+# 통합 광역의 옛 이름들 — 주민이 고르는 거주지 앞 단어(광주 북구·전남 여수시)가 이것입니다
+MERGED_KEYS = {'전남광주통합': ['광주', '전남']}
+# 통합 전 옛 광역 이름을 달고 있는 산하 기관(광주도시관리공사·전남신용보증재단 등)은 그 옛 권역 주민만
+def old_area(name):
+    n = re.sub(r'^(재단법인|\(재\)|\(주\))\s*', '', name or '')
+    if n.startswith('전남광주'): return None
+    if n.startswith('광주'): return '광주'
+    if n.startswith('전남') or n.startswith('전라남도'): return '전남'
+    return None
 ABBR = {'충청북':'충북','충청남':'충남','경상북':'경북','경상남':'경남','전라북':'전북','전라남':'전남'}
 def short_of(region):
     s = re.sub(r'(특별자치시|특별자치도|특별시|광역시|도)$', '', region)
@@ -279,9 +288,20 @@ def build(svc, cond, region, gu=None, core=(), national=False, ctab=None, cond_o
     ctab = ctab or {}
     CORE = {norm(n): n for n in core}
     byid = {r['서비스ID']: r for r in cond}
+    # 지방 공단·재단(지방공기업·출자출연기관)은 이름에 지역이 없는 경우가 많습니다(예: 재단법인경기아트센터).
+    # 소관기관코드가 소속 지자체 코드라, 같은 코드를 쓰는 시군구·광역 행에서 지역 이름을 가져옵니다.
+    codemap = {}
+    for r in svc:
+        if r.get('소관기관유형') in ('시군구', '광역시도') and r.get('소관기관코드'):
+            codemap.setdefault(r['소관기관코드'], r.get('소관기관명') or '')
+    def eff(r):
+        o = r.get('소관기관명') or ''
+        if r.get('소관기관유형') in ('지방공기업', '지방출자_출연기관') and r.get('소관기관코드') in codemap:
+            return codemap[r['소관기관코드']]
+        return o
     rows = []
     for r in svc:
-        org = r.get('소관기관명') or ''
+        org = eff(r)
         if national:
             if r.get('소관기관유형') not in ('중앙행정기관', '공공기관'): continue
         else:
@@ -302,7 +322,7 @@ def build(svc, cond, region, gu=None, core=(), national=False, ctab=None, cond_o
             continue
         c = byid.get(sid, {})
         name = clean(r.get('서비스명'), 40)
-        org = clean(r.get('소관기관명'))
+        org = clean(eff(r))
         # 지역 게이트 — 시군구 이름이 있으면 그 주민만
         m = re.search(r'(\S+[시군구])$', org.split()[-1]) if org else None
         area = org.split()[-1] if len(org.split()) > 1 else region
@@ -331,10 +351,12 @@ def build(svc, cond, region, gu=None, core=(), national=False, ctab=None, cond_o
             g0 = next((g for g in SEOUL_GU if org.startswith(g)), None)
             if g0: gu_ = re.search(r'(.+)', g0)
         if national: gates = []
-        elif gu_:    gates = [f"!(c.region||'').includes('{esc(gu_.group(1))}') ? NO('{esc(gu_.group(1))} 주민 대상입니다')"]
+        # 낱말 단위로 봅니다 — 글자 포함이면 '대구 달서구'가 '서구' 제도에 걸립니다
+        elif gu_:    gates = [f"!(c.region||'').split(/\\s+/).includes('{esc(gu_.group(1))}') ? NO('{esc(gu_.group(1))} 주민 대상입니다')"]
         else:
             short = short_of(region)
-            gates = [f"!(c.region||'').startsWith('{esc(short)}') ? NO('{esc(short)} 주민 대상입니다')"]
+            keys = MERGED_KEYS.get(short, [short])
+            gates = [f"!{json.dumps(keys, ensure_ascii=False)}.includes((c.region||'').split(/\\s+/)[0]) ? NO('{esc('·'.join(keys))} 주민 대상입니다')"]
         if lo: gates.append(f"c.age<{lo} ? NO('만 {lo}세 이상이어야 합니다')")
         if hi: gates.append(f"c.age>{hi} ? NO('만 {hi}세 이하여야 합니다')")
         if gender == 'f': gates.append("c.sex==='m' ? NO('여성 대상입니다')")
@@ -398,13 +420,19 @@ def build(svc, cond, region, gu=None, core=(), national=False, ctab=None, cond_o
             m = {'amt': f"{clean(r.get('지원유형')) or '지원'} {v}만" if v else (clean(r.get('지원유형')) or '지원'),
                  'why': clean(r.get('지원대상'), 60)}
             if v: m['mv'] = {kind: round(v*mul, 1)}
-            if area and area in MERGED: area = None   # 통합 광역(전남광주 등) · 지역 파일을 받는 사람만 보므로 광역 게이트 생략
+            if area and area in MERGED:
+                area = old_area(r.get('소관기관명')) if r.get('소관기관유형') in ('지방공기업', '지방출자_출연기관') else None
+                if area is None: area = MERGED_KEYS[short_of(region)]   # 통합 광역 전체 — 광주·전남 어느 쪽이든
             if area: m['area'] = area
             fsrc = f"condJudge({json.dumps(ctab[sid], ensure_ascii=False)},c,{json.dumps(m, ensure_ascii=False)})"
             lvl, srcnote = 'cond', ' · 조건표 대조'
             stat['조건표로 판정'] += 1
 
-        items.append(f"""  {{n:'{esc(name)}', type:'cash', where:'{esc(org)}', visit:'center',
+        # 공단·재단은 지역 이름만으로는 어느 기관인지 모릅니다 → '지역 · 기관명'
+        agency = clean(r.get('소관기관명')) if r.get('소관기관유형') in ('지방공기업', '지방출자_출연기관') else ''
+        agency = re.sub(r'^(재단법인|\(재\)|\(주\))\s*', '', agency)
+        where = f"{org} · {agency}" if agency else org
+        items.append(f"""  {{n:'{esc(name)}', type:'cash', where:'{esc(where)}', visit:'center',
    chk:{{d:'{date.today()}', src:'행정안전부 공공서비스 정보 · {esc(org)} 등록분{srcnote}',
         u:'{esc(r.get('상세조회URL') or '')}', lvl:'{lvl}'}},
    guide:{{what:'{esc(clean(r.get('지원내용'), 110))}',
@@ -442,7 +470,8 @@ def main():
     key = a.key or short_of(a.region)
     SLUG = {'서울':'seoul','경기':'gyeonggi','부산':'busan','인천':'incheon','대구':'daegu','광주':'gwangju',
             '대전':'daejeon','울산':'ulsan','세종':'sejong','강원':'gangwon','충북':'chungbuk','충남':'chungnam',
-            '전북':'jeonbuk','전남':'jeonnam','경북':'gyeongbuk','경남':'gyeongnam','제주':'jeju'}
+            '전북':'jeonbuk','전남':'jeonnam','경북':'gyeongbuk','경남':'gyeongnam','제주':'jeju',
+            '전남광주통합':'jeonnam-gwangju'}
     out = a.out or ('data/national.js' if a.national else f"data/local/{SLUG.get(key, key)}.js")
     os.makedirs(os.path.dirname(out) or '.', exist_ok=True)
     label = '중앙행정기관·공공기관 전국 공통' if a.national else f'{a.region} 지자체'
@@ -450,7 +479,9 @@ def main():
             f"   생성 {date.today()} · build_local.py\n"
             f"   전부 chk.lvl='api' 입니다 — 기관 등록 자료 기준이고 공고 원문과 대조한 것이 아닙니다.\n"
             f"   금액이 숫자로 없는 것은 가능으로 두고 금액만 비웁니다. 소득 기준이 없는 것만 CHK 입니다. */\n"
-            + ("window.NATIONAL=[\n" if a.national else f"(window.LOCAL_BY=window.LOCAL_BY||{{}})['{key}']=[\n"))
+            + ("window.NATIONAL=[\n" if a.national else
+               "(window.LOCAL_BY=window.LOCAL_BY||{})" + ''.join(f"['{k}']=window.LOCAL_BY" for k in MERGED_KEYS.get(key, [key])[:-1])
+               + f"['{MERGED_KEYS.get(key,[key])[-1]}']=[\n"))
     io.open(out, 'w', encoding='utf-8').write(head + '\n'.join(items) + '\n];\n')
     print(f"{label} {total}건 중 {len(items)}건 변환 → {out}")
     for k, v in stat.most_common(): print(f"  {v:>5}  {k}")

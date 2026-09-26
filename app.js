@@ -1,7 +1,7 @@
 /* ═══════════ 상태 ═══════════ */
 let PID='d';
 let MINE=null;                       /* 직접 입력한 사람 */
-const S={stage:'landing', view:'check', ans:{}, ob:0, open:{}, sec:{}, asked:[], ti:0, type:null, item:null, expert:false, scanStop:false, sub:null, have:{}, phone:'', backup:false, tab:'type'};
+const S={stage:'landing', view:'check', ans:{}, ob:0, open:{}, sec:{}, asked:[], ti:0, type:null, item:null, expert:false, scanStop:false, sub:null, have:{}, phone:'', backup:false, tab:'type', facts:{}};
 const $=id=>document.getElementById(id);
 
 const maskMail=e=>{ if(!e) return '—'; const [a,b]=e.split('@');
@@ -24,14 +24,15 @@ let LSOK=true;
 function lsLoad(){ try{ const raw=localStorage.getItem(LSK);
     return raw?JSON.parse(raw):null; }catch(e){ LSOK=false; return null; } }
 function lsSave(){ try{ localStorage.setItem(LSK, JSON.stringify({
-    pid:PID, mine:MINE, ans:S.ans, have:S.have, phone:S.phone, backup:S.backup, at:Date.now() }));
+    pid:PID, mine:MINE, ans:S.ans, facts:S.facts, have:S.have, phone:S.phone, backup:S.backup, at:Date.now() }));
   }catch(e){ LSOK=false; } }
 function lsWipe(){ try{ localStorage.removeItem(LSK); }catch(e){}
-  S.ans={}; S.have={}; S.phone=''; MINE=null; }
+  S.ans={}; S.facts={}; S.have={}; S.phone=''; MINE=null; }
 function lsWhen(){ const d=lsLoad(); if(!d||!d.at) return null;
   const t=new Date(d.at); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`; }
 const nav=$('nav'), main=$('main');
-const VIEWS=[['check','점검'],['todo','할 일'],['me','내 정보'],['ask','물어보기']];
+/* 오늘 동선(하루) · 로드맵(몇 달~몇 년)은 plan.js · 점검은 전체 판정 목록 */
+const VIEWS=[['route','오늘 동선'],['road','로드맵'],['check','점검'],['todo','할 일'],['me','내 정보'],['ask','물어보기']];
 
 const me=()=>PID==='me'?MINE:CTX[PID];
 const roles=()=>Object.keys(ROLE).filter(k=>ROLE[k].on(me()));
@@ -48,6 +49,8 @@ function ctx(){ const c=JSON.parse(JSON.stringify(me())), a=S.ans;
   /* 업종 · 사업자등록 업종코드에서 분야를 뽑아 판정에 넘깁니다
      코드가 없으면 '' 이고, 업종을 보는 규칙은 그때 UNK 로 떨어집니다 */
   c.biz.field=c.biz.on?ksicField(c.biz.ksic):'';
+  /* 사실 질문에 답한 것 · 연동값이 없던 자리만 채웁니다 */
+  for(const [g,v] of Object.entries(S.facts||{})){ const q=FQ.find(x=>x.g===g); if(q&&v!=='skip') q.apply(c,v); }
   return c; }
 /* ═══════════ 조건표 판정 ═══════════════════════════════════
    기관 등록 자료의 '지원대상·선정기준' 을 사람이 읽고 조건표(cond/*.json)로 옮긴 제도는
@@ -57,11 +60,12 @@ function ctx(){ const c=JSON.parse(JSON.stringify(me())), a=S.ans;
      '특수:…' 드문 신분(보훈·다문화 등) → 해당 없음                                   */
 const CP={
   '노인65':c=>c.age>=65, '노인60':c=>c.age>=60,
-  '수급자':c=>c.misc.welfare?true:((c.home.incomeRate||100)<=40?'chk':false),
-  '생계의료수급':c=>c.misc.welfare?true:((c.home.incomeRate||100)<=40?'chk':false),
-  '차상위':c=>c.misc.welfare?true:((c.home.incomeRate||100)<=50?'chk':false),
+  /* wkind · 사실 질문 답(basic 생계·의료 / sub 주거·교육만 / near 차상위 / none) 이 있으면 그것으로 */
+  '수급자':c=>c.misc.wkind?['basic','sub'].includes(c.misc.wkind):(c.misc.welfare?true:((c.home.incomeRate||100)<=40?'chk':false)),
+  '생계의료수급':c=>c.misc.wkind?c.misc.wkind==='basic':(c.misc.welfare?true:((c.home.incomeRate||100)<=40?'chk':false)),
+  '차상위':c=>c.misc.wkind?c.misc.wkind!=='none':(c.misc.welfare?true:((c.home.incomeRate||100)<=50?'chk':false)),
   '저소득':c=>c.misc.welfare||(c.home.incomeRate||100)<=60,
-  '장기요양':c=>(c.misc.chronic&&c.age>=65)?'chk':false,
+  '장기요양':c=>c.misc.ltc!=null?!!c.misc.ltc:((c.misc.chronic&&c.age>=65)?'chk':false),
   '장애인':c=>!!c.misc.disabled, '한부모':c=>!!c.misc.single,
   '출생아':c=>!!c.fam.infant, '출산가정':c=>!!(c.fam.pregnant||c.fam.infant),
   '아동자녀':c=>c.fam.kids>0, '다둥이':c=>c.fam.kids>=2, '셋째자녀':c=>c.fam.kids>=3,
@@ -74,7 +78,7 @@ const CP={
   '1인가구':c=>hhSize(c)===1, '홀몸어르신':c=>c.age>=65&&hhSize(c)===1,
   '세입자':c=>!!c.home.rent, '차량':c=>(c.home.car||0)>0, '이사':c=>!!c.admin.moving,
   '미취업':c=>!c.work.on&&!c.biz.on, '예비창업':c=>!c.biz.on&&!!c.biz.plan,
-  '질환':c=>c.misc.chronic?'chk':false,
+  '질환':c=>c.misc.disease!=null?!!c.misc.disease:(c.misc.chronic?'chk':false),
   '청년':c=>c.age>=19&&c.age<=39, '무주택':c=>!c.home.own, '근로자':c=>!!c.work.on, '프리랜서':c=>!!c.work.freelance,
   '농어업인':c=>!!c.misc.farm, '임신':c=>!!c.fam.pregnant, '영유아자녀':c=>!!c.fam.infant,
   '사업자':c=>!!c.biz.on, '소상공인':c=>!!c.biz.on&&isSosang(c.biz),
@@ -97,11 +101,14 @@ const CP={
   '벤처':c=>!!c.biz.on&&!!c.biz.venture, '직원고용':c=>!!c.biz.on&&(c.biz.emp||0)>0,
 };
 /* 수치 사실 · "연소득<=3500" 처럼 기준값을 붙여 씁니다 (금액은 만 원) */
-const annualPay=c=>c.work.on?(c.work.pay||null):(c.biz.on||c.work.freelance?null:0);
+const annualPay=c=>c.misc.payR?c.misc.payR:(c.work.on?(c.work.pay||null):(c.biz.on||c.work.freelance?null:0));
+/* 구간 답 [하한, 상한] 을 더합니다. 하나라도 모르면 모름 */
+const addR=(a,b)=>{ if(a==null||b==null) return null; const A=Array.isArray(a)?a:[a,a], B=Array.isArray(b)?b:[b,b];
+  return [A[0]+B[0], A[1]+B[1]]; };
 const PF={
   '연소득':c=>annualPay(c),
   '부부소득':c=>{ const me=annualPay(c); if(me==null) return null; if(!c.fam.married) return me;
-                 return c.fam.spousePay!=null?me+c.fam.spousePay:null; },
+                 return addR(me, c.fam.spousePay); },
   '중위':c=>c.home.incomeRate==null?null:c.home.incomeRate,
   '가구원':c=>hhSize(c),
   '고용보험':c=>c.work.insured!=null?c.work.insured:null,
@@ -117,6 +124,7 @@ const PL={'연소득':['연소득','만 원'],'부부소득':['부부합산 연�
           '가구원':['가구원','명'],'고용보험':['고용보험 가입','일'],'업력':['업력','년'],'직원':['상시근로자','명'],'매출':['연매출','만 원'],'나이':['만','세'],'거주':['이 시·군·구에 산 기간',''],'시도거주':['이 시·도에 산 기간','']};
 /* 자녀 나이 · 연동값에 나이가 없으면 학년 묶음으로 가늠하고, 걸치면 묻습니다 */
 const KID_BAND=c=>{ const f=c.fam, b=[]; if(f.infant) b.push([0,2]);
+  for(let i=0;i<(f.pre||0);i++) b.push([3,6]); if(f.college) b.push([18,26]); for(let i=0;i<(f.adult||0);i++) b.push([19,40]);
   for(let i=0;i<(f.elem||0);i++) b.push([7,12]); for(let i=0;i<(f.mid||0);i++) b.push([13,15]);
   for(let i=0;i<(f.high||0);i++) b.push([16,18]); return b; };
 function kidAge(c,lo,hi){ const f=c.fam;
@@ -132,6 +140,9 @@ function paramVal(g,c){
   m=String(g).match(/^자녀나이=(\d+)~(\d+)$/); if(m) return kidAge(c,+m[1],+m[2]);
   m=String(g).match(/^(.+?)(<=|>=)(\d+)$/); if(!m||!PF[m[1]]) return undefined;
   const v=PF[m[1]](c); if(v==null) return 'chk';
+  if(Array.isArray(v)){ const [lo,hi]=v, n=+m[3];   /* 구간 답 · 기준선이 구간 안에 걸치면 단정하지 않습니다 */
+    if(m[2]==='<=') return hi<=n?true:(lo>n?false:'chk');
+    return lo>=n?true:(hi<n?false:'chk'); }
   return m[2]==='<='?v<=+m[3]:v>=+m[3]; }
 function paramLab(g){
   let m=String(g).match(/^업종=(.+)$/); if(m) return `${m[1].split('|').join('·')} 업종`;
@@ -155,10 +166,37 @@ const CL={'노인65':'만 65세 이상','노인60':'만 60세 이상','수급자
 const cLab=g=>{ if(String(g).includes('+')) return String(g).split('+').map(h=>cLab(h.trim())).join(' · '); const pl=paramLab(g); if(pl) return pl; const s=String(g).replace(/^(모름|특수):/,''); return CL[s]||s; };
 const cVal=(g,c)=>{ if(String(g).includes('+')){ const vs=String(g).split('+').map(h=>cVal(h.trim(),c));
     return vs.includes(false)?false:(vs.includes('chk')?'chk':true); }
-  { const pv=paramVal(g,c); if(pv!==undefined) return pv; }
-  if(/^모름:/.test(g)) return 'chk'; if(/^특수:/.test(g)) return false; const f=CP[g]; return f?f(c):false; };
+  { const pv=paramVal(g,c); if(pv!==undefined){ if(pv==='chk') factHit(g); return pv; } }
+  if(/^모름:/.test(g)) return 'chk'; if(/^특수:/.test(g)) return statusVal(g,c); const f=CP[g]; const v=f?f(c):false;
+  if(v==='chk') factHit(g); return v; };
+/* 판정 중 '연동값이 없어 확인'이 된 사실을 제도마다 모읍니다 → 사실 질문의 순서(많이 풀리는 것부터)를 정합니다 */
+let FACT_HIT=null;
+const factKey=g=>{ const s=String(g); let m=s.match(/^(업종|자녀나이)=/); if(m) return m[1];
+  m=s.match(/^(.+?)(<=|>=)\d+$/); return m?m[1]:s; };
+const factHit=g=>{ if(FACT_HIT) FACT_HIT.add(factKey(g)); };
+/* '특수:' 신분 · 보훈·다문화·북한이탈·보호아동 네 묶음이 특수 표기의 약 90%입니다.
+   신분을 모르면(c.misc.status 가 null) 사실 질문 하나로 묻고, 그 묶음에 해당한다고 하면
+   세부 신분(상이·참전 배우자 등)까지는 단정하지 않고 '해당하시면'으로 둡니다. 나머지 드문 신분은 계속 '아님' */
+const STATUS_G={vet:/유공|보훈|참전|고엽제|제대군인|애국지사|전몰|순직|의사상자|의사자|5·18|4·19|민주화운동|특수임무|상이|병역명문/,
+  multi:/다문화|결혼이민|외국인|귀화|난민/, nk:/북한이탈|새터민|탈북/,
+  care:/위탁|보호아동|보호대상|자립준비|보호종료|아동복지시설|소년소녀|청소년복지시설/};
+/* 보훈은 보기가 '가족 포함'이라 본인·유족 요건을 단정할 수 없어 확정 목록에서 뺍니다 */
+const STATUS_EXACT={'다문화가족':'multi','북한이탈주민':'nk'};
+const statusGroups=g=>{ const t=String(g).replace(/^특수:/,''); return Object.keys(STATUS_G).filter(k=>STATUS_G[k].test(t)); };
+function statusVal(g,c){ const gs=statusGroups(g); if(!gs.length) return false;
+  const st=c.misc&&c.misc.status; if(st==null){ factHit('신분'); return 'chk'; }
+  const mine=gs.filter(k=>st.includes(k)); if(!mine.length) return false;
+  return STATUS_EXACT[String(g).replace(/^특수:/,'')]?true:'chk'; }
+/* '대구 달서구'가 '서구'를 품지 않도록 글자 포함이 아니라 낱말 단위로 봅니다 */
+const inArea=(c,a)=>((c&&c.region)||'').split(/\s+/).includes(a);
+/* 시군구를 모르는 사람(직접 입력에서 고르지 않음)에게 시군구 제도를 '자격 미달'로 떨구면 빠뜨립니다 → 사실 질문 하나로 묻습니다 */
+const sggKnown=c=>{ const t=((c&&c.region)||'').split(/\s+/); return t.slice(1).some(g=>(SGG[t[0]]||[]).includes(g)); };
 function condJudge(x,c,m){ m=m||{};
-  if(m.area && !(c.region||'').includes(m.area)) return NO(`${m.area} 주민 대상입니다`);
+  const ask=[]; let fact=false;
+  if(m.area && !(Array.isArray(m.area)?m.area:[m.area]).some(a=>inArea(c,a))){
+    const a=[].concat(m.area);
+    if(!sggKnown(c) && a.some(g=>(SGG[regionKey(c)]||[]).includes(g))){ factHit('시군구'); ask.push(`${a.join('·')} 거주`); fact=true; }
+    else return NO(`${a.join('·')} 주민 대상입니다`); }
   if(x.who==='O') return NO('기관·단체가 신청하는 제도입니다');
   if(x.who==='B' && !c.biz.on) return NO('사업자 대상입니다');
   if(x.event) return NO('해당하는 일이 생겼을 때 받는 제도입니다');
@@ -166,10 +204,11 @@ function condJudge(x,c,m){ m=m||{};
   if(lo!=null && c.age<lo) return NO(`만 ${lo}세 이상 대상입니다`);
   if(hi!=null && c.age>hi) return NO(`만 ${hi}세 이하 대상입니다`);
   if(x.inc && (c.home.incomeRate||100)>x.inc) return NO(`중위소득 ${x.inc}% 이하 대상입니다 · 현재 ${c.home.incomeRate}%`);
-  const ask=[]; let fact=false;
   /* 묻는 것이 연동 사실(연소득·자녀 나이 등)이면 '확인할 것' — 한 번 답하면 여러 제도가 풀립니다.
      제도마다 다른 개별 상황('모름:')만 남으면 '해당하시면' — 질문이 아니라 둘러보는 목록입니다 */
-  const isFact=g=>String(g).split('+').some(h=>!/^(모름|특수):/.test(h.trim()) && cVal(h.trim(),c)==='chk');
+  const isFact=g=>String(g).split('+').some(h=>{ h=h.trim();
+    if(/^특수:/.test(h)) return c.misc&&c.misc.status==null && statusGroups(h).length>0;
+    return !/^모름:/.test(h) && cVal(h,c)==='chk'; });
   for(const g of x.not||[]){ const v=cVal(g,c); if(v===true) return NO(`${cLab(g)}은(는) 제외됩니다`); if(v==='chk'){ ask.push(`${cLab(g)} 아님`); fact=fact||isFact(g); } }
   for(const g of x.all||[]){ const v=cVal(g,c); if(v===false) return NO(`${cLab(g)} 대상입니다`); if(v==='chk'){ ask.push(cLab(g)); fact=fact||isFact(g); } }
   if((x.any||[]).length){ const vs=x.any.map(g=>[g,cVal(g,c)]);
@@ -181,12 +220,95 @@ function condJudge(x,c,m){ m=m||{};
   if(ask.length) return CHK(m.amt||'확인 필요', `${fact?'확인할 것':'해당하시면'} · ${ask.join(' · ')}`);
   return OK(m.amt||'지원', m.why||'자격 요건을 충족합니다', m.note||'', m.mv||null); }
 
+/* ═══════════ 사실 질문 ═══════════════════════════════════
+   조건표 판정에서 '연동값이 없어 확인'이 된 사실을 묶어 한 번씩만 묻습니다.
+   제도마다 묻지 않습니다 — 한 번 답하면 그 사실을 기다리던 제도가 한꺼번에 정해집니다.
+   순서는 풀리는 제도 수가 많은 것부터. 소득·거주는 구간으로 받고, 기준선이 구간에 걸치면 계속 '확인'으로 둡니다.
+   실제 서비스에서는 대부분 연동으로 채워지는 값입니다(가족관계·학적·소득·주민등록). */
+const PAY_OPT=[['0-1999','2천만 원 미만'],['2000-2999','2천~3천만'],['3000-3999','3천~4천만'],['4000-4999','4천~5천만'],
+  ['5000-6999','5천~7천만'],['7000-9999','7천만~1억'],['10000-99999','1억 이상']];
+const rng=v=>v.split('-').map(Number);
+const yn=(f)=>({opts:[['y','예'],['n','아니요']], apply:(c,v)=>f(c,v==='y')});
+const FQ=[
+  {g:'welfare', keys:['수급자','생계의료수급','차상위'], q:'기초생활수급자나 차상위계층이신가요?',
+   s:'복지 제도 상당수가 이것 하나로 갈립니다',
+   opts:[['basic','생계·의료급여 수급'],['sub','주거·교육급여만 수급'],['near','차상위계층'],['none','해당 없음']],
+   apply:(c,v)=>{ c.misc.wkind=v; if(v==='basic'||v==='sub') c.misc.welfare=true; }},
+  {g:'school', keys:['초등자녀','중고생자녀','학생자녀','대학생자녀','자녀나이'], q:'자녀가 지금 어디에 다니나요?',
+   s:'해당하는 것을 모두 고르세요 · 자녀 나이와 학교급으로 걸리는 제도가 많습니다', multi:true,
+   opts:[['infant','만 2세 이하'],['pre','3~6세 (미취학)'],['elem','초등학생'],['mid','중학생'],['high','고등학생'],['college','대학생'],['adult','그 외 성인 자녀']],
+   apply:(c,v)=>{ const a=String(v).split(',').filter(Boolean), f=c.fam;
+     f.infant=a.includes('infant'); f.college=a.includes('college');
+     for(const k of ['pre','elem','mid','high','adult']) f[k]=a.includes(k)?1:0;
+     f.kids=Math.max(f.kids||0, a.length); }},
+  {g:'pay', keys:['연소득'], q:'작년 본인 연소득(세전)은 어느 정도인가요?', s:'근로·사업소득을 합친 금액입니다',
+   opts:PAY_OPT, apply:(c,v)=>{ c.misc.payR=rng(v); }},
+  {g:'spouse', keys:['부부소득'], q:'배우자의 작년 연소득(세전)은?', s:'부부합산 소득 기준 제도에 씁니다',
+   opts:[['0-0','소득 없음'],...PAY_OPT], apply:(c,v)=>{ c.fam.spousePay=rng(v); }},
+  {g:'status', keys:['신분'], q:'해당하는 것이 있나요?', s:'해당하는 것을 모두 고르세요 · 이 분들만 받는 제도가 따로 있습니다', multi:true,
+   opts:[['vet','국가유공자·보훈대상자 (가족 포함)'],['multi','다문화가족·결혼이민'],['nk','북한이탈주민'],['care','위탁·시설 보호아동, 자립준비청년'],['none','해당 없음']],
+   apply:(c,v)=>{ c.misc.status=String(v).split(',').filter(x=>x&&x!=='none'); }},
+  {g:'sgg', keys:['시군구'], q:'사는 시·군·구는 어디인가요?', s:'시·군·구가 직접 하는 제도는 그 주민만 받습니다',
+   opts:c=>(SGG[regionKey(c)]||[]).map(g=>[g,g]),
+   apply:(c,v)=>{ c.region=regionKey(c)+' '+v; }},
+  {g:'stay', keys:['거주','시도거주'], q:'지금 사는 시·군·구에 산 지 얼마나 되셨나요?', s:'"관내 1년 이상 거주" 같은 요건에 씁니다',
+   opts:[['0-5','6개월 미만'],['6-11','6개월~1년'],['12-35','1~3년'],['36-999','3년 이상']],
+   apply:(c,v)=>{ c.admin.resMonths=rng(v); if(c.admin.sidoMonths==null) c.admin.sidoMonths=rng(v); }},
+  {g:'disease', keys:['질환'], q:'치료 중인 중증·희귀·만성 질환이 있으신가요?', s:'병명은 묻지 않습니다 · 해당 제도마다 따로 확인합니다',
+   ...yn((c,b)=>{ c.misc.disease=b; })},
+  {g:'ltc', keys:['장기요양'], q:'노인장기요양 등급을 받으셨나요?', s:'본인 기준입니다', ...yn((c,b)=>{ c.misc.ltc=b; })},
+  {g:'bp', keys:['기초연금'], q:'기초연금을 받고 계신가요?', s:'', ...yn((c,b)=>{ c.misc.basicPension=b; })},
+  {g:'sex', keys:['여성'], q:'성별을 알려주세요', s:'여성 대상 제도 판정에만 씁니다',
+   opts:[['f','여성'],['m','남성']], apply:(c,v)=>{ c.sex=v; }},
+  {g:'univ', keys:['대학생'], q:'본인이 대학(원)에 다니고 계신가요?', s:'휴학 포함', ...yn((c,b)=>{ c.edu=c.edu||{}; c.edu.univ=b; })},
+  {g:'debt', keys:['채무조정'], q:'신용회복·개인회생 등 채무조정 중이신가요?', s:'', ...yn((c,b)=>{ c.misc.debtAdj=b; })},
+  {g:'severe', keys:['중증장애'], q:'장애의 정도가 심한 장애(종전 1~3급)이신가요?', s:'', ...yn((c,b)=>{ c.misc.disabledSevere=b; })},
+  {g:'dev', keys:['발달장애'], q:'지적·자폐성 장애이신가요?', s:'', ...yn((c,b)=>{ c.misc.disabledDev=b; })},
+  {g:'rent', keys:['공공임대'], q:'공공임대주택에 살고 계신가요?', s:'LH·SH 등 임대주택', ...yn((c,b)=>{ c.misc.publicRent=b; })},
+  {g:'loan', keys:['학자금대출'], q:'학자금대출이 남아 있으신가요?', s:'', ...yn((c,b)=>{ c.misc.studentLoan=b; })},
+  {g:'dp', keys:['장애인연금'], q:'장애인연금을 받고 계신가요?', s:'', ...yn((c,b)=>{ c.misc.disPension=b; })},
+  {g:'nps', keys:['국민연금'], q:'국민연금에 가입돼 있으신가요?', s:'지역·직장 가입 모두', ...yn((c,b)=>{ c.misc.nps=b; })},
+];
+/* 지금 판정에서 각 질문이 몇 건을 풀지 셉니다 · 답했거나 건너뛴 질문은 뺍니다 */
+function factQueue(J){ const cnt={}; let uniq=0;
+  J.flatMap(s=>s.res).forEach(x=>{ if(x.s!=='chk'||!x.facts||/^해당하시면/.test(x.why||'')) return;
+    const gs=[...new Set(x.facts.map(k=>(FQ.find(q=>q.keys.includes(k))||{}).g).filter(g=>g&&!(g in (S.facts||{}))))];
+    if(gs.length) uniq++; gs.forEach(g=>cnt[g]=(cnt[g]||0)+1); });
+  const Q=FQ.filter(q=>cnt[q.g]).map(q=>({...q, n:cnt[q.g]})).sort((a,b)=>b.n-a.n); Q.uniq=uniq; return Q; }
+function factCard(J){ const Q=factQueue(J), done=Object.keys(S.facts||{}).length;
+  const reset=done?`<button class="btn btn-sm fqreset" style="opacity:.75">답한 사실 ${done}개 지우고 다시</button>`:'';
+  if(!Q.length) return done?`<div style="margin:10px 0 0">${reset}</div>`:'';
+  const q=Q[0], total=Q.uniq;
+  return `<div class="notice n-warn" id="fq" style="margin:10px 0 0">
+    <h3>한 번만 답하시면 ${q.n}건이 정해집니다</h3>
+    <p>연동으로 채워지지 않은 사실입니다. 제도마다 묻지 않고 <b>사실 하나를 한 번</b> 여쭙니다${Q.length>1?` · 남은 질문 ${Q.length}개 · 모두 답하면 ${total}건`:''}.</p>
+    <div style="margin-top:9px">
+      <p style="font-size:15px;font-weight:600;margin-bottom:2px">${q.q}</p>
+      ${q.s?`<p style="font-size:12.5px;color:var(--warn);margin-bottom:8px">${q.s}</p>`:''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${(typeof q.opts==='function'?q.opts(ctx()):q.opts).map(([v,l])=>`<button class="btn btn-sm ${q.multi?'fqm':'fqo'}" data-g="${q.g}" data-v="${v}" aria-pressed="false">${l}</button>`).join('')}
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        ${q.multi?`<button class="btn btn-sm fqdone" data-g="${q.g}">이대로 확인</button>`:''}
+        <button class="btn btn-sm fqskip" data-g="${q.g}" style="opacity:.75">건너뛰기</button>${reset}</div>
+    </div></div>`; }
+function bindFact(){
+  main.querySelectorAll('.fqo').forEach(b=>b.onclick=()=>{ S.facts[b.dataset.g]=b.dataset.v; lsSave(); draw(); });
+  main.querySelectorAll('.fqm').forEach(b=>b.onclick=()=>b.setAttribute('aria-pressed', b.getAttribute('aria-pressed')==='true'?'false':'true'));
+  main.querySelectorAll('.fqdone').forEach(b=>b.onclick=()=>{ const g=b.dataset.g;
+    S.facts[g]=[...main.querySelectorAll(`.fqm[data-g="${g}"][aria-pressed="true"]`)].map(x=>x.dataset.v).join(','); lsSave(); draw(); });
+  main.querySelectorAll('.fqskip').forEach(b=>b.onclick=()=>{ S.facts[b.dataset.g]='skip'; lsSave(); draw(); });
+  main.querySelectorAll('.fqreset').forEach(b=>b.onclick=()=>{ S.facts={}; lsSave(); draw(); }); }
+
 /* 지자체 제도 · data/local/<지역>.js (행정안전부 공공서비스 정보에서 자동 변환)
    전국을 한꺼번에 실으면 11MB 라 폰에서 못 엽니다. 사는 곳의 파일만 그때 받아옵니다.
    rules.js 의 RULE_COUNT 등은 원문 대조한 101건 기준 그대로이고, 지자체분은 섞이지 않습니다. */
-const LOCAL_FILE={서울:'seoul',경기:'gyeonggi',부산:'busan',인천:'incheon',대구:'daegu',광주:'gwangju',
+/* 직접 입력용 시군구 · 행정안전부 공공서비스 정보에 등록된 시군구 기관명에서 뽑았습니다 (광주·전남은 통합 광역을 옛 권역으로 나눔) */
+const SGG={"서울":["강남구","강동구","강북구","강서구","관악구","광진구","구로구","금천구","노원구","도봉구","동대문구","동작구","마포구","서대문구","서초구","성동구","성북구","송파구","양천구","영등포구","용산구","은평구","종로구","중구","중랑구"],"경기":["가평군","고양시","과천시","광명시","광주시","구리시","군포시","김포시","남양주시","동두천시","부천시","성남시","수원시","시흥시","안산시","안성시","안양시","양주시","양평군","여주시","연천군","오산시","용인시","의왕시","의정부시","이천시","파주시","평택시","포천시","하남시","화성시"],"인천":["강화군","검단구","계양구","남동구","미추홀구","부평구","서해구","연수구","영종구","옹진군","제물포구"],"부산":["강서구","금정구","기장군","남구","동구","동래구","부산진구","북구","사상구","사하구","서구","수영구","연제구","영도구","중구","해운대구"],"대구":["군위군","남구","달서구","달성군","동구","북구","서구","수성구","중구"],"광주":["광산구","남구","동구","북구","서구"],"대전":["대덕구","동구","서구","유성구","중구"],"울산":["남구","동구","북구","울주군","중구"],"세종":[],"강원":["강릉시","고성군","동해시","삼척시","속초시","양구군","양양군","영월군","원주시","인제군","정선군","철원군","춘천시","태백시","평창군","홍천군","화천군","횡성군"],"충북":["괴산군","단양군","보은군","영동군","옥천군","음성군","제천시","증평군","진천군","청주시","충주시"],"충남":["계룡시","공주시","금산군","논산시","당진시","보령시","부여군","서산시","서천군","아산시","예산군","천안시","청양군","태안군","홍성군"],"전북":["고창군","군산시","김제시","남원시","무주군","부안군","순창군","완주군","익산시","임실군","장수군","전주시","정읍시","진안군"],"전남":["강진군","고흥군","곡성군","광양시","구례군","나주시","담양군","목포시","무안군","보성군","순천시","신안군","여수시","영광군","영암군","완도군","장성군","장흥군","진도군","함평군","해남군","화순군"],"경북":["경산시","경주시","고령군","구미시","김천시","문경시","봉화군","상주시","성주군","안동시","영덕군","영양군","영주시","영천시","예천군","울릉군","울진군","의성군","청도군","청송군","칠곡군","포항시"],"경남":["거제시","거창군","고성군","김해시","남해군","밀양시","사천시","산청군","양산시","의령군","진주시","창녕군","창원시","통영시","하동군","함안군","함양군","합천군"],"제주":[]};
+const sggOpts=k=>'<option value="">시군구 고르지 않음</option>'+(SGG[k]||[]).map(g=>`<option>${g}</option>`).join('');
+const LOCAL_FILE={서울:'seoul',경기:'gyeonggi',부산:'busan',인천:'incheon',대구:'daegu',광주:'jeonnam-gwangju',
   대전:'daejeon',울산:'ulsan',세종:'sejong',강원:'gangwon',충북:'chungbuk',충남:'chungnam',
-  전북:'jeonbuk',전남:'jeonnam',경북:'gyeongbuk',경남:'gyeongnam',제주:'jeju'};
+  전북:'jeonbuk',전남:'jeonnam-gwangju',경북:'gyeongbuk',경남:'gyeongnam',제주:'jeju'};
 window.LOCAL_BY=window.LOCAL_BY||{};
 if(typeof LOCAL_RULES!=='undefined' && !LOCAL_BY['서울']) LOCAL_BY['서울']=LOCAL_RULES;   /* 예전 파일 호환 */
 const regionKey = c => ((c&&c.region)||'').split(' ')[0];
@@ -211,7 +333,10 @@ function ensureNational(){
 const WIDE = k => k==='local' || k==='nat';     /* 자동 변환분 · 많아서 걸리는 것만 보여줍니다 */
 const chkOf = k => !k ? null : (typeof k==='object' ? k : (SOURCES[k]||null));
 
-function judgeAll(){ const c=ctx();
+function factRun(it,c){ FACT_HIT=new Set(); const r=it.f(c); const f=[...FACT_HIT]; FACT_HIT=null;
+  return (r.s==='chk'&&f.length)?{...r, facts:f}:r; }
+/* c0 를 주면 그 상태로 판정합니다 · 로드맵의 '이 행동을 하면' 계산(plan.js actDiff)에 씁니다 */
+function judgeAll(c0){ const c=c0||ctx();
   ensureLocal(regionKey(c)); ensureNational();
   const L=localOf(c), N=window.NATIONAL||[];
   const ALL=[...SECTORS,
@@ -220,7 +345,7 @@ function judgeAll(){ const c=ctx();
   return ALL.map(s=>{
     const res=s.items.map(it=>({n:it.n, type:it.type||'cash', where:it.where, visit:it.visit,
       chk:chkOf(it.chk), base:it.base||null, bonus:it.bonus||null, guide:it.guide||null,
-      ads:it.ads||null, ...it.f(c)}));
+      ads:it.ads||null, ...factRun(it,c)}));
     /* 지자체 제도는 대부분 다른 동네 것이라 화면에 늘어놓지 않습니다. 몇 건을 봤는지만 남깁니다 */
     if(!WIDE(s.k)) return {...s, res};
     const keep=res.filter(r=>r.s!=='no');
@@ -471,7 +596,7 @@ document.querySelectorAll('#demo-bar [data-go]').forEach(b=>b.onclick=()=>{
   if((S.stage==='counter'||S.counter) && g!=='counter' && window.Counter){ Counter.exit(); if(g!=='landing') stage(g); return; }
   S.counter=false; stage(g); });
 /* 온보딩이 끝났을 때 · 창구 상담 중이면 창구 결과로, 아니면 시민용 점검으로 */
-function obDone(){ if(S.counter && window.Counter){ stage('counter'); Counter.afterScan(); } else { S.view='check'; stage('app'); } }
+function obDone(){ if(S.counter && window.Counter){ stage('counter'); Counter.afterScan(); } else { S.view='route'; stage('app'); } }
 /* 기관용 창구 · 같은 저장소면 counter.html, 미리보기면 게시된 창구 주소 */
 const COUNTER_URL = '#counter';
 document.querySelectorAll('.counter-link').forEach(x=>{ x.href=COUNTER_URL; x.removeAttribute('target');
@@ -676,7 +801,7 @@ function drawOb(){ const ob=$('ob-body'); ob.classList.toggle('scan2', S.ob===2)
       <b>직접 입력해 보기</b><span>내 상황을 넣고 판정 결과를 확인합니다</span></button>`;
     ob.querySelectorAll('.pick').forEach(b=>b.onclick=()=>{
       const p=b.dataset.p;
-      S.ans={}; S.open={}; S.sec={}; S.asked=[]; S.ti=0; S.type=null; S.item=null;
+      S.ans={}; S.facts={}; S.open={}; S.sec={}; S.asked=[]; S.ti=0; S.type=null; S.item=null;
       if(p==='me'){ S.ob=3; drawOb(); return; }
       PID=p; lsSave(); S.ob=1; drawOb(); runConnect(); });
     return; }
@@ -826,8 +951,8 @@ function formHTML(){ return `<h2>직접 입력해 보기</h2>
   <div class="card pad">
     <div class="form-row"><label for="f-age">나이</label><input id="f-age" type="number" value="33" min="15" max="99"></div>
     <div class="form-row"><label for="f-region">거주지</label>
-      <select id="f-region"><option>서울</option><option>경기</option><option>인천</option>
-        <option>부산</option><option>대구</option><option>광주</option><option>대전</option><option>기타</option></select></div>
+      <select id="f-region">${Object.keys(SGG).map(k=>`<option${k==='서울'?' selected':''}>${k}</option>`).join('')}<option>기타</option></select>
+      <select id="f-sgg" aria-label="시군구">${sggOpts('서울')}</select></div>
     <div class="form-row"><label for="f-stay">이 지역에 산 기간</label>
       <select id="f-stay"><option value="3">6개월 미만</option><option value="9">6개월~1년</option>
         <option value="24">1~3년</option><option value="60" selected>3년 이상</option></select></div>
@@ -874,14 +999,16 @@ function bindForm(){
     b.setAttribute('aria-pressed','true'); });
   ['#f-fam','#f-misc'].forEach(sel=>document.querySelectorAll(sel+' .chip').forEach(b=>b.onclick=()=>{
     b.setAttribute('aria-pressed', b.getAttribute('aria-pressed')==='true'?'false':'true'); }));
+  $('f-region').onchange=()=>{ const k=$('f-region').value; $('f-sgg').innerHTML=sggOpts(k); $('f-sgg').hidden=!(SGG[k]||[]).length; };
   $('f-back').onclick=()=>{ S.ob=0; drawOb(); };
   $('f-go').onclick=()=>{
     const pick=sel=>document.querySelector(sel+' .chip[aria-pressed="true"]')?.dataset.v;
     const many=sel=>[...document.querySelectorAll(sel+' .chip[aria-pressed="true"]')].map(x=>x.dataset.v);
     const w=pick('#f-work'), h=pick('#f-home'), fam=many('#f-fam'), ms=many('#f-misc');
     const age=+$('f-age').value||33, inc=+$('f-income').value;
-    const o={name:'직접 입력', sub:`만 ${age}세 · ${$('f-region').value}`, tag:'직접 입력',
-      age, region:$('f-region').value,
+    const region=[$('f-region').value, $('f-sgg').hidden?'':$('f-sgg').value].filter(Boolean).join(' ');
+    const o={name:'직접 입력', sub:`만 ${age}세 · ${region}`, tag:'직접 입력',
+      age, region,
       admin:{resMonths:+$('f-stay').value, sidoMonths:+$('f-stay').value},
       home:{own:h==='own', rent:h==='rent', deposit:+$('f-deposit').value||0,
             monthly:+$('f-monthly').value||0, incomeRate:inc, car:0},
@@ -1144,6 +1271,8 @@ function viewCheck(){
         그래서 <b>채무·재기</b> 분야를 함께 판정했습니다${dn?` · 가능 ${dn}건`:''}.
         제도마다 감면 폭과 비용이 크게 다르니 그 항목에서 하나씩 보세요.</p>
       <button class="btn btn-sm jump" data-k="debt" style="margin-top:9px">채무·재기 보러 가기 ›</button></div>`;})():''}
+
+    ${factCard(J)}
 
     ${left.length?`<div class="notice n-warn" style="margin:10px 0 0">
       <h3>건너뛰신 질문 ${left.length}개가 남았습니다</h3>
@@ -1922,11 +2051,13 @@ function viewAsk(){
 
 /* ═══════════ 렌더 ═══════════ */
 function draw(){
-  main.innerHTML = S.view==='check'?viewCheck() : S.view==='todo'?viewTodo()
+  main.innerHTML = S.view==='route'?viewRoute() : S.view==='road'?viewRoad()
+    : S.view==='check'?viewCheck() : S.view==='todo'?viewTodo()
     : S.view==='me'?viewMe() : viewAsk();
-  bind(); }
+  bind(); if(S.view==='route'||S.view==='road') bindPlan(); }
 function bind(){
   main.querySelectorAll('.qopt').forEach(b=>b.onclick=()=>{ S.ans[b.dataset.k]=b.dataset.v; lsSave(); draw(); });
+  bindFact();
   const r=$('re-q'); if(r) r.onclick=()=>{ S.ans={}; lsSave(); draw(); };
   main.querySelectorAll('.acc').forEach(d=>d.addEventListener('toggle',()=>{
     if(d.dataset.k) S.sec[d.dataset.k]=d.open; }));
@@ -1987,6 +2118,7 @@ function bind(){
 (function(){ const d=lsLoad(); if(!d) return;
   if(d.mine) MINE=d.mine;
   if(d.ans) S.ans=d.ans;
+  if(d.facts) S.facts=d.facts;
   if(d.have) S.have=d.have;
   if(d.phone) S.phone=d.phone;
   if(d.backup) S.backup=d.backup;

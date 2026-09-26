@@ -25,7 +25,9 @@ const BLANK={
         unpaid:false, arrear:false, grants:[],
         /* 조건표 판정용 사실 · 전부 연동으로 가져오는 값입니다 (null = 연동으로도 모름 → 질문) */
         disabledSevere:false, disabledDev:false, publicRent:false, studentLoan:false, debtAdj:false,
-        soldier:false, ub:false, basicPension:null, disPension:null, nps:null},
+        soldier:false, ub:false, basicPension:null, disPension:null, nps:null,
+        /* 신분 묶음(vet 보훈 · multi 다문화 · nk 북한이탈 · care 보호아동) · null = 모름 → 한 번 질문 */
+        status:null},
   sex:null, edu:{univ:false}
 };
 const mk=(o)=>{const d=JSON.parse(JSON.stringify(BLANK));
@@ -101,7 +103,7 @@ const SOSANG_10=['광업','제조업','건설업','운수·창고업'];
 const isSosang=b=>(b.emp||0) < (SOSANG_10.includes(b.field||'')?10:5);
 
 const CTX={
- a:mk({acct:{email:'sangyeop.o@example.com', phone:'010-2841-7730'}, name:'오상엽', sub:'법인 대표 · 기술창업 2년차', tag:'법인사업자', age:38, region:'서울 동대문구',
+ a:mk({acct:{email:'taemin.kang@example.com', phone:'010-2841-7730'}, name:'강태민', sub:'법인 대표 · 기술창업 2년차', tag:'법인사업자', age:38, region:'서울 동대문구',
    biz:{on:true, kind:'corp', label:'법인', ksic:'62010 소프트웨어 개발', years:2, rev:8400,
         emp:1, opened:'2022-01-24', ip:'특허 출원 1건'},
    home:{rent:true, deposit:5000, monthly:75, incomeRate:145},
@@ -129,7 +131,7 @@ const CTX={
 
  d:mk({acct:{email:'hyunwoo.l@example.com', phone:'010-7723-1608'}, name:'이현우', sub:'직장인 · 온라인 스토어 겸업 · 퇴사 예정', tag:'직장인 · 온라인사업자',
    age:33, region:'서울 성동구',
-   work:{on:true, sme:true, smeType:true, insured:1280, pay:4200, hired:'2022-03-02'},
+   work:{on:true, sme:true, smeType:true, insured:1280, pay:4200, hired:'2022-03-02', leaving:true},  /* leaving = 퇴사 계획 · 로드맵 목표 감지용, 판정에는 안 씀 */
    biz:{on:true, kind:'online', label:'온라인 스토어', ksic:'47911 전자상거래 소매업',
         years:2, rev:3200, opened:'2024-06-03', tongsin:true},
    home:{rent:true, deposit:3000, monthly:62, incomeRate:132, car:2100},
@@ -187,6 +189,8 @@ const CTX={
    refund:{tax:0, local:0, dormant:0, pension:0},
    admin:{idLatest:true, cert:false, moving:true, passport:0, license:true, licenseDue:8}})
 };
+/* 예시 인물은 보훈부·가족관계·통일부 자료 연동을 가정해 '해당 없음'으로 둡니다 */
+for(const k in CTX) if(CTX[k].misc.status==null) CTX[k].misc.status=[];
 
 /* 거주기간(개월) · 주민등록초본 연동값 [시군구, 시도] · 오유진은 첫 직장 따라 관악구로 막 옮김 */
 Object.entries({a:[84,120],b:[60,60],c:[48,96],d:[36,36],e:[96,96],f:[360,360],g:[120,120],h:[30,30],i:[60,60],j:[7,30]})
