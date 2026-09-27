@@ -74,8 +74,8 @@ const names=(L,n)=>listN(L,n).map(r=>escH(r.n)).join(' · ')+(L.length>n?` 외 $
 
 /* ── 로드맵 시나리오 ── */
 const SCEN={
-  startup:{n:'창업 준비', d:'사업자등록 전후로 받을 수 있는 것이 갈립니다',
-    fit:c=>!c.biz.on&&(c.biz.plan||c.work.freelance),
+  startup:{n:'창업 준비', d:'사업자등록 전후로 받을 수 있는 것이 갈립니다', can:c=>true,
+    fit:c=>!c.biz.on&&!!c.biz.plan,   /* 창업 준비 의사가 확인된 경우만 · 프리랜서라는 사실만으로는 아님 */
     steps:c=>{ const reg=actDiff(['bizOpen']);
       return [
         c.biz.on?{t:'지금은 사업자가 있습니다', warn:true,
@@ -85,15 +85,15 @@ const SCEN={
         {t:'선정·협약 시점에 사업자등록', act:'bizOpen', diff:reg},
         {t:'업력 3년 안에', d:'초기창업패키지 등 업력 기준 지원은 개업일부터 3년 안에만 신청됩니다. 개업일이 곧 시계의 시작입니다'},
         {t:'업력 3~7년', d:'창업도약패키지 · 이노비즈 인증 · 정책자금 확대'} ]; }},
-  convert:{n:'개인 → 법인 전환', d:'전환이 창업으로 인정되는지, 업력이 이어지는지가 핵심입니다',
-    fit:c=>c.biz.on&&c.biz.kind!=='corp',
+  convert:{n:'개인 → 법인 전환', d:'전환이 창업으로 인정되는지, 업력이 이어지는지가 핵심입니다', can:c=>c.biz.on&&c.biz.kind!=='corp',
+    fit:c=>c.biz.on&&c.biz.kind!=='corp'&&!!c.biz.toCorp,   /* 전환 계획이 있을 때만 · 개인사업자라는 사실만으로는 아님 */
     steps:c=>{ const cv=actDiff(['corp']); const left=Math.max(0,3-(c.biz.years||0));
       return [
         {t:'전환 전에 확인', warn:true,
           d:`같은 업종으로 법인 전환하면 <b>창업으로 보지 않는 것이 원칙</b>입니다 → 예비창업패키지 대상 아님. 업력은 개인사업자 개업일부터 이어집니다(지금 ${c.biz.years||0}년차${left?` · 업력 3년 기준 지원은 약 ${left}년 남음`:' · 업력 3년 기준 지원은 이미 지남'}). 다른 업종으로 새로 창업하면 달라지므로 공고마다 확인하세요`},
         {t:'법인 설립 · 전환', act:'corp', diff:cv},
         {t:'세금 · 명의 이전', expert:true, d:'사업용 자산 이전 시 양도세 이월과세 등 감면 요건이 있습니다. 세무사와 전환 방식(현물출자·사업양수도)을 정하세요'} ]; }},
-  quit:{n:'퇴사 후 실업급여', d:'신청하러 가기 전에 끝내야 할 것이 있습니다',
+  quit:{n:'퇴사 후 실업급여', d:'신청하러 가기 전에 끝내야 할 것이 있습니다', can:c=>c.work.on||c.work.insured>0,
     fit:c=>!!c.work.leaving||(!c.work.on&&c.work.insured>0),
     steps:c=>{ const pre=c.work.on?['quit']:[];
       const base=pre.length?actDiff(pre):null;
@@ -107,7 +107,7 @@ const SCEN={
       if(c.biz.plan||c.biz.on) out.push({t:'수급 중 창업하게 되면', warn:true,
         d:'사업 개시를 신고해야 합니다. 남은 수급일수가 있으면 조기재취업수당 요건(수급일수 절반 이상 남기고 1년 이상 사업 유지 등)을 확인하세요'});
       return out; }},
-  move:{n:'이사', d:'거주 기간이 0으로 돌아가 받던 것이 끊기고, 새 동네 것은 몇 달 뒤 열립니다',
+  move:{n:'이사', d:'거주 기간이 0으로 돌아가 받던 것이 끊기고, 새 동네 것은 몇 달 뒤 열립니다', can:c=>true,
     fit:c=>!!c.admin.moving,
     steps:c=>{ const mv=actDiff(['moveIn']);
       return [
@@ -115,7 +115,7 @@ const SCEN={
           :{t:'이사 전 확인', d:'지금 받을 수 있는 것 중 전입으로 끊기는 제도는 없습니다'},
         {t:'전입신고 (14일 안)', act:'moveIn', diff:mv},
         {t:'새 동네 거주 기간 채우기', d:'"관내 6개월·1년 이상 거주" 요건이 붙은 제도가 전국에 약 490건입니다. 전입일이 기준일입니다'} ]; }},
-  birth:{n:'출산', d:'출생신고 한 번에 여러 제도가 열립니다',
+  birth:{n:'출산', d:'출생신고 한 번에 여러 제도가 열립니다', can:c=>c.age<55,
     fit:c=>!!c.fam.pregnant,
     steps:c=>{ const b=actDiff(['birth']);
       return [
@@ -146,19 +146,26 @@ const SCEN_ORDER=['birth','quit','startup','move','convert'];
 const fitOf=c=>SCEN_ORDER.filter(k=>SCEN[k].fit(c));
 function viewRoad(){
   const c=ctx(); const fit=fitOf(c);
-  if(!S.scen||!SCEN[S.scen]) S.scen=fit[0]||'startup';
-  const sc=SCEN[S.scen], steps=sc.steps(c);
-  return `<h2 class="sec" style="margin-top:0">로드맵 · 무엇을 먼저 할까</h2>
-    <p style="font-size:13.5px;opacity:.85;margin-bottom:10px">목표를 고르면 순서를 잡고, 각 행동으로 열리고 닫히는 제도를 지금 판정 결과로 다시 계산합니다.</p>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
-      ${Object.keys(SCEN).map(k=>`<button class="btn btn-sm scen" data-k="${k}" aria-pressed="${k===S.scen}" style="${k===S.scen?'background:var(--go);color:#fff;border-color:var(--go)':''}">${SCEN[k].n}${fit.includes(k)?' ·해당':''}</button>`).join('')}
-    </div>
-    <div class="card pad" style="margin-top:12px">
+  const other=SCEN_ORDER.filter(k=>!fit.includes(k)&&SCEN[k].can(c));
+  if(S._scenPid!==PID){ S._scenPid=PID; S.scen=null; }   /* 사람이 바뀌면 목표도 새로 감지 */
+  if(S.scen&&!(SCEN[S.scen]&&SCEN[S.scen].can(c))) S.scen=null;   /* 다른 사람으로 바꿨을 때 불가능한 목표가 남지 않게 */
+  if(S.scen===undefined||S.scen===null) S.scen=fit[0]||null;
+  const chip=k=>`<button class="btn btn-sm scen" data-k="${k}" aria-pressed="${k===S.scen}" style="${k===S.scen?'background:var(--go);color:#fff;border-color:var(--go)':''}">${SCEN[k].n}</button>`;
+  const sc=S.scen?SCEN[S.scen]:null;
+  return `<h2 class="sec" style="margin-top:0">내 진행 상황</h2>
+    ${roadProgress(c)}
+    <h2 class="sec" style="margin-top:26px">목표별 순서 · 무엇을 먼저 할까</h2>
+    ${fit.length?`<p style="font-size:13.5px;opacity:.85;margin-bottom:8px">지금 상황에서 감지된 목표입니다. 각 행동으로 열리고 닫히는 제도를 지금 판정 결과로 다시 계산합니다.</p>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${fit.map(chip).join('')}</div>`
+      :`<p style="font-size:13.5px;opacity:.85">지금 상황에서 감지된 목표가 없습니다. 계획이 생기면 아래에서 골라 보세요.</p>`}
+    ${other.length?`<details style="margin-top:10px" ${S.scen&&other.includes(S.scen)?'open':''}><summary style="font-size:13px;cursor:pointer;opacity:.85">다른 목표 · 계획이 있을 때만</summary>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${other.map(chip).join('')}</div></details>`:''}
+    ${sc?`<div class="card pad" style="margin-top:12px">
       <h3>${sc.n}</h3><p style="font-size:13.5px;margin-top:2px;opacity:.85">${sc.d}</p>
-      ${fit.includes(S.scen)?'':'<p style="font-size:12.5px;margin-top:4px;color:var(--warn)">지금 상황에서 감지된 목표는 아닙니다 · 가정으로 계산합니다</p>'}
+      ${fit.includes(S.scen)?'':'<p style="font-size:12.5px;margin-top:4px;color:var(--warn)">감지된 목표가 아니라 고르신 가정으로 계산합니다</p>'}
     </div>
-    ${steps.map(stepCard).join('')}
-    <p style="font-size:12px;opacity:.7;margin-top:12px">순서 규칙은 법령·공고 기준의 일반 원칙입니다. 최종 판단은 고용센터·세무서·주민센터 등 접수 기관이 합니다. 로드맵은 고르신 목표 안의 행동만 계산합니다.</p>`; }
+    ${sc.steps(c).map(stepCard).join('')}
+    <p style="font-size:12px;opacity:.7;margin-top:12px">순서 규칙은 법령·공고 기준의 일반 원칙입니다. 최종 판단은 고용센터·세무서·주민센터 등 접수 기관이 합니다. 로드맵은 고르신 목표 안의 행동만 계산합니다.</p>`:''}`; }
 
 /* ── 오늘 동선 · 출발 전(온라인) → 들를 곳 순서 → 챙길 것 ── */
 const PLACE_OF={bank:'은행', center:'주민센터', office:'기관 방문'};
@@ -205,7 +212,8 @@ function viewRoute(){
       ${bring.length?`<p style="font-size:13.5px;margin-top:4px"><b>오늘 목표</b> · ${bring.map(escH).join(' · ')}</p>`:'<p style="font-size:13px;opacity:.7">목표 행동에 따로 챙길 서류가 없습니다</p>'}
       ${bring2.length?`<p style="font-size:12.5px;margin-top:4px;opacity:.85"><b>간 김에 함께 하려면</b> · ${bring2.map(escH).join(' · ')}</p>`:''}
       <p style="font-size:12px;opacity:.7;margin-top:6px">연동으로 자동 제출되는 서류는 빼고 적었습니다</p></div>
-    ${acts.some(a=>ACT[a].irrev)?`<p style="font-size:12.5px;margin-top:10px;opacity:.85">되돌리기 어려운 행동(${acts.filter(a=>ACT[a].irrev).map(a=>escH(ACT[a].n)).join(' · ')})은 동선에 자동으로 넣지 않습니다. 로드맵에서 순서를 확인한 뒤 결정하세요.</p>`:''}`; }
+    ${acts.some(a=>ACT[a].irrev)?`<p style="font-size:12.5px;margin-top:10px;opacity:.85">되돌리기 어려운 행동(${acts.filter(a=>ACT[a].irrev).map(a=>escH(ACT[a].n)).join(' · ')})은 동선에 자동으로 넣지 않습니다. 로드맵에서 순서를 확인한 뒤 결정하세요.</p>`:''}
+    ${visitBundles(J)}`; }
 
 function bindPlan(){
   document.querySelectorAll('.scen').forEach(b=>b.onclick=()=>{ S.scen=b.dataset.k; draw(); });

@@ -32,7 +32,7 @@ function lsWhen(){ const d=lsLoad(); if(!d||!d.at) return null;
   const t=new Date(d.at); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`; }
 const nav=$('nav'), main=$('main');
 /* 오늘 동선(하루) · 로드맵(몇 달~몇 년)은 plan.js · 점검은 전체 판정 목록 */
-const VIEWS=[['route','오늘 동선'],['road','로드맵'],['check','점검'],['todo','할 일'],['me','내 정보'],['ask','물어보기']];
+const VIEWS=[['check','점검'],['todo','할 일'],['road','로드맵'],['route','오늘 동선'],['me','내 정보'],['ask','물어보기']];
 
 const me=()=>PID==='me'?MINE:CTX[PID];
 const roles=()=>Object.keys(ROLE).filter(k=>ROLE[k].on(me()));
@@ -596,7 +596,7 @@ document.querySelectorAll('#demo-bar [data-go]').forEach(b=>b.onclick=()=>{
   if((S.stage==='counter'||S.counter) && g!=='counter' && window.Counter){ Counter.exit(); if(g!=='landing') stage(g); return; }
   S.counter=false; stage(g); });
 /* 온보딩이 끝났을 때 · 창구 상담 중이면 창구 결과로, 아니면 시민용 점검으로 */
-function obDone(){ if(S.counter && window.Counter){ stage('counter'); Counter.afterScan(); } else { S.view='route'; stage('app'); } }
+function obDone(){ if(S.counter && window.Counter){ stage('counter'); Counter.afterScan(); } else { S.view='check'; stage('app'); } }
 /* 기관용 창구 · 같은 저장소면 counter.html, 미리보기면 게시된 창구 주소 */
 const COUNTER_URL = '#counter';
 document.querySelectorAll('.counter-link').forEach(x=>{ x.href=COUNTER_URL; x.removeAttribute('target');
@@ -1211,9 +1211,6 @@ function viewCheck(){
       법인이냐 개인이냐가 아니라 이 업종코드로 창업지원 제외 업종과 세액감면 대상 업종을 갈랐습니다.</div>`:''}
   </div>
 
-  ${cross.length?`<div class="notice n-warn" style="margin-bottom:12px">
-    <h3>역할이 겹쳐 생기는 문제 ${cross.length}건</h3>
-    ${cross.map(x=>`<p style="margin-top:5px"><b>${x[0]}</b><br>${x[1]}</p>`).join('')}</div>`:''}
 
   <div class="viz">
     <h3>성격이 다른 것을 나누어 보여드립니다</h3>
@@ -1271,6 +1268,10 @@ function viewCheck(){
         그래서 <b>채무·재기</b> 분야를 함께 판정했습니다${dn?` · 가능 ${dn}건`:''}.
         제도마다 감면 폭과 비용이 크게 다르니 그 항목에서 하나씩 보세요.</p>
       <button class="btn btn-sm jump" data-k="debt" style="margin-top:9px">채무·재기 보러 가기 ›</button></div>`;})():''}
+
+    ${cross.length?`<div class="notice n-warn" style="margin:10px 0 0">
+      <h3>역할이 겹쳐 생기는 문제 ${cross.length}건</h3>
+      ${cross.map(x=>`<p style="margin-top:5px"><b>${x[0]}</b><br>${x[1]}</p>`).join('')}</div>`:''}
 
     ${factCard(J)}
 
@@ -1730,6 +1731,47 @@ $('flow-x').onclick=closeFlow;
 $('flow').onclick=e=>{ if(e.target.id==='flow') closeFlow(); };
 
 /* ═══════════ 할 일 — 사건 · 로드맵 · 방문 묶음 ═══════════ */
+/* 진행형 로드맵(역할별 단계·완료율) · 로드맵 메뉴 맨 위에 둡니다 (plan.js viewRoad) */
+function roadProgress(c){ const roads=roles().filter(r=>ROAD[r]).map(r=>ROAD[r](c));
+  const icon=s=>s==='done'?'✓':s==='now'?'!':s==='lost'?'×':'';
+  const cl=s=>s==='done'?'done':s==='now'?'now':s==='lost'?'lost':s==='cond'?'lock':'todo';
+  return roads.length?roads.map(R=>{
+    const all=R.stages.flatMap(x=>x.items);
+    const done=all.filter(x=>x[1]==='done').length, lost=all.filter(x=>x[1]==='lost').length;
+    const now=all.filter(x=>x[1]==='now').length, free=all.filter(x=>x[1]==='free').length;
+    const pct=Math.round(done/all.length*100);
+    return `
+    <div class="rmhead"><div><p style="font-size:18px;font-weight:600;letter-spacing:-0.02em">${R.label}</p>
+      <p style="font-size:13px;color:var(--ink-2)">지금 할 수 있는 일 ${now+free}건 ·
+        조건이 갖춰져야 하는 일 ${all.filter(x=>x[1]==='cond').length}건</p></div>
+      <div style="text-align:right"><div class="num" style="font-size:26px;font-weight:600">${pct}%</div>
+        <div style="font-size:12px;color:var(--ink-2)" class="num">${all.length}개 중 ${done}개</div></div></div>
+    <div class="rmbar"><span style="width:${pct}%"></span></div>
+    <div style="display:flex;gap:14px;font-size:12.5px;color:var(--ink-2);margin-bottom:12px" class="num">
+      <span>완료 ${done}</span><span style="color:var(--ink)">지금 ${now}</span>
+      <span style="color:var(--go)">상시 ${free}</span>${lost?`<span style="color:var(--stop)">놓침 ${lost}</span>`:''}</div>
+    ${R.stages.map((st,i)=>{
+      const dn=st.items.every(x=>x[1]==='done'||x[1]==='lost'), cur=i===R.cur;
+      const cnt=st.items.filter(x=>x[1]==='done').length;
+      return `<div class="stg ${dn?'done':''} ${cur?'cur':''}">
+        <span class="node">${dn?'✓':i+1}</span>
+        <div class="sh"><div><span class="sn">${st.n}</span>
+          <span class="sd" style="margin-left:7px">${st.d}</span></div>
+          <span class="cnt num">${cnt} / ${st.items.length}</span></div>
+        <div class="items">${st.items.map(x=>`<div class="it ${x[1]==='cond'?'lockrow':''} ${x[1]==='lost'?'lostrow':''}">
+          <span class="ck ${cl(x[1])}">${icon(x[1])}</span>
+          <span class="tx"><span class="tn">${x[0]}</span>
+            ${x[1]==='cond'&&x[2]?`<div class="td">${x[2]}</div>`:''}</span>
+          ${x[1]==='free'?'<span class="tag t-go">상시</span>':''}
+          ${x[1]==='now'?'<span class="tag t-logic">지금</span>':''}
+          ${x[1]==='cond'?'<span class="tag t-mute">조건</span>':''}
+          ${x[2]==='전문가'?'<button class="btn btn-sm" style="margin-left:6px">전문가 연결</button>':''}
+        </div>`).join('')}</div></div>`;}).join('')}
+    ${R.later&&R.later.length?`<div class="card pad" style="margin-bottom:18px">
+      <p style="font-size:13px;color:var(--ink-2)">이후 단계는 해당 상황이 되면 나타납니다 · ${R.later.join(' · ')}</p></div>`:''}`;
+  }).join('<div style="height:22px"></div>')
+  :`<div class="card pad"><p style="font-size:13.5px;color:var(--ink-2)">
+     연속적인 경로가 있는 역할이 아닙니다 · 아래에서 목표를 골라 순서를 보세요.</p></div>`; }
 function viewTodo(){
   const c=ctx(), J=judgeAll(), ok=J.flatMap(s=>s.res.filter(x=>x.s==='ok'));
   const byVisit={};
@@ -1743,7 +1785,6 @@ function viewTodo(){
     if(R.guard&&!R.guard(c)) return false;
     if(R.key){ const j=flat.find(x=>x.n===R.key); if(j&&j.s==='no') return false; }
     return true; });
-  const roads=roles().filter(r=>ROAD[r]).map(r=>ROAD[r](c));
   const icon=s=>s==='done'?'✓':s==='now'?'!':s==='lost'?'×':'';
   const cl=s=>s==='done'?'done':s==='now'?'now':s==='lost'?'lost':s==='cond'?'lock':'todo';
 
@@ -1813,67 +1854,34 @@ function viewTodo(){
       </div>`).join('')}
     </div>`).join('')}
 
-  ${roads.length?roads.map(R=>{
-    const all=R.stages.flatMap(x=>x.items);
-    const done=all.filter(x=>x[1]==='done').length, lost=all.filter(x=>x[1]==='lost').length;
-    const now=all.filter(x=>x[1]==='now').length, free=all.filter(x=>x[1]==='free').length;
-    const pct=Math.round(done/all.length*100);
-    return `
-    <div class="rmhead"><div><p style="font-size:18px;font-weight:600;letter-spacing:-0.02em">${R.label}</p>
-      <p style="font-size:13px;color:var(--ink-2)">지금 할 수 있는 일 ${now+free}건 ·
-        조건이 갖춰져야 하는 일 ${all.filter(x=>x[1]==='cond').length}건</p></div>
-      <div style="text-align:right"><div class="num" style="font-size:26px;font-weight:600">${pct}%</div>
-        <div style="font-size:12px;color:var(--ink-2)" class="num">${all.length}개 중 ${done}개</div></div></div>
-    <div class="rmbar"><span style="width:${pct}%"></span></div>
-    <div style="display:flex;gap:14px;font-size:12.5px;color:var(--ink-2);margin-bottom:12px" class="num">
-      <span>완료 ${done}</span><span style="color:var(--ink)">지금 ${now}</span>
-      <span style="color:var(--go)">상시 ${free}</span>${lost?`<span style="color:var(--stop)">놓침 ${lost}</span>`:''}</div>
-    ${R.stages.map((st,i)=>{
-      const dn=st.items.every(x=>x[1]==='done'||x[1]==='lost'), cur=i===R.cur;
-      const cnt=st.items.filter(x=>x[1]==='done').length;
-      return `<div class="stg ${dn?'done':''} ${cur?'cur':''}">
-        <span class="node">${dn?'✓':i+1}</span>
-        <div class="sh"><div><span class="sn">${st.n}</span>
-          <span class="sd" style="margin-left:7px">${st.d}</span></div>
-          <span class="cnt num">${cnt} / ${st.items.length}</span></div>
-        <div class="items">${st.items.map(x=>`<div class="it ${x[1]==='cond'?'lockrow':''} ${x[1]==='lost'?'lostrow':''}">
-          <span class="ck ${cl(x[1])}">${icon(x[1])}</span>
-          <span class="tx"><span class="tn">${x[0]}</span>
-            ${x[1]==='cond'&&x[2]?`<div class="td">${x[2]}</div>`:''}</span>
-          ${x[1]==='free'?'<span class="tag t-go">상시</span>':''}
-          ${x[1]==='now'?'<span class="tag t-logic">지금</span>':''}
-          ${x[1]==='cond'?'<span class="tag t-mute">조건</span>':''}
-          ${x[2]==='전문가'?'<button class="btn btn-sm" style="margin-left:6px">전문가 연결</button>':''}
-        </div>`).join('')}</div></div>`;}).join('')}
-    ${R.later&&R.later.length?`<div class="card pad" style="margin-bottom:18px">
-      <p style="font-size:13px;color:var(--ink-2)">이후 단계는 해당 상황이 되면 나타납니다 · ${R.later.join(' · ')}</p></div>`:''}`;
-  }).join('<div style="height:22px"></div>')
-  :`<div class="card pad"><p style="font-size:13.5px;color:var(--ink-2)">
-     연속적인 경로가 있는 역할이 아니라 로드맵 대신 위의 체크리스트로 안내합니다.</p></div>`}
 
   ${runRole?runBlock(RUN[runRole]):''}
 
-  ${(()=>{const V=['center','bank','office','company'].filter(v=>byVisit[v]&&byVisit[v].length);
-    if(!V.length) return '';
-    return `<h2 class="sec">같은 곳에 갈 때 함께 · 재방문을 줄입니다</h2>
-  <p style="font-size:12.5px;color:var(--ink-2);margin-bottom:8px">
-    위 목록을 <b>가야 하는 곳</b> 기준으로 다시 묶었습니다. 온라인으로 끝나는 건은 여기 없습니다.</p>`;})()}
-  ${['center','bank','office','company'].filter(v=>byVisit[v]&&byVisit[v].length).map(v=>`
-    <details class="acc" ${v!=='online'?'open':''}>
-      <summary><div><div class="ttl">${VISIT[v].n}</div>
-        <div class="meta">${VISIT[v].tip}</div></div>
-        <div class="rt"><span class="tag ${v==='online'?'t-mute':'t-logic'}">${byVisit[v].length}건</span>
-          <span class="chev">›</span></div></summary>
-      ${byVisit[v].map(x=>`<div class="lrow">
-        <div><div class="t">${x.n}</div><div class="d">${x.where||''}</div></div>
-        <div class="r">${x.amt?`<b>${x.amt}</b>`:''}</div></div>`).join('')}
-    </details>`).join('')}
-  <p style="font-size:12.5px;color:var(--ink-2);margin:6px 0 18px">
-    주민센터나 은행에 한 번 갈 때 같은 묶음의 항목을 함께 처리하시면 재방문을 줄일 수 있습니다.
-    준비물은 위 목록에서 항목을 누르시면 나옵니다.</p>
+  <p style="font-size:12.5px;color:var(--ink-2);margin:10px 0 18px">같은 곳에 갈 때 함께 처리할 묶음은 <b>오늘 동선</b>으로 옮겼습니다.</p>
 
 `;
 }
+
+/* 같은 곳에 갈 때 함께 · 오늘 동선 아래에 둡니다 (plan.js viewRoute)
+   전국 공통분(nat)은 원자료에 방문처가 없어 기본값이 '주민센터'로 들어가 있으므로 묶지 않습니다 */
+function visitBundles(J){
+  const byVisit={};
+  J.forEach(s=>{ if(s.k==='nat') return; s.res.filter(x=>x.s==='ok').forEach(x=>{ const v=x.visit||'online'; (byVisit[v]=byVisit[v]||[]).push(x); }); });
+  const V=['center','bank','office','company'].filter(v=>byVisit[v]&&byVisit[v].length);
+  if(!V.length) return '';
+  const val=x=>{ const m=x.mv||{}; return (m.y||0)+(m.once||0)+(m.max||0); };
+  return `<h2 class="sec" style="margin-top:26px">같은 곳에 갈 때 함께 · 재방문을 줄입니다</h2>
+  <p style="font-size:12.5px;color:var(--ink-2);margin-bottom:8px">받을 수 있는 것을 <b>가야 하는 곳</b> 기준으로 묶었습니다. 온라인으로 끝나는 건과 방문처가 기관마다 다른 전국 공통 제도는 뺐습니다.</p>
+  ${V.map(v=>{ const L=byVisit[v].slice().sort((a,b)=>val(b)-val(a)); return `
+    <details class="acc" ${L.length<=8?'open':''}>
+      <summary><div><div class="ttl">${VISIT[v].n}</div>
+        <div class="meta">${VISIT[v].tip}</div></div>
+        <div class="rt"><span class="tag t-logic">${L.length}건</span>
+          <span class="chev">›</span></div></summary>
+      ${L.map(x=>`<div class="lrow">
+        <div><div class="t">${x.n}</div><div class="d">${x.where||''}</div></div>
+        <div class="r">${x.amt?`<b>${x.amt}</b>`:''}</div></div>`).join('')}
+    </details>`;}).join('')}`; }
 
 function runBlock(R){
   const paid=R.paid?`
@@ -1897,15 +1905,7 @@ function runBlock(R){
     <p style="font-size:12.5px;color:var(--ink-2);margin-top:10px">
       혼자 하실 수 있는 방법을 먼저 안내드린 뒤에 보여드립니다. 광고를 누르지 않아도 신청은 끝까지 진행됩니다.
       <button class="btn btn-sm" id="expert-close" style="margin-left:4px">닫기</button></p>`}</div>`
-  :`<div class="notice n-stop">
-    <h3>이 영역에는 전문가 광고를 두지 않습니다</h3>
-    <p>심사 대상이 자격 요건이라 글을 고쳐서 바뀌는 것이 없기 때문입니다.
-       정책자금은 보증료 외에 어떤 비용도 들지 않습니다.
-       중소벤처기업부는 2026년 1월 제3자 부당개입 대응세트를 내놨습니다. 신고포상 건당 최대 200만원, 불이익 행위 과태료 300만원 이하, 정책자금 컨설팅 등록제 법제화가 함께 추진되고 있습니다.
-       허위 매출증명을 만든 브로커가 형사 고소된 사례도 있습니다. 이 화면에는 광고도 넣지 않습니다.</p>
-    <div style="display:flex;gap:8px;margin-top:9px;flex-wrap:wrap">
-      <button class="btn btn-sm">제3자 부당개입 신고</button>
-      <button class="btn btn-sm">상담 1533-0100</button></div></div>`;
+  :'';   /* 광고를 두지 않는 영역 · 안내 문구 없이 비워 둡니다 */
   return `
   <h2 class="sec">진행 중인 건</h2>
   <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px">
