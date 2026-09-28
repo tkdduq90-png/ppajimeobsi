@@ -152,7 +152,9 @@ function viewRoad(){
   if(S.scen===undefined||S.scen===null) S.scen=fit[0]||null;
   const chip=k=>`<button class="btn btn-sm scen" data-k="${k}" aria-pressed="${k===S.scen}" style="${k===S.scen?'background:var(--go);color:#fff;border-color:var(--go)':''}">${SCEN[k].n}</button>`;
   const sc=S.scen?SCEN[S.scen]:null;
-  return `<h2 class="sec" style="margin-top:0">내 진행 상황</h2>
+  return `<h2 class="sec" style="margin-top:0">사라지기 전에 해야 할 것</h2>
+    <div class="card pad" style="margin-bottom:6px">${deadlineBlock(c)}</div>
+    <h2 class="sec" style="margin-top:26px">내 진행 상황</h2>
     ${roadProgress(c)}
     <h2 class="sec" style="margin-top:26px">목표별 순서 · 무엇을 먼저 할까</h2>
     ${fit.length?`<p style="font-size:13.5px;opacity:.85;margin-bottom:8px">지금 상황에서 감지된 목표입니다. 각 행동으로 열리고 닫히는 제도를 지금 판정 결과로 다시 계산합니다.</p>
@@ -181,8 +183,11 @@ function viewRoute(){
   /* 같은 곳에서 함께 처리할 수 있는 '받을 수 있음' 제도 · 금액 큰 순 3건 */
   const J=judgeAll(c), ok=J.flatMap(s=>s.res.filter(x=>x.s==='ok'));
   /* 전국 공통분(nat)은 방문처가 기관마다 달라 주민센터로 묶지 않습니다 · 규칙 101건과 우리 동네 것만 */
-  const okS=J.flatMap(s=>s.k==='nat'?[]:s.res.filter(x=>x.s==='ok'));
-  const onl=listN(ok.filter(x=>x.visit==='online'),3);
+  /* 앱이 대신 제출하는 것(auto·one)은 동선에 넣지 않습니다 · 본인이 직접 가거나 챙겨야 하는 것만 */
+  const mine=x=>{ const a=agency(x); return a!=='auto'&&a!=='one'; };
+  const byApp=ok.filter(x=>!mine(x)&&moneyKind(x)!=='svc');   /* 돈이 되는 것만 셉니다 · 서비스는 제출할 게 아님 */
+  const okS=J.flatMap(s=>s.k==='nat'?[]:s.res.filter(x=>x.s==='ok'&&mine(x)));
+  const onl=listN(ok.filter(x=>x.visit==='online'&&mine(x)),3);
   const center=listN(okS.filter(x=>x.visit==='center'),3);
   const bank=listN(okS.filter(x=>x.visit==='bank'),2);
   if(bank.length){ let s=stops.find(x=>x.p==='은행'); if(!s) stops.push(s={p:'은행',acts:[],items:[]}); s.items=bank; }
@@ -201,7 +206,8 @@ function viewRoute(){
     <div class="card pad"><h3>${++n}. 출발 전 · 집에서</h3>
       ${pre.map(a=>row(escH(ACT[a].n), escH(ACT[a].place)+(ACT[a].note?' · '+escH(ACT[a].note):''), '온라인')).join('')}
       ${onl.length?`<p style="font-size:12px;opacity:.75;margin-top:8px">시간 나면 · 온라인으로 끝나는 것</p>${onl.map(r=>row(escH(r.n), escH(r.where||''), amt(r))).join('')}`:''}
-      ${!pre.length&&!onl.length?'<p style="font-size:13px;opacity:.7;margin-top:6px">집에서 할 것이 없습니다</p>':''}
+      ${byApp.length?`<p style="font-size:12.5px;margin-top:10px;opacity:.85">앱이 연동 서류로 대신 제출하는 <b>${byApp.length}건</b>은 동선에 넣지 않았습니다 · <a href="#" id="to-todo">할 일에서 한 번에 제출 ›</a></p>`:''}
+      ${!pre.length&&!onl.length&&!byApp.length?'<p style="font-size:13px;opacity:.7;margin-top:6px">집에서 할 것이 없습니다</p>':''}
     </div>
     ${stops.map(s=>`<div class="card pad" style="margin-top:8px"><h3>${++n}. ${escH(s.p)}</h3>
       ${s.acts.map(a=>row(escH(ACT[a].n), ACT[a].note?escH(ACT[a].note):'', '')).join('')}
@@ -217,4 +223,5 @@ function viewRoute(){
 
 function bindPlan(){
   document.querySelectorAll('.scen').forEach(b=>b.onclick=()=>{ S.scen=b.dataset.k; draw(); });
-  const t=$('to-road'); if(t) t.onclick=e=>{ e.preventDefault(); S.view='road'; drawNav(); draw(); }; }
+  const t=$('to-road'); if(t) t.onclick=e=>{ e.preventDefault(); S.view='road'; drawNav(); draw(); };
+  const u=$('to-todo'); if(u) u.onclick=e=>{ e.preventDefault(); S.view='todo'; drawNav(); draw(); window.scrollTo(0,0); }; }

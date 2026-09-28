@@ -556,6 +556,14 @@ function bindCtQ(){ const box=$('ct-q'); if(!box) return;
    ② 그려진 다음에 스크롤하고 (한 프레임 기다립니다)
    ③ 도착한 곳을 잠깐 깜빡여 어디로 왔는지 보이게 합니다.
    sticky 헤더에 가리지 않도록 CSS 의 scroll-margin-top 이 받쳐 줍니다. */
+/* 상단 고정 메뉴 아래로 정확히 이동 · 앱 안 화면(웹뷰)은 smooth scrollIntoView 를 무시하는 경우가 있어 좌표로 옮깁니다 */
+function scrollToEl(el){
+  const nav=document.getElementById('nav'), hd=document.querySelector('header.app-top');
+  let off=12; [nav,hd].forEach(x=>{ if(!x) return; const cs=getComputedStyle(x);
+    if(cs.position==='sticky'||cs.position==='fixed'){ const b=x.getBoundingClientRect().bottom; if(b>0&&b<window.innerHeight/2) off=Math.max(off,b+10); } });
+  const y=el.getBoundingClientRect().top+(window.pageYOffset||document.documentElement.scrollTop)-off;
+  try{ window.scrollTo({top:y,behavior:'auto'}); }catch(e){ window.scrollTo(0,y); }
+  if(document.scrollingElement) document.scrollingElement.scrollTop=y; }
 function afterPaint(fn){ requestAnimationFrame(()=>requestAnimationFrame(fn)); }
 function flash(el){ const box=el.closest('.ritem')||el.closest('.acc')||el;
   box.classList.remove('flash'); void box.offsetWidth; box.classList.add('flash');
@@ -1064,7 +1072,7 @@ function tally(list){ const t={y:0,once:0,cap:0,max:0,none:0,n:{y:0,once:0,cap:0
   return t; }
 const won=v=>v>=10000?(Math.round(v/1000)/10)+'억':Math.round(v).toLocaleString()+'만';
 
-function viewCheck(){
+function viewCheck(){ S.tab='sector';   /* 성격별 보기는 할 일로 옮겼습니다 · 점검은 분야별만 */
   const c=ctx(), J=judgeAll(), all=J.flatMap(s=>s.res);
   const ok=all.filter(x=>x.s==='ok'), chk=all.filter(x=>x.s==='chk'),
         no=all.filter(x=>x.s==='no'), lost=all.filter(x=>x.s==='lost'),
@@ -1089,27 +1097,15 @@ function viewCheck(){
   const shade=n=>n===0?'background:var(--paper);color:var(--ink-3)'
     :`background:rgba(15,110,92,${0.10+0.7*(n/maxOk)});color:${n/maxOk>0.5?'#fff':'var(--go)'};border-color:transparent`;
 
-  const dl=[];
-  if(c.event.death) dl.push(['상속포기 · 한정승인','사망 후 3개월',Math.max(0,90-c.event.deathDays)+'일','hot']);
-  if(c.event.death) dl.push(['상속세 신고','사망한 달 말일부터 6개월',Math.max(0,180-c.event.deathDays)+'일','warn']);
-  if(c.work.on&&!c.work.taxRelief) dl.push(['소득세 감면 제도 일몰','2026년 12월','3개월','hot']);
-  if(c.credit.arrears>0&&c.credit.arrears<90) dl.push(['채무조정 구간','연체 90일 전',(90-c.credit.arrears)+'일','hot']);
-  if(!c.biz.on&&(c.biz.plan||c.work.freelance)) dl.push(['예비창업패키지','사업자등록 전','등록 전','hot']);
-  if(c.biz.on&&c.biz.kind==='corp'&&c.biz.years<3) dl.push(['초기창업 구간','업력 3년까지',(3-c.biz.years)+'년','warn']);
-  if(c.age<=34) dl.push(['청년 대상 사업','만 35세까지',(35-c.age)+'년','']);
-  else if(c.age<=39) dl.push(['청년 대상 사업','만 40세까지',(40-c.age)+'년','warn']);
-  if(c.admin.moving) dl.push(['전입신고 · 확정일자','이사 후 14일','14일','warn']);
-  if(c.admin.passport&&c.admin.passport<6) dl.push(['여권 갱신','잔여 6개월 미만',c.admin.passport+'개월','warn']);
-  if(c.admin.license&&c.admin.licenseDue<6) dl.push(['운전면허 갱신','기한 경과 시 과태료',c.admin.licenseDue+'개월','warn']);
-  if(c.home.car&&c.admin.carCheck<3) dl.push(['자동차 정기검사','기한 경과 시 과태료',c.admin.carCheck+'개월','warn']);
+  const dl=deadlineList(c);
 
   const sig=c.credit.arrears>0||c.credit.drop<-40||c.credit.dsr>70||c.credit.multi;
 
   const TY={cash:'현금으로 받는 것',save:'감면으로 아끼는 것',loan:'빌릴 수 있는 한도',
-            compete:'선발되어야 받는 것',admin:'해두면 좋은 것',auto:'기관 자료로 찾은 것'};
+            compete:'선발되어야 받는 것',admin:'해두면 좋은 것',svc:'필요할 때 쓰는 것',auto:'기관 자료로 찾은 것'};
   const isAuto=x=>x.chk&&x.chk.lvl==='api';                              /* 자격 미확정 */
   const amtU=x=>x.chk&&(x.chk.lvl==='api'||x.chk.lvl==='cond');          /* 금액 미확정 */
-  const byType={}; J.forEach(sc=>sc.res.filter(x=>x.s==='ok').forEach(x=>{ const k=isAuto(x)?'auto':x.type; (byType[k]=byType[k]||[]).push({...x, sec:sc.n}); }));
+  const byType={}; J.forEach(sc=>sc.res.filter(x=>x.s==='ok').forEach(x=>{ const k=isAuto(x)?'auto':({cash:'cash',save:'save',loan:'loan',pick:'compete',task:'admin',svc:'svc'})[moneyKind(x)]; (byType[k]=byType[k]||[]).push({...x, sec:sc.n}); }));
   const cT=tally((byType.cash||[]).filter(x=>!amtU(x)));
   const autoCash=(byType.auto||[]).length+(byType.cash||[]).filter(amtU).length;
 
@@ -1179,14 +1175,14 @@ function viewCheck(){
     +((byType[t]||[]).length>40?`<div class="trow" style="color:var(--ink-3);font-size:12.5px">그 밖에 ${(byType[t]||[]).length-40}건은 분야별로 보기에서 보실 수 있습니다</div>`:'');
 
   const typeLedger=()=>`<div class="ledger">
-    ${['cash','save','loan','compete','admin','auto'].filter(t=>byType[t]&&byType[t].length).map(t=>{
+    ${['cash','save','loan','compete','admin','svc','auto'].filter(t=>byType[t]&&byType[t].length).map(t=>{
       const T=tally(byType[t].filter(x=>!amtU(x)));        /* 합계는 금액까지 원문 대조한 제도만 */
       /* 대출은 여러 개를 동시에 다 받을 수 없으니 한도를 더하지 않고 가장 큰 것 하나 */
       const maxCap=Math.max(0,...byType[t].filter(x=>!amtU(x)).map(x=>(x.mv&&x.mv.cap)||0));
-      const v={cash:T.y, save:T.y, loan:maxCap, compete:T.max, admin:0, auto:0}[t];
-      const unit={cash:'연 환산', save:'연 절감', loan:'가장 큰 한도', compete:'선정 시 최대', admin:'', auto:''}[t];
+      const v={cash:T.y, save:T.y, loan:maxCap, compete:T.max, admin:0, svc:0, auto:0}[t];
+      const unit={cash:'연 환산', save:'연 절감', loan:'가장 큰 한도', compete:'선정 시 최대', admin:'', svc:'', auto:''}[t];
       const note={cash:'통장으로 들어오는 돈입니다 · 위 금액과 같습니다', save:'세금과 공과금에서 줄어듭니다', loan:'받는 돈이 아니라 빌리는 돈입니다',
-                  compete:'경쟁을 거쳐 선정돼야 받습니다', admin:'해두면 다른 자격이 열립니다',
+                  compete:'경쟁을 거쳐 선정돼야 받습니다', admin:'해두면 다른 자격이 열립니다', svc:'상담 · 교육 · 돌봄 · 의료 · 시설 · 보험',
                   auto:'기관 등록 자료로 찾았습니다 · 원문에서 자격을 확인해야 합니다'}[t];
       const on=S.type===t;
       return `<button class="lrow typebtn${on?' on':''}" data-t="${t}" style="width:100%;text-align:left">
@@ -1207,8 +1203,7 @@ function viewCheck(){
       ${facts.map(f=>`<span class="tag t-mute" style="font-size:12.5px;padding:3px 10px">${f}</span>`).join('')}
     </div>
     ${c.biz.on?`<div class="bizln">업종 <b>${c.biz.field||'확인 불가'}</b>
-      <span style="color:var(--ink-3)">· ${c.biz.ksic||'사업자등록 업종코드 없음'}</span><br>
-      법인이냐 개인이냐가 아니라 이 업종코드로 창업지원 제외 업종과 세액감면 대상 업종을 갈랐습니다.</div>`:''}
+      <span style="color:var(--ink-3)">· ${c.biz.ksic||'사업자등록 업종코드 없음'}</span></div>`:''}
   </div>
 
 
@@ -1228,14 +1223,11 @@ function viewCheck(){
         <div class="num" style="font-size:24px;font-weight:600;color:var(--stop)">−${won(lostSum)}</div>
         <div style="font-size:12.5px;color:var(--stop)">이미 놓친 ${lost.length}건</div></div>`:''}
     </div>
-    <p style="font-size:12px;color:var(--ink-3);line-height:1.55">
-      월 단위 급여는 12개월로 환산했고 한 번만 받는 돈은 따로 뒀습니다.
-      '최대' 로 고시된 제도는 그 상한을 썼습니다.${cT.none?` 금액이 정해지지 않은 ${cT.none}건은 합계에서 뺐습니다.`:''}${autoCash?` 기관 등록 자료로 판정한 ${autoCash}건은 금액이 확정되지 않아 합계에 넣지 않았습니다.`:''}
-      대출 한도와 선정돼야 받는 사업비는 받는 돈이 아니므로 아래에 분리했습니다.</p>
+    <p style="font-size:12px;color:var(--ink-3);line-height:1.55">월 급여는 1년치로 환산 · 대출·선정형은 따로${(cT.none+autoCash)?` · 금액 미정 ${cT.none+autoCash}건 제외`:''}</p>
 
-    <div class="vsplit">
+    <div>
       <div>
-        <h3>정부·지자체·공공기관 제도 1만여 건 전부 대조</h3>
+        <h3 style="margin-top:18px">정부·지자체·공공기관 제도 1만여 건 전부 대조</h3>
         <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
           <svg width="132" height="132" viewBox="0 0 132 132" role="img" aria-label="판정 결과 비율">${donut}
             <text x="66" y="63" text-anchor="middle" style="font-size:25px;font-weight:600;fill:var(--ink)">${ok.length}</text>
@@ -1245,13 +1237,6 @@ function viewCheck(){
             <span style="font-size:13px">${lab}</span>
             <span class="num" style="font-size:13px;color:var(--ink-2);margin-left:auto">${v}</span></div>`).join('')}</div>
         </div>
-      </div>
-      <div>
-        <h3>사라지기 전에 해야 할 것</h3>
-        ${dl.length?`<div class="tline">${dl.map(d=>`<div class="tl-i ${d[3]}">
-          <div><div style="font-size:14px">${d[0]}</div><div style="font-size:12px;color:var(--ink-2)">${d[1]}</div></div>
-          <span class="num" style="font-size:14px;font-weight:600;color:${d[3]==='hot'?'var(--stop)':d[3]==='warn'?'var(--warn)':'var(--ink-2)'}">${d[2]}</span>
-        </div>`).join('')}</div>`:'<p style="font-size:13px;color:var(--ink-2)">곧 사라지는 자격이 없습니다</p>'}
       </div>
     </div>
 
@@ -1287,39 +1272,18 @@ function viewCheck(){
     :''}
   </div>
 
-  <div class="seg">
-    <button class="segb${S.tab!=='sector'?' on':''}" data-tab="type">성격별로 보기</button>
-    <button class="segb${S.tab==='sector'?' on':''}" data-tab="sector">분야별로 보기</button>
-  </div>
-  <p class="segn">${S.tab==='sector'
-    ? `${SECTOR_COUNT}개 분야를 하나씩 · 안 되는 이유와 판정 근거까지 봅니다`
-    : '받는 성격이 다른 것을 섞지 않고 나눠서 봅니다 · 감면 · 대출 · 경쟁 · 행정'}</p>
+  <h2 class="sec">분야별로 보기</h2>
+  <p class="segn">${SECTOR_COUNT}개 분야 · 안 되는 이유와 판정 근거까지</p>
 
   ${S.tab!=='sector'?typeLedger():`
   ${(()=>{const pct=Math.round(CHECK_COUNT/RULE_COUNT*100), org=Math.round(ORG_COUNT/RULE_COUNT*100);
     const none=RULE_COUNT-CHECK_COUNT-ORG_COUNT; return `
   <div class="card pad" style="margin-bottom:8px">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap">
-      <div><div style="font-size:14px">제도 ${RULE_COUNT}건 중 <b>${CHECK_COUNT}건</b>은 금액과 요건까지 기관 자료로 대조했습니다</div>
-        <div style="font-size:12.5px;color:var(--ink-2)">최근 확인 ${CHECK_LATEST}${
-          ORG_COUNT?` · <span style="color:var(--warn)">${ORG_COUNT}건은 소관 기관만 확인</span>했고 수치는 아직 대조하지 않았습니다`:''}${
-          none?` · ${none}건은 출처 미확인`:''}${
-          !ORG_COUNT&&!none?` · <b>전 항목이 기관 자료와 대조됐습니다</b>`:''}</div>
-        ${(window.NATIONAL||[]).length?`<div style="font-size:12.5px;color:var(--warn);margin-top:3px">그 밖에 <b>전국 공통 제도 ${NATIONAL.length.toLocaleString()}건</b>(중앙행정기관·공공기관)도 행정안전부 등록 자료에서 자동으로 옮긴 것입니다</div>`:''}
-        ${localOf(c).length?`<div style="font-size:12.5px;color:var(--warn);margin-top:3px">그 밖에 <b>${regionKey(c)} 지자체 제도 ${localOf(c).length.toLocaleString()}건</b>은 행정안전부 등록 자료에서 자동으로 옮긴 것이라 공고 원문과는 아직 대조하지 않았습니다</div>`:''}
-        <div style="font-size:12.5px;color:var(--ink-2);margin-top:3px">항목을 누르면 <b>그렇게 판정한 이유와, 기관 자료에서 읽은 원문 문장</b>이 나옵니다 · 준비물과 절차는 <b>할 일</b>에 있습니다 (${GUIDE_COUNT}건 정리 완료)</div></div>
-      <div class="num" style="font-size:22px;font-weight:600">${pct}%</div></div>
-    <div class="rmbar" style="margin-bottom:0;display:flex">
-      <span style="width:${pct}%"></span><span style="width:${org}%;background:var(--warn)"></span></div>
-  </div>
-  <div class="card pad" style="margin-bottom:8px">
-      <div style="font-size:13px;color:var(--ink-2);margin-bottom:9px">눌러서 그 분야로 이동합니다 · 색이 진할수록 가능 건수가 많습니다 · 0인 분야도 검토는 끝났습니다</div>
+      <div style="font-size:13px;color:var(--ink-2);margin-bottom:9px">누르면 그 분야로 이동합니다</div>
       <div class="grid13">${J.map(sec=>{const n=sec.res.filter(x=>x.s==='ok').length;
         return `<button class="cellx jump" data-k="${sec.k}" style="${shade(n)};text-align:left;width:100%${
           S.sec[sec.k]?';box-shadow:0 0 0 2.5px var(--go) inset':''}">
           <div class="cn">${sec.n}</div><div class="cv num">${n}</div></button>`;}).join('')}</div>
-      <p style="font-size:12.5px;color:var(--ink-2);margin-top:10px">
-        <b style="color:var(--logic)">판정 불가</b>는 요건이 미달이라는 뜻이 아니라, 연동으로 가져올 수 없는 정보라 저희가 결론을 내지 못한 항목입니다.</p>
   </div>
   `;})()}
   ${J.filter(sec=>S.sec[sec.k]).map(sec=>{
@@ -1732,6 +1696,64 @@ $('flow').onclick=e=>{ if(e.target.id==='flow') closeFlow(); };
 
 /* ═══════════ 할 일 — 사건 · 로드맵 · 방문 묶음 ═══════════ */
 /* 진행형 로드맵(역할별 단계·완료율) · 로드맵 메뉴 맨 위에 둡니다 (plan.js viewRoad) */
+/* 할 일 첫 묶음 · 돈이 되는 것과 아닌 것을 가릅니다
+   원자료 제도는 amt 앞머리가 '지원유형'(현금·현금(감면)·현금(융자)·이용권·서비스(돌봄)·기타(교육)…)입니다.
+   규칙 101건은 type(cash·save·loan·compete·admin)을 씁니다. */
+const MK={cash:['지원금','현금 · 장학금 · 이용권 · 물품','t-go'],
+  save:['감면 · 할인','세금 · 공과금 · 이용료 감면과 환급','t-go'],
+  pick:['선정형 지원','심사를 거쳐 선정돼야 받습니다','t-logic'],
+  loan:['정책 대출 · 보증','융자 · 보증 · 상환이 필요한 자금','t-warn'],
+  task:['해 둘 행정','증명서 · 신고 · 갱신 · 다른 제도의 전제가 되는 것','t-mute'],
+  svc:['이용할 수 있는 서비스','상담 · 교육 · 돌봄 · 의료 · 시설 · 보험','t-mute']};
+const MK_ORDER=['cash','save','pick','loan','task','svc'];
+function moneyKind(x){
+  const lv=x.chk&&x.chk.lvl;
+  if(lv!=='cond'){ return x.type==='save'?'save':x.type==='loan'?'loan':x.type==='compete'?'pick':x.type==='admin'?'task':'cash'; }
+  const t=String(x.amt||'').split(/\s/)[0], parts=t.split('||');
+  if(parts.some(p=>/융자/.test(p))) return 'loan';
+  if(parts.some(p=>/감면/.test(p))) return 'save';
+  if(parts.some(p=>/^현금$|장학금|이용권|현물/.test(p))) return 'cash';
+  return 'svc'; }
+/* 정책 대출 vs 같은 용도 민간 대출 · 할 일 '빌리는 것' 묶음 맨 위 (점검 성격별 보기에서 옮김) */
+function loanCompare(c,L){
+  const pol=L.map(x=>({...x, pl:POLICY_LOAN[x.n]||null}));
+  const cmp={};
+  pol.forEach(p=>{ if(!p.pl||!p.pl.rate||!p.mv||!p.mv.cap) return;
+    const rival=PRIV.filter(v=>v.cat===p.pl.cat&&v.need(c)).sort((a,b)=>a.rate-b.rate)[0];
+    if(!rival) return;
+    const amt=Math.min(p.mv.cap, rival.max);
+    cmp[p.n]={rival, amt, gap:Math.round(amt*(rival.rate-p.pl.rate)/100*5)}; });
+  const best=Object.entries(cmp).sort((a,b)=>b[1].gap-a[1].gap)[0];
+  const priv=PRIV.filter(x=>x.need(c)).sort((a,b)=>a.rate-b.rate).slice(0,3);
+  if(!best&&!priv.length) return '';
+  return `<div class="lrow" style="display:block"><div class="d" style="line-height:1.6">
+    ${best?`같은 용도로 빌려도 금리가 다릅니다. <b>${best[0]}</b> 연 ${POLICY_LOAN[best[0]].rate}% · <b>${best[1].rival.n}</b> 연 ${best[1].rival.rate}%.
+      겹치는 한도 ${won(best[1].amt)}를 5년 쓰면 이자 차이가 <b style="color:var(--go)">약 ${best[1].gap.toLocaleString()}만 원</b>입니다.`
+      :'받으실 수 있는 정책 대출입니다. 같은 용도의 민간 상품이 조회되지 않아 금리 비교는 생략했습니다.'}
+    ${priv.length?`<br><span style="color:var(--ink-3)">참고 · 민간 최저 금리 ${priv.map(x=>`${x.n} 연 ${x.rate}%`).join(' · ')}</span>`:''}</div></div>`; }
+/* 펼친 준비물·절차 아래 · 다시 누르면 닫힙니다 (thead 토글) */
+const foldBtn=n=>`<div style="display:flex;justify-content:center;padding:4px 0 12px"><button class="btn btn-sm thead" data-i="${encodeURIComponent(n)}">접기</button></div>`;
+/* 사라지기 전에 해야 할 것 · 로드맵 맨 위 (plan.js viewRoad) */
+function deadlineList(c){
+  const dl=[];
+  if(c.event.death) dl.push(['상속포기 · 한정승인','사망 후 3개월',Math.max(0,90-c.event.deathDays)+'일','hot']);
+  if(c.event.death) dl.push(['상속세 신고','사망한 달 말일부터 6개월',Math.max(0,180-c.event.deathDays)+'일','warn']);
+  if(c.work.on&&!c.work.taxRelief) dl.push(['소득세 감면 제도 일몰','2026년 12월','3개월','hot']);
+  if(c.credit.arrears>0&&c.credit.arrears<90) dl.push(['채무조정 구간','연체 90일 전',(90-c.credit.arrears)+'일','hot']);
+  if(!c.biz.on&&(c.biz.plan||c.work.freelance)) dl.push(['예비창업패키지','사업자등록 전','등록 전','hot']);
+  if(c.biz.on&&c.biz.kind==='corp'&&c.biz.years<3) dl.push(['초기창업 구간','업력 3년까지',(3-c.biz.years)+'년','warn']);
+  if(c.age<=34) dl.push(['청년 대상 사업','만 35세까지',(35-c.age)+'년','']);
+  else if(c.age<=39) dl.push(['청년 대상 사업','만 40세까지',(40-c.age)+'년','warn']);
+  if(c.admin.moving) dl.push(['전입신고 · 확정일자','이사 후 14일','14일','warn']);
+  if(c.admin.passport&&c.admin.passport<6) dl.push(['여권 갱신','잔여 6개월 미만',c.admin.passport+'개월','warn']);
+  if(c.admin.license&&c.admin.licenseDue<6) dl.push(['운전면허 갱신','기한 경과 시 과태료',c.admin.licenseDue+'개월','warn']);
+  if(c.home.car&&c.admin.carCheck<3) dl.push(['자동차 정기검사','기한 경과 시 과태료',c.admin.carCheck+'개월','warn']);
+  return dl; }
+function deadlineBlock(c){ const dl=deadlineList(c);
+  return dl.length?`<div class="tline">${dl.map(d=>`<div class="tl-i ${d[3]}">
+    <div><div style="font-size:14px">${d[0]}</div><div style="font-size:12px;color:var(--ink-2)">${d[1]}</div></div>
+    <span class="num" style="font-size:14px;font-weight:600;color:${d[3]==='hot'?'var(--stop)':d[3]==='warn'?'var(--warn)':'var(--ink-2)'}">${d[2]}</span>
+  </div>`).join('')}</div>`:'<p style="font-size:13px;color:var(--ink-2)">곧 사라지는 자격이 없습니다</p>'; }
 function roadProgress(c){ const roads=roles().filter(r=>ROAD[r]).map(r=>ROAD[r](c));
   const icon=s=>s==='done'?'✓':s==='now'?'!':s==='lost'?'×':'';
   const cl=s=>s==='done'?'done':s==='now'?'now':s==='lost'?'lost':s==='cond'?'lock':'todo';
@@ -1804,41 +1826,47 @@ function viewTodo(){
       +(issue?` (발급 필요 ${issue}건)`:'')+` · ${need.map(x=>x[0]).join(' · ')}</span>`; };
 
   return `
-  <h2 class="sec" style="margin-top:0">판정 다음 · 누가 하는지 먼저 나눕니다</h2>
+  <h2 class="sec" style="margin-top:0">받을 수 있는 것</h2>
   <p style="font-size:13px;color:var(--ink-2);line-height:1.6;margin-bottom:10px">
     받을 수 있다는 것을 아는 것과 실제로 받는 것은 다른 일입니다.
-    가능 ${ok.length}건을 <b>앱이 끝내는 것 · 준비물만 챙기시면 되는 것 · 사람 손이 필요한 것</b>으로 나눴습니다.
-    ${byAg.verify.length?`기관 등록 자료로 찾은 ${byAg.verify.length}건은 맨 아래 <b>자격부터 확인할 것</b>에 따로 두었습니다.`:''}</p>
-  ${['auto','one','self','expert','verify'].filter(k=>byAg[k].length).map(k=>{
-    const A=AGY[k], L=byAg[k];
-    const has=L.some(x=>x.n===S.item);
-    /* 특정 항목을 보러 온 상태면 그 묶음만 엽니다 — 목표가 화면 위로 올라옵니다 */
-    const op = S.item ? has : (k==='auto'||k==='one');
-    return `<details class="acc" ${op?'open':''}>
-      <summary><div><div class="ttl">${A[0]}</div><div class="meta">${A[1]}</div></div>
-        <div class="rt"><span class="tag ${A[2]}">${L.length}건</span>
+    가능 ${ok.length}건을 성격별로 나눴습니다. 누르면 펼쳐집니다.</p>
+  ${(()=>{ const G={}; ok.forEach(x=>{ const k=moneyKind(x); (G[k]=G[k]||[]).push(x); });
+    const val=x=>{ const m=x.mv||{}; return (m.y||0)+(m.once||0)+(m.max||0)+(m.cap||0); };
+    const AG={auto:'앱이 처리',one:'서류 1개',self:'준비물',expert:'전문가 검수',verify:'자격 확인'};
+    /* 먼저 할 것 · 원문과 금액까지 대조한 제도(규칙 101건)를 앞에, 기관 등록 자료 금액은 뒤에 · 물품(현물)은 뺍니다 */
+    const verified=x=>!(x.chk&&x.chk.lvl==='cond');
+    const top=[...(G.cash||[]),...(G.save||[])].filter(x=>val(x)>0&&!/현물/.test(x.amt||''))
+      .sort((a,b)=>(verified(b)-verified(a))||(val(b)-val(a))).slice(0,3);
+    const head=top.length?`<div class="card pad" style="margin-bottom:12px">
+      <h3>먼저 할 것 ${top.length}건</h3>
+      <p style="font-size:12.5px;color:var(--ink-2);margin:2px 0 6px">지원 금액이 큰 순서입니다. 나머지는 아래 묶음에 있습니다.</p>
+      ${top.map(x=>`<button class="lrow thead" data-i="${encodeURIComponent(x.n)}" style="width:100%;text-align:left">
+        <div><div class="t">${x.n}<span class="ichev">${S.item===x.n?'닫기':'준비물'}</span></div><div class="d">${x.where||''} · ${AG[agency(x)]}</div></div>
+        <div class="r"><b>${x.amt||''}</b></div></button>${S.item===x.n?stepBlock(x)+foldBtn(x.n):''}`).join('')}</div>`:'';
+    S.more=S.more||{};
+    return head+MK_ORDER.filter(k=>G[k]&&G[k].length).map(k=>{
+      const L=G[k].slice().sort((a,b)=>val(b)-val(a)), T=tally(L), has=L.some(x=>x.n===S.item);
+      const sum=k==='cash'?(T.y?`연 ${won(T.y)}`:'')+(T.once?`${T.y?' + ':''}한 번 ${won(T.once)}`:'')
+               :k==='loan'&&T.cap?`가장 큰 한도 ${won(Math.max(...L.map(x=>(x.mv||{}).cap||0)))}`:k==='pick'&&T.max?`가장 큰 것 ${won(Math.max(...L.map(x=>(x.mv||{}).max||0)))}`:k==='save'&&T.y?`연 ${won(T.y)} 절감`:'';
+      const easy=L.filter(x=>{const a=agency(x); return a==='auto'||a==='one';});
+      return `<details class="acc" ${has||S.more[k]?'open':''}>
+      <summary><div><div class="ttl">${MK[k][0]}</div><div class="meta">${MK[k][1]}</div>
+          ${sum?`<div class="num" style="font-size:14.5px;font-weight:700;margin-top:5px;color:var(--ink)">${sum}</div>`:''}</div>
+        <div class="rt"><span class="tag ${MK[k][2]}">${L.length}건</span>
           <span class="chev">›</span></div></summary>
-      ${L.map(x=>{const op=S.item===x.n, ky=encodeURIComponent(x.n);
+      ${k==='loan'?loanCompare(c,L):''}
+      ${(S.more[k]||has?L:L.slice(0,5)).map(x=>{const op=S.item===x.n, ky=encodeURIComponent(x.n);
         return `<div class="ritem r-${op?'ok':'plain'}">
         <button class="lrow thead" data-i="${ky}">
         <div><div class="t">${x.n}<span class="ichev">${op?'닫기':'준비물'}</span></div>
-          <div class="d">${x.where||''}</div>
-          ${docChips(x)}</div>
-        <div class="r">${x.amt?`<b>${x.amt}</b>`:''}</div></button>
-        ${op?stepBlock(x):''}</div>`;}).join('')}
-      ${k==='auto'||k==='one'?`<div class="lrow"><div><div class="d">
-        ${k==='auto'?'연동으로 채워지는 서류만 쓰는 항목입니다.':'빠진 한 가지를 넣으시면 나머지는 저희가 채웁니다.'}
-        제출 시점과 결과는 알림으로 알려드립니다.</div></div>
-        <div class="r"><button class="btn btn-sm btn-fill subgo" data-n="${encodeURIComponent(L.map(x=>x.n).join('|'))}">${L.length}건 ${k==='auto'?'한 번에 제출':'채우고 제출'}</button></div></div>`:''}
-      ${k==='self'?`<div class="lrow"><div><div class="d">
-        발급받아야 하는 서류가 있어 오늘 끝나지 않습니다. 무엇을 챙겨야 하는지 정리하고,
-        준비되면 다시 알려드립니다.</div></div>
-        <div class="r"><button class="btn btn-sm btn-fill prepgo" data-n="${encodeURIComponent(L.map(x=>x.n).join('|'))}">${L.length}건 준비하고 맡기기</button></div></div>`:''}
-      ${k==='expert'?`<div class="lrow"><div><div class="d">
-        초안 작성까지는 서비스가 합니다. 받아보신 뒤 손봐야겠다고 판단하실 때만 검수를 고르시면 됩니다.
-        <b>정책자금은 이 목록에 넣지 않습니다</b> — 심사 대상이 자격 요건이라 글을 고쳐서 바뀌는 것이 없기 때문입니다.</div></div>
-        <div class="r"><button class="btn btn-sm" id="expert-go2">전문가 연결</button></div></div>`:''}
-    </details>`;}).join('')}
+          <div class="d">${x.where||''} · <span style="opacity:.8">${AG[agency(x)]}</span></div></div>
+        <div class="r">${x.amt&&k!=='svc'?`<b>${x.amt}</b>`:''}</div></button>
+        ${op?stepBlock(x)+foldBtn(x.n):''}</div>`;}).join('')}
+      ${L.length>5&&!S.more[k]&&!has?`<button class="lrow moremk" data-k="${k}" style="width:100%;justify-content:center;color:var(--go);font-size:13px">나머지 ${L.length-5}건 보기</button>`:''}
+      ${k==='svc'?`<div class="lrow"><div><div class="d">상당수는 신청 없이 해당 기관에 연락하면 이용할 수 있어 한꺼번에 제출하지 않습니다.</div></div></div>`
+        :easy.length?`<div class="lrow"><div><div class="d">이 중 연동 서류로 제출할 수 있는 ${easy.length}건입니다. 제출 시점과 결과는 알림으로 알려드립니다.</div></div>
+        <div class="r"><button class="btn btn-sm btn-fill subgo" data-n="${encodeURIComponent(easy.map(x=>x.n).join('|'))}">${easy.length}건 제출</button></div></div>`:''}
+    </details>`; }).join(''); })()}
   <div style="height:18px"></div>
 `+`
   ${evs.map(e=>`
@@ -1866,12 +1894,13 @@ function viewTodo(){
    전국 공통분(nat)은 원자료에 방문처가 없어 기본값이 '주민센터'로 들어가 있으므로 묶지 않습니다 */
 function visitBundles(J){
   const byVisit={};
-  J.forEach(s=>{ if(s.k==='nat') return; s.res.filter(x=>x.s==='ok').forEach(x=>{ const v=x.visit||'online'; (byVisit[v]=byVisit[v]||[]).push(x); }); });
+  /* 앱이 대신 제출하는 것(auto·one)은 빼고 · 본인이 가야 하는 것만 */
+  J.forEach(s=>{ if(s.k==='nat') return; s.res.filter(x=>x.s==='ok'&&!['auto','one'].includes(agency(x))).forEach(x=>{ const v=x.visit||'online'; (byVisit[v]=byVisit[v]||[]).push(x); }); });
   const V=['center','bank','office','company'].filter(v=>byVisit[v]&&byVisit[v].length);
   if(!V.length) return '';
   const val=x=>{ const m=x.mv||{}; return (m.y||0)+(m.once||0)+(m.max||0); };
   return `<h2 class="sec" style="margin-top:26px">같은 곳에 갈 때 함께 · 재방문을 줄입니다</h2>
-  <p style="font-size:12.5px;color:var(--ink-2);margin-bottom:8px">받을 수 있는 것을 <b>가야 하는 곳</b> 기준으로 묶었습니다. 온라인으로 끝나는 건과 방문처가 기관마다 다른 전국 공통 제도는 뺐습니다.</p>
+  <p style="font-size:12.5px;color:var(--ink-2);margin-bottom:8px"><b>직접 가셔야 하는 것</b>만 가야 하는 곳 기준으로 묶었습니다. 앱이 대신 제출하는 것, 온라인으로 끝나는 것, 방문처가 기관마다 다른 전국 공통 제도는 뺐습니다.</p>
   ${V.map(v=>{ const L=byVisit[v].slice().sort((a,b)=>val(b)-val(a)); return `
     <details class="acc" ${L.length<=8?'open':''}>
       <summary><div><div class="ttl">${VISIT[v].n}</div>
@@ -2058,6 +2087,7 @@ function draw(){
 function bind(){
   main.querySelectorAll('.qopt').forEach(b=>b.onclick=()=>{ S.ans[b.dataset.k]=b.dataset.v; lsSave(); draw(); });
   bindFact();
+  main.querySelectorAll('.moremk').forEach(b=>b.onclick=()=>{ S.more=S.more||{}; S.more[b.dataset.k]=1; const d=b.closest('details'); draw(); });
   const r=$('re-q'); if(r) r.onclick=()=>{ S.ans={}; lsSave(); draw(); };
   main.querySelectorAll('.acc').forEach(d=>d.addEventListener('toggle',()=>{
     if(d.dataset.k) S.sec[d.dataset.k]=d.open; }));
@@ -2100,7 +2130,7 @@ function bind(){
     S.tab='sector'; S.sec={}; S.item=null; S.localAll=false;
     if(!was) S.sec[k]=true;
     draw();
-    if(!was) afterPaint(()=>{ const el=$('sec-'+k); if(el){ el.scrollIntoView({block:'start',behavior:'smooth'}); flash(el); } }); });
+    if(!was) afterPaint(()=>{ const el=$('sec-'+k); if(el){ scrollToEl(el); flash(el); } }); });
   const lm=$('local-more'); if(lm) lm.onclick=()=>keep(()=>{ S.localAll=true; });
   const ll=$('local-less'); if(ll) ll.onclick=()=>keep(()=>{ S.localAll=false; });
   main.querySelectorAll('.ask-sample').forEach(b=>b.onclick=()=>{
