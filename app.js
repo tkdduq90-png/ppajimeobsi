@@ -1838,6 +1838,7 @@ function moneyKind(x){
   if(lv!=='cond'){ return x.type==='save'?'save':x.type==='loan'?'loan':x.type==='compete'?'pick':x.type==='admin'?'task':'cash'; }
   const t=String(x.amt||'').split(/\s/)[0], parts=t.split('||');
   if(parts.some(p=>/융자/.test(p))) return 'loan';
+  if(parts.some(p=>/^선정형$/.test(p))) return 'pick';
   if(parts.some(p=>/감면/.test(p))) return 'save';
   if(parts.some(p=>/^현금$|장학금|이용권|현물/.test(p))) return 'cash';
   return 'svc'; }

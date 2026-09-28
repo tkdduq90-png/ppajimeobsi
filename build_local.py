@@ -28,6 +28,7 @@ BEFORE_BAD = re.compile(r'(보험료|소득|재산|공시지가|판매금액|구
 GIVE = re.compile(r'지원|지급|교부|보조|드립니다|혜택|제공|1인당|매월|월정액')
 SPACE = re.compile(r'\s+')
 
+AMT = {}
 def clean(s, n=None):
     s = SPACE.sub(' ', (s or '')).strip()
     return s[:n] if n else s
@@ -340,6 +341,15 @@ def build(svc, cond, region, gu=None, core=(), national=False, ctab=None, cond_o
         content = clean(r.get('지원내용'))
         v = won(content)
         kind, mul = cycle(content)
+        alab = None
+        ty = r.get('지원유형') or ''
+        if '융자' in ty: kind, mul = 'once', 1   # 대출 한도는 매달 받는 돈이 아닙니다
+        if '현물' in ty: kind, mul = 'once', 1
+        # 서비스·교육·시설·기타는 본문 숫자가 사업비·수강료인 경우가 대부분 — 받는 돈으로 세지 않습니다
+        if re.match(r'(기타|서비스|시설이용|기술지원|의료지원|문화)', ty) and not re.search(r'현금', ty): v = None
+        if sid in AMT:      # 원문을 사람이 읽어 옮긴 금액 (cond/amt.json) · 정규식보다 우선 · 읽고 없다고 한 건 비움
+            if AMT[sid]['v']: v, kind, mul, alab = AMT[sid]['v'], AMT[sid]['kind'], 1, AMT[sid]['label']
+            else: v = None
         if v: stat['금액 있음'] += 1
         else: stat['금액 없음'] += 1
         if lo is not None or hi is not None: stat['연령 조건 있음'] += 1
@@ -405,7 +415,7 @@ def build(svc, cond, region, gu=None, core=(), national=False, ctab=None, cond_o
             gates.append("true ? CHK('대상 확인 필요','기관 자료에 대상이 분류돼 있지 않아 누가 받는지 확정하지 못했습니다')")
 
         if v:
-            tail = (f"OK('{esc(clean(r.get('지원유형')) or '지원')} {v}만',"
+            tail = (f"OK('{esc(clean(r.get('지원유형')) or '지원')} {esc(alab) if alab else str(v)+'만'}',"
                     f"'{esc(clean(r.get('지원대상'), 60))}','요건 충족 시',"
                     f"{{{kind}:{round(v*mul,1)}}})")
         else:
@@ -415,9 +425,12 @@ def build(svc, cond, region, gu=None, core=(), national=False, ctab=None, cond_o
         fsrc = '\n    : '.join(gates + [tail])
         lvl, srcnote = 'api', ''
         # 조건표가 있는 제도 — 정규식 대신 사람이 옮긴 조건으로 판정합니다
+        txt_sel = ' '.join(clean(r.get(k)) or '' for k in ('지원내용', '선정기준', '지원대상'))
+        compete = bool(v) and (bool(re.search(r'(서면|발표|현장|대면|선정)\s*평가|심사|공모|경쟁|선정위원회', txt_sel))
+                               or (v >= 2000 and bool(alab) and '최대' in alab))
         if sid in ctab:
             area = gu_.group(1) if (not national and gu_) else (None if national else short_of(region))
-            m = {'amt': f"{clean(r.get('지원유형')) or '지원'} {v}만" if v else (clean(r.get('지원유형')) or '지원'),
+            m = {'amt': f"{'선정형' if compete else (clean(r.get('지원유형')) or '지원')} {alab or str(v)+'만'}" if v else (clean(r.get('지원유형')) or '지원'),
                  'why': clean(r.get('지원대상'), 60)}
             if v: m['mv'] = {kind: round(v*mul, 1)}
             if area and area in MERGED:
@@ -454,7 +467,10 @@ def main():
     ap.add_argument('--national', action='store_true', help='중앙행정기관·공공기관 전국 공통분')
     ap.add_argument('--cond-only', action='store_true', help='조건표가 있는 제도만 싣습니다')
     ap.add_argument('--cond', action='append', default=[], help='조건표 JSON (서비스ID → 조건) · 여러 번 줄 수 있음')
+    ap.add_argument('--amt', default=None, help='금액표 JSON (서비스ID → {kind, v, label})')
     a = ap.parse_args()
+    global AMT
+    if a.amt: AMT = json.load(io.open(a.amt, encoding='utf-8'))
 
     def load(n):
         p = os.path.join(a.src, n)
