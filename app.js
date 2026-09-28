@@ -800,9 +800,9 @@ const SRC_ALL=[
 
 function drawOb(){ const ob=$('ob-body'); ob.classList.toggle('scan2', S.ob===2); ob.classList.toggle('conn1', S.ob===1); setTimeout(bindCtQ,0);
   if(S.ob===0){
-    ob.innerHTML=`<h2>본인 확인</h2>
-    <p class="sub">실제 서비스에서는 간편인증 한 번으로 끝납니다.
-      아래에서 사례를 고르시거나 <b>직접 입력</b>해 보실 수 있습니다.</p>
+    ob.innerHTML=`<h2>누구로 볼까요</h2>
+    <p class="sub">예시 인물을 고르시거나 <b>직접 입력</b>해 보세요.
+      다음 단계에서 본인 인증을 하고 기관 정보를 가져옵니다.</p>
     ${Object.entries(CTX).map(([k,v])=>`<button class="pick" data-p="${k}">
       <b>${v.name}</b><span>${v.sub}</span></button>`).join('')}
     <button class="pick" data-p="me" style="border-color:var(--ink);border-width:1.5px">
@@ -811,14 +811,14 @@ function drawOb(){ const ob=$('ob-body'); ob.classList.toggle('scan2', S.ob===2)
       const p=b.dataset.p;
       S.ans={}; S.facts={}; S.open={}; S.sec={}; S.asked=[]; S.ti=0; S.type=null; S.item=null;
       if(p==='me'){ S.ob=3; drawOb(); return; }
-      PID=p; lsSave(); S.ob=1; drawOb(); runConnect(); });
+      PID=p; lsSave(); goAuth(); });
     return; }
 
   if(S.ob===1){
     ob.innerHTML=`<h2>정보를 가져오는 중입니다</h2>
     <div id="ct-q">${ctQHTML()}</div>
     <div class="scanhead" style="margin-bottom:10px">
-      <div><b>연결 가능한 곳</b><div class="s" id="conn-auth">간편인증 진행 중</div></div>
+      <div><b>연결 가능한 곳</b><div class="s" id="conn-auth">요청 준비 중</div></div>
       <div class="num" id="conn-count">0 / ${SRC_ALL.length}곳</div></div>
     <div class="card pad" id="conn-list">
       ${SRC_ALL.map((x,i)=>`<div class="conn" data-i="${i}"><span class="dot"></span>
@@ -848,8 +848,59 @@ function drawOb(){ const ob=$('ob-body'); ob.classList.toggle('scan2', S.ob===2)
     return; }
 
   if(S.ob===3){ ob.innerHTML=formHTML(); bindForm(); return; }
+  if(S.ob===4){ ob.innerHTML=authHTML(); bindAuth(); return; }
 
 }
+
+/* ═══════════ 본인 인증 · 연동 앞 단계 ═══════════
+   공공 마이데이터·홈택스·건보·고용보험은 정보주체 본인 확인과
+   정보 전송 요구(동의)가 있어야 조회됩니다. 인증 한 번으로 아홉 곳에 같이 씁니다.
+   이 화면은 시연이라 실제 인증을 하지 않습니다. */
+const AUTH_PROV=['카카오톡','네이버','PASS','토스','KB국민인증서','공동인증서'];
+function goAuth(){ S.auth={prov:S.auth?.prov||'카카오톡', agree:false, sent:false, ok:false}; S.ob=4; drawOb(); }
+function authHTML(){ const c=ctx(), A=S.auth, by=2026-c.age;
+  const nm=c.name||'본인', ph=(c.acct&&c.acct.phone)||'010-0000-0000';
+  const mask=ph.replace(/(\d{3})-(\d{2})\d{2}-(\d{2})\d{2}/,'$1-$2**-$3**');
+  const cert=A.prov==='공동인증서';
+  if(A.sent) return `<h2>${A.ok?'인증되었습니다':cert?'인증서 비밀번호를 입력해 주세요':'휴대폰에서 인증을 마쳐 주세요'}</h2>
+    <p class="sub">${A.ok?'이제 아홉 곳에 정보를 요청합니다.'
+      :cert?'이 기기나 USB에 저장된 공동인증서를 고르고 비밀번호를 입력하시면 자동으로 넘어갑니다.'
+      :`${mask} 로 <b>${A.prov}</b> 인증 요청을 보냈습니다. 앱 알림을 눌러 승인하시면 자동으로 넘어갑니다.`}</p>
+    <div class="card pad" style="display:flex;align-items:center;gap:12px">
+      <span class="dot ${A.ok?'on':'load'}"></span>
+      <div style="flex:1"><b style="font-size:15px">${A.prov}</b>
+        <div class="gmeta">${A.ok?'본인 확인 완료 · 정보 전송 요구 동의 기록됨':'승인 대기 중'}</div></div></div>
+    ${A.ok?'':`<button class="btn btn-sm" id="au-cancel" style="margin-top:12px">다른 방법으로 인증</button>`}`;
+  return `<h2>본인 인증</h2>
+    <p class="sub">공공 마이데이터·홈택스 같은 기관 정보는 <b>본인 확인을 거쳐야</b> 가져올 수 있습니다.
+      인증은 한 번이면 되고, 아홉 곳에 같이 씁니다.</p>
+    <div class="card pad">
+      <div class="gh">인증 방법</div>
+      <div class="fwhen">${AUTH_PROV.map(x=>`<button class="btn btn-sm wsel ${A.prov===x?'on':''}" data-pv="${x}">${x}</button>`).join('')}</div>
+      <div class="whererow" style="margin-top:8px"><div style="width:70px;color:var(--ink-2)">이름</div><div><b>${nm}</b></div></div>
+      <div class="whererow"><div style="width:70px;color:var(--ink-2)">생년월일</div><div>${String(by).slice(2)}●●●● · 만 ${c.age}세</div></div>
+      <div class="whererow"><div style="width:70px;color:var(--ink-2)">휴대폰</div><div>${mask}</div></div>
+    </div>
+    <div class="fconsent" style="margin-top:10px">
+      <div class="ch">정보 전송 요구 · 필수</div>
+      <div class="cl">아래 ${SRC_ALL.length}곳에 내 정보를 이 앱으로 보내 달라고 요구합니다.</div>
+      <details class="more" style="margin-top:6px"><summary>가져오는 곳과 항목 보기</summary>
+        ${SRC_ALL.map(x=>`<div class="cl" style="padding-top:5px"><b>${x[0]}</b> — ${x[1]} · 갱신 ${x[2]}</div>`).join('')}</details>
+      <div class="cl" style="margin-top:8px">가져온 정보는 이 기기 안에서만 판정에 씁니다 · 동의는 내 정보에서 언제든 철회할 수 있습니다</div>
+      <label class="fchk"><input type="checkbox" id="au-agree" ${A.agree?'checked':''}> 위 내용을 확인했고 정보 전송 요구에 동의합니다</label>
+    </div>
+    <button class="btn btn-fill btn-wide" id="au-send" ${A.agree?'':'disabled'}>${A.prov}${A.prov==='공동인증서'?'로 인증':' 인증 요청'}</button>
+    <div style="display:flex;justify-content:space-between;margin-top:10px">
+      <button class="btn btn-sm" id="au-back">다른 사례 고르기</button>
+      <span class="fnote" style="margin-top:6px">시연 화면 · 실제 인증은 하지 않습니다</span></div>`; }
+function bindAuth(){ const A=S.auth, r=()=>{ $('ob-body').innerHTML=authHTML(); bindAuth(); };
+  document.querySelectorAll('#ob-body [data-pv]').forEach(b=>b.onclick=()=>{ A.prov=b.dataset.pv; r(); });
+  const ag=$('au-agree'); if(ag) ag.onchange=()=>{ A.agree=ag.checked; r(); };
+  const bk=$('au-back'); if(bk) bk.onclick=()=>{ S.ob=0; drawOb(); };
+  const cc=$('au-cancel'); if(cc) cc.onclick=()=>{ clearTimeout(A.t); A.sent=false; r(); };
+  const sd=$('au-send'); if(sd) sd.onclick=()=>{ if(!A.agree) return; A.sent=true; r();
+    A.t=setTimeout(()=>{ if(S.ob!==4||!A.sent) return; A.ok=true; r();
+      A.t=setTimeout(()=>{ if(S.ob!==4) return; S.authed=true; S.ob=1; drawOb(); runConnect(); }, 900); }, 2200); }; }
 
 /* 연동 · 간편인증 한 번을 받고 아홉 곳에 동시에 요청을 던집니다.
    실제로는 기관마다 서버 사정이 달라 같은 곳도 매번 응답이 다릅니다.
@@ -890,10 +941,11 @@ function runConnect(){ const n=SRC_ALL.length, c=ctx(); let i=0;
     setTimeout(()=>{ if(!S.scanStop) done(k); }, at); };
 
   SRC_ALL.forEach((_,k)=>{ dot(k,''); st(k,'대기'); });
-  note('간편인증 진행 중'); setCount();
+  const pre=S.authed; S.authed=false;
+  note(pre?'본인 인증 완료':'간편인증 진행 중'); setCount();
   setTimeout(()=>{ if(S.scanStop) return;
     note(`${n}곳에 동시 요청`);
-    SRC_ALL.forEach((_,k)=>lane(k)); }, AUTH_MS); }
+    SRC_ALL.forEach((_,k)=>lane(k)); }, pre?500:AUTH_MS); }
 
 /* 대조 · 제도를 하나씩 판정하며 흘립니다 */
 /* 대상 제도 전체 규모 · 행정안전부 공공서비스 정보 API 에서 직접 센 수 (2026-09-21).
@@ -1034,7 +1086,7 @@ function bindForm(){
     if(w==='corp') o.biz={on:true, kind:'corp', label:'법인', ksic:'62010 소프트웨어 개발', years:2, rev:8000, emp:1, opened:'2024-01-01'};
     if(w==='solo') o.biz={on:true, kind:'solo', label:'개인 점포', ksic:'56211 일반음식점', years:3, rev:18000, emp:1, opened:'2023-01-01'};
     if(w==='online') o.biz={on:true, kind:'online', label:'온라인 스토어', ksic:'47912 전자상거래', years:2, rev:4000, opened:'2024-01-01', tongsin:true};
-    MINE=mk(o); PID='me'; lsSave(); S.ob=1; drawOb(); runConnect(); }; }
+    MINE=mk(o); PID='me'; lsSave(); goAuth(); }; }
 
 /* ═══════════ 셸 ═══════════ */
 function ident(){ const c=me();
