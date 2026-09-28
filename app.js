@@ -856,51 +856,126 @@ function drawOb(){ const ob=$('ob-body'); ob.classList.toggle('scan2', S.ob===2)
    공공 마이데이터·홈택스·건보·고용보험은 정보주체 본인 확인과
    정보 전송 요구(동의)가 있어야 조회됩니다. 인증 한 번으로 아홉 곳에 같이 씁니다.
    이 화면은 시연이라 실제 인증을 하지 않습니다. */
-const AUTH_PROV=['카카오톡','네이버','PASS','토스','KB국민인증서','공동인증서'];
-function goAuth(){ S.auth={prov:S.auth?.prov||'카카오톡', agree:false, sent:false, ok:false}; S.ob=4; drawOb(); }
-function authHTML(){ const c=ctx(), A=S.auth, by=2026-c.age;
-  const nm=c.name||'본인', ph=(c.acct&&c.acct.phone)||'010-0000-0000';
-  const mask=ph.replace(/(\d{3})-(\d{2})\d{2}-(\d{2})\d{2}/,'$1-$2**-$3**');
+const AUTH_PROV=[['카카오톡','카카오톡 앱'],['네이버','네이버 앱'],['PASS','PASS 앱'],['토스','토스 앱'],
+  ['KB국민인증서','KB스타뱅킹 앱'],['공동인증서','PC·휴대폰에 저장된 인증서']];
+const TELCO=['SKT','KT','LG U+','SKT 알뜰폰','KT 알뜰폰','LG U+ 알뜰폰'];
+const AUTH_TERMS=[['svc','간편인증 서비스 이용약관'],['priv','개인정보 수집·이용 동의'],
+  ['uid','고유식별정보 처리 동의'],['tp','제3자(인증기관) 제공 동의']];
+function goAuth(){ const c=ctx(); clearTimeout(S.auth&&S.auth.t); clearInterval(S.auth&&S.auth.iv);
+  S.auth={prov:S.auth?.prov||null, step:'pick', telco:'SKT', terms:{}, xfer:false,
+    name:c.name||'', birth:String(2026-c.age)+'0315', phone:((c.acct&&c.acct.phone)||'010-0000-0000').replace(/-/g,''),
+    phoneOk:false, left:300, warn:'', pw:''};
+  S.ob=4; drawOb(); }
+const mm=t=>`${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`;
+function authHTML(){ const A=S.auth, c=ctx();
+  const back=`<button class="btn btn-sm" id="au-back">이전</button>`;
+  /* 1 · 인증 수단 */
+  if(A.step==='pick') return `<h2>본인 인증</h2>
+    <p class="sub">기관 정보를 가져오려면 본인 확인이 먼저 필요합니다. 쓰시는 인증 수단을 고르세요.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${AUTH_PROV.map(([k,d])=>`<button class="pick" data-pv="${k}" style="margin:0;padding:14px 15px">
+      <b style="font-size:15px">${k}</b><span style="font-size:12px">${d}</span></button>`).join('')}</div>
+    <div style="margin-top:10px"><button class="btn btn-sm" id="au-home">다른 사례 고르기</button></div>`;
   const cert=A.prov==='공동인증서';
-  if(A.sent) return `<h2>${A.ok?'인증되었습니다':cert?'인증서 비밀번호를 입력해 주세요':'휴대폰에서 인증을 마쳐 주세요'}</h2>
-    <p class="sub">${A.ok?'이제 아홉 곳에 정보를 요청합니다.'
-      :cert?'이 기기나 USB에 저장된 공동인증서를 고르고 비밀번호를 입력하시면 자동으로 넘어갑니다.'
-      :`${mask} 로 <b>${A.prov}</b> 인증 요청을 보냈습니다. 앱 알림을 눌러 승인하시면 자동으로 넘어갑니다.`}</p>
-    <div class="card pad" style="display:flex;align-items:center;gap:12px">
-      <span class="dot ${A.ok?'on':'load'}"></span>
-      <div style="flex:1"><b style="font-size:15px">${A.prov}</b>
-        <div class="gmeta">${A.ok?'본인 확인 완료 · 정보 전송 요구 동의 기록됨':'승인 대기 중'}</div></div></div>
-    ${A.ok?'':`<button class="btn btn-sm" id="au-cancel" style="margin-top:12px">다른 방법으로 인증</button>`}`;
-  return `<h2>본인 인증</h2>
-    <p class="sub">공공 마이데이터·홈택스 같은 기관 정보는 <b>본인 확인을 거쳐야</b> 가져올 수 있습니다.
-      인증은 한 번이면 되고, 아홉 곳에 같이 씁니다.</p>
+  /* 2 · 정보 입력과 약관 */
+  if(A.step==='form'){ const allT=AUTH_TERMS.every(([k])=>A.terms[k]);
+    const ready=allT && A.xfer && A.name && /^\d{8}$/.test(A.birth) && (cert||/^01\d{8,9}$/.test(A.phone));
+    return `<h2>${A.prov} 인증</h2>
+    <p class="sub">${cert?'인증서 소유자 정보를 확인합니다.':'입력하신 휴대폰으로 인증 요청을 보냅니다.'}</p>
     <div class="card pad">
-      <div class="gh">인증 방법</div>
-      <div class="fwhen">${AUTH_PROV.map(x=>`<button class="btn btn-sm wsel ${A.prov===x?'on':''}" data-pv="${x}">${x}</button>`).join('')}</div>
-      <div class="whererow" style="margin-top:8px"><div style="width:70px;color:var(--ink-2)">이름</div><div><b>${nm}</b></div></div>
-      <div class="whererow"><div style="width:70px;color:var(--ink-2)">생년월일</div><div>${String(by).slice(2)}●●●● · 만 ${c.age}세</div></div>
-      <div class="whererow"><div style="width:70px;color:var(--ink-2)">휴대폰</div><div>${mask}</div></div>
+      <label class="gh">이름</label><input class="finput" id="au-name" value="${A.name}" style="margin-top:4px">
+      <label class="gh" style="display:block;margin-top:12px">생년월일 8자리</label>
+      <input class="finput" id="au-birth" inputmode="numeric" maxlength="8" value="${A.birth}" style="margin-top:4px">
+      ${cert?'':`<label class="gh" style="display:block;margin-top:12px">휴대폰 번호</label>
+      <div style="display:flex;gap:6px;margin-top:4px">
+        ${A.prov==='PASS'?`<select class="finput" id="au-telco" style="width:118px;margin-top:0">${TELCO.map(t=>`<option ${A.telco===t?'selected':''}>${t}</option>`).join('')}</select>`:''}
+        <input class="finput" id="au-phone" inputmode="numeric" maxlength="11" value="${A.phone}" style="margin-top:0;flex:1"></div>`}
+    </div>
+    <div class="fconsent" style="margin-top:10px">
+      <label class="fchk" style="margin-top:0;font-weight:700"><input type="checkbox" id="au-all" ${allT?'checked':''}> 인증 약관 전체 동의</label>
+      ${AUTH_TERMS.map(([k,t])=>`<label class="fchk" style="margin-top:7px;padding-left:4px;font-size:13px"><input type="checkbox" data-tm="${k}" ${A.terms[k]?'checked':''}> [필수] ${t}</label>`).join('')}
     </div>
     <div class="fconsent" style="margin-top:10px">
       <div class="ch">정보 전송 요구 · 필수</div>
-      <div class="cl">아래 ${SRC_ALL.length}곳에 내 정보를 이 앱으로 보내 달라고 요구합니다.</div>
+      <div class="cl">인증이 끝나면 아래 ${SRC_ALL.length}곳에 내 정보를 이 앱으로 보내 달라고 요구합니다.</div>
       <details class="more" style="margin-top:6px"><summary>가져오는 곳과 항목 보기</summary>
         ${SRC_ALL.map(x=>`<div class="cl" style="padding-top:5px"><b>${x[0]}</b> — ${x[1]} · 갱신 ${x[2]}</div>`).join('')}</details>
-      <div class="cl" style="margin-top:8px">가져온 정보는 이 기기 안에서만 판정에 씁니다 · 동의는 내 정보에서 언제든 철회할 수 있습니다</div>
-      <label class="fchk"><input type="checkbox" id="au-agree" ${A.agree?'checked':''}> 위 내용을 확인했고 정보 전송 요구에 동의합니다</label>
+      <div class="cl" style="margin-top:8px">가져온 정보는 이 기기 안에서만 판정에 씁니다 · 내 정보에서 언제든 철회</div>
+      <label class="fchk"><input type="checkbox" id="au-xfer" ${A.xfer?'checked':''}> 정보 전송 요구에 동의합니다</label>
     </div>
-    <button class="btn btn-fill btn-wide" id="au-send" ${A.agree?'':'disabled'}>${A.prov}${A.prov==='공동인증서'?'로 인증':' 인증 요청'}</button>
-    <div style="display:flex;justify-content:space-between;margin-top:10px">
-      <button class="btn btn-sm" id="au-back">다른 사례 고르기</button>
-      <span class="fnote" style="margin-top:6px">시연 화면 · 실제 인증은 하지 않습니다</span></div>`; }
-function bindAuth(){ const A=S.auth, r=()=>{ $('ob-body').innerHTML=authHTML(); bindAuth(); };
-  document.querySelectorAll('#ob-body [data-pv]').forEach(b=>b.onclick=()=>{ A.prov=b.dataset.pv; r(); });
-  const ag=$('au-agree'); if(ag) ag.onchange=()=>{ A.agree=ag.checked; r(); };
-  const bk=$('au-back'); if(bk) bk.onclick=()=>{ S.ob=0; drawOb(); };
-  const cc=$('au-cancel'); if(cc) cc.onclick=()=>{ clearTimeout(A.t); A.sent=false; r(); };
-  const sd=$('au-send'); if(sd) sd.onclick=()=>{ if(!A.agree) return; A.sent=true; r();
-    A.t=setTimeout(()=>{ if(S.ob!==4||!A.sent) return; A.ok=true; r();
-      A.t=setTimeout(()=>{ if(S.ob!==4) return; S.authed=true; S.ob=1; drawOb(); runConnect(); }, 900); }, 2200); }; }
+    <button class="btn btn-fill btn-wide" id="au-send" ${ready?'':'disabled'}>${cert?'인증서 선택':'인증 요청'}</button>
+    <div style="margin-top:10px">${back}</div>`; }
+  /* 3a · 공동인증서 선택 · 비밀번호 */
+  if(A.step==='cert') return `<h2>인증서 선택</h2>
+    <p class="sub">저장 위치: 이 기기</p>
+    <div class="card pad">
+      <div class="lrow" style="background:var(--go-bg);border-radius:10px">
+        <div><div class="t">${A.name}()00${A.birth.slice(2,6)}…</div><div class="d">금융결제원 · 개인 범용 · 만료 2027-03-14</div></div>
+        <div class="r"><span class="tag t-go">선택됨</span></div></div>
+      <label class="gh" style="display:block;margin-top:12px">인증서 비밀번호</label>
+      <input class="finput" id="au-pw" type="password" value="${A.pw}" placeholder="10자 이상" style="margin-top:4px">
+      ${A.warn?`<div class="gmeta" style="color:var(--stop)">${A.warn}</div>`:''}
+    </div>
+    <button class="btn btn-fill btn-wide" id="au-pwok">확인</button>
+    <div style="margin-top:10px">${back}</div>`;
+  /* 3b · 휴대폰 승인 대기 */
+  if(A.step==='wait'){ const tel=A.phone.replace(/^(\d{3})(\d{2})\d{1,2}(\d{2})\d{2}$/,'$1-$2**-$3**');
+    return `<h2>휴대폰에서 인증해 주세요</h2>
+    <p class="sub">${tel} 로 <b>${A.prov}</b> 인증 요청을 보냈습니다.</p>
+    <div class="card pad">
+      <div class="gstep"><span class="gnum">1</span><span>휴대폰에서 <b>${A.prov}</b> 알림을 누릅니다 (알림이 없으면 앱을 직접 여세요)</span></div>
+      <div class="gstep"><span class="gnum">2</span><span>인증서 비밀번호나 생체 인증으로 승인합니다</span></div>
+      <div class="gstep"><span class="gnum">3</span><span>이 화면에서 <b>인증 완료</b>를 누릅니다</span></div>
+      <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:13px;color:var(--ink-2)">
+        <span>남은 시간</span><b id="au-left" style="color:${A.left<60?'var(--stop)':'var(--ink)'}">${mm(A.left)}</b></div>
+      ${A.warn?`<div class="gwarn" style="margin-top:10px">${A.warn}</div>`:''}
+    </div>
+    <div class="smsbox" style="margin-top:10px;border:1px dashed var(--rule)">
+      <div class="sh1"><span class="tag t-mute">시연</span> 휴대폰 화면 대신</div>
+      ${A.phoneOk?`<div class="gmeta" style="color:var(--go)">✓ 휴대폰에서 승인했습니다 — 이제 아래 인증 완료를 누르세요</div>`
+        :`<div class="gmeta">[${A.prov}] 빠짐없이 본인 인증 요청이 도착했습니다</div>
+          <button class="btn btn-sm" id="au-phone-ok" style="margin-top:8px">휴대폰에서 승인하기</button>`}
+    </div>
+    <button class="btn btn-fill btn-wide" id="au-done">인증 완료</button>
+    <div style="display:flex;gap:6px;margin-top:10px">${back}<button class="btn btn-sm" id="au-resend">다시 요청</button></div>`; }
+  /* 4 · 확인 중 */
+  if(A.step==='sending') return `<h2>인증 요청을 보내는 중입니다</h2><p class="sub">${A.prov} 인증기관에 연결하고 있습니다.</p><div class="card pad" style="display:flex;align-items:center;gap:12px"><span class="dot load"></span><b>${A.prov}</b></div>`;
+  return `<h2>${A.step==='done'?'인증되었습니다':'인증 결과를 확인하고 있습니다'}</h2>
+    <p class="sub">${A.step==='done'?'이제 '+SRC_ALL.length+'곳에 정보를 요청합니다.':'인증기관 응답을 기다리는 중입니다. 잠시만 기다려 주세요.'}</p>
+    <div class="card pad" style="display:flex;align-items:center;gap:12px">
+      <span class="dot ${A.step==='done'?'on':'load'}"></span>
+      <div style="flex:1"><b style="font-size:15px">${A.prov}</b>
+        <div class="gmeta">${A.step==='done'?'본인 확인 완료 · 정보 전송 요구 동의 기록됨':'서명 검증 · 실명 확인'}</div></div></div>`; }
+
+function bindAuth(){ const A=S.auth, $b=id=>document.getElementById(id);
+  const r=()=>{ if(S.ob!==4) return; $('ob-body').innerHTML=authHTML(); bindAuth(); };
+  const stopT=()=>{ clearTimeout(A.t); clearInterval(A.iv); };
+  document.querySelectorAll('#ob-body [data-pv]').forEach(b=>b.onclick=()=>{ A.prov=b.dataset.pv; A.step='form'; r(); });
+  if($b('au-home')) $b('au-home').onclick=()=>{ S.ob=0; drawOb(); };
+  if($b('au-back')) $b('au-back').onclick=()=>{ stopT(); A.warn=''; A.step=A.step==='form'?'pick':'form'; r(); };
+  /* 입력값은 다시 그리지 않고 상태만 · 버튼 활성만 갱신 */
+  const upd=()=>{ const s=$b('au-send'); if(!s) return; const cert=A.prov==='공동인증서';
+    s.disabled=!(AUTH_TERMS.every(([k])=>A.terms[k]) && A.xfer && A.name && /^\d{8}$/.test(A.birth) && (cert||/^01\d{8,9}$/.test(A.phone))); };
+  [['au-name','name'],['au-birth','birth'],['au-phone','phone']].forEach(([id,k])=>{ const e=$b(id); if(e) e.oninput=()=>{ A[k]=e.value.replace(k==='name'?/\s/g:/\D/g,''); upd(); }; });
+  if($b('au-telco')) $b('au-telco').onchange=e=>{ A.telco=e.target.value; };
+  if($b('au-all')) $b('au-all').onchange=e=>{ AUTH_TERMS.forEach(([k])=>A.terms[k]=e.target.checked); r(); };
+  document.querySelectorAll('#ob-body [data-tm]').forEach(b=>b.onchange=()=>{ A.terms[b.dataset.tm]=b.checked; r(); });
+  if($b('au-xfer')) $b('au-xfer').onchange=e=>{ A.xfer=e.target.checked; upd(); };
+  const verify=()=>{ stopT(); A.step='verify'; r();
+    A.t=setTimeout(()=>{ A.step='done'; r();
+      A.t=setTimeout(()=>{ if(S.ob!==4) return; S.authed=true; S.ob=1; drawOb(); runConnect(); }, 1100); }, 1800+Math.random()*1400); };
+  const startWait=()=>{ stopT(); A.step='wait'; A.phoneOk=false; A.left=300; A.warn=''; r();
+    A.iv=setInterval(()=>{ A.left--; const e=$b('au-left'); if(e){ e.textContent=mm(A.left); if(A.left<60) e.style.color='var(--stop)'; }
+      if(A.left<=0){ stopT(); A.warn='인증 시간이 지났습니다. 다시 요청해 주세요.'; r(); } }, 1000); };
+  if($b('au-send')) $b('au-send').onclick=()=>{ if(A.prov==='공동인증서'){ A.step='cert'; A.warn=''; r(); return; }
+    A.step='sending'; r(); A.t=setTimeout(startWait, 1200+Math.random()*800); };
+  if($b('au-pw')) $b('au-pw').oninput=e=>{ A.pw=e.target.value; };
+  if($b('au-pwok')) $b('au-pwok').onclick=()=>{ if((A.pw||'').length<10){ A.warn='비밀번호는 10자 이상입니다.'; r(); return; } A.warn=''; verify(); };
+  if($b('au-phone-ok')) $b('au-phone-ok').onclick=()=>{ A.phoneOk=true; A.warn=''; r(); };
+  if($b('au-resend')) $b('au-resend').onclick=()=>{ A.step='sending'; r(); A.t=setTimeout(startWait, 1200); };
+  if($b('au-done')) $b('au-done').onclick=()=>{
+    if(A.left<=0){ A.warn='인증 시간이 지났습니다. 다시 요청해 주세요.'; r(); return; }
+    if(!A.phoneOk){ A.warn='아직 휴대폰에서 승인되지 않았습니다. 알림을 확인하시고 승인한 뒤 눌러 주세요.'; r(); return; }
+    verify(); }; }
 
 /* 연동 · 간편인증 한 번을 받고 아홉 곳에 동시에 요청을 던집니다.
    실제로는 기관마다 서버 사정이 달라 같은 곳도 매번 응답이 다릅니다.
