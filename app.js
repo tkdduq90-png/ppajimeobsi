@@ -32,7 +32,7 @@ function lsWhen(){ const d=lsLoad(); if(!d||!d.at) return null;
   const t=new Date(d.at); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`; }
 const nav=$('nav'), main=$('main');
 /* 오늘 동선(하루) · 로드맵(몇 달~몇 년)은 plan.js · 점검은 전체 판정 목록 */
-const VIEWS=[['check','점검'],['todo','할 일'],['road','로드맵'],['route','오늘 동선'],['me','내 정보'],['ask','물어보기']];
+const VIEWS=[['check','점검'],['plan','AI 설계'],['route','오늘 동선'],['me','내 정보'],['ask','물어보기']];
 
 const me=()=>PID==='me'?MINE:CTX[PID];
 const roles=()=>Object.keys(ROLE).filter(k=>ROLE[k].on(me()));
@@ -333,7 +333,7 @@ function ensureLocal(key){
   if(!key || !LOCAL_FILE[key] || LOCAL_BY[key] || LOCAL_WAIT[key]) return;
   LOCAL_WAIT[key]=1;
   const s=document.createElement('script');
-  s.src='data/local/'+LOCAL_FILE[key]+'.js';
+  s.src='data/local/'+LOCAL_FILE[key]+'.js?v=82';
   s.onload =()=>{ delete LOCAL_WAIT[key]; if(document.getElementById('main')) draw(); };
   s.onerror=()=>{ LOCAL_BY[key]=[]; delete LOCAL_WAIT[key]; };   /* 그 지역 파일이 아직 없으면 조용히 넘어갑니다 */
   document.head.appendChild(s); }
@@ -341,7 +341,7 @@ function ensureLocal(key){
 let NAT_WAIT=false;
 function ensureNational(){
   if(window.NATIONAL || NAT_WAIT) return; NAT_WAIT=true;
-  const s=document.createElement('script'); s.src='data/national.js';
+  const s=document.createElement('script'); s.src='data/national.js?v=82';
   s.onload =()=>{ NAT_WAIT=false; if(document.getElementById('main')) draw(); };
   s.onerror=()=>{ window.NATIONAL=[]; NAT_WAIT=false; };
   document.head.appendChild(s); }
@@ -382,7 +382,7 @@ const DOCK={auto:['자동','저장된 정보로 제출됩니다'], self:['본인
 const secOf=n=>{ const s=SECTORS.find(x=>x.items.some(i=>i.n===n)); return s?s.k:null; };
 
 /* ── 점검에서 펼침 · 판단 근거만 ── */
-function whyBlock(r,c){
+function whyBlock(r,c,inl){
   const g=r.guide;
   const list=[]; const S1=r.chk, S2=(g&&g.s)?SOURCES[g.s]:null;
   if(S1&&S1.facts&&S1.facts.length) list.push(S1);
@@ -390,7 +390,7 @@ function whyBlock(r,c){
   const key=encodeURIComponent(r.n);
   return `<div class="gd">
     ${g?`<p class="gw">${g.what}</p>`:''}
-    <div class="gsec">
+    <div class="gsec g-why">
       <div class="gh">이 판정의 이유</div>
       <div class="gwhy">${r.why||'—'}</div>
       ${r.rate?`<div class="gmeta">지급 방식 · ${r.rate}</div>`:''}
@@ -413,29 +413,31 @@ function whyBlock(r,c){
     :`<div class="gsec"><div class="gh">출처</div>
       <div class="gmeta">읽어서 저장한 문장이 아직 없습니다. 금액과 요건을 다시 확인해야 합니다.</div></div>`}
     ${compLine(r,c)}
-    ${r.s==='ok'?`<div class="gnext">
-      <div class="gnn">준비물과 절차는 <b>할 일</b>에 있습니다 · 여기는 판정 근거만 둡니다</div>
-      <button class="btn btn-sm gotostep" data-i="${key}">준비물 보러 가기 ›</button></div>`:''}
+    ${r.s==='ok'&&!inl?`<div class="gnext">
+      <div class="gnn">신청에 필요한 준비물과 절차</div>
+      <button class="btn btn-sm prepin" data-i="${key}">${S.prepIn===r.n?'준비물 접기':'준비물 보기'}</button></div>
+      ${S.prepIn===r.n?`<div class="inl">${stepBlock(r,true)}</div>`:''}`:''}
   </div>`; }
 
 /* ── 할 일에서 펼침 · 실행 단계만 ── */
-function stepBlock(r){
+function stepBlock(r,inl){
   const g=r.guide, key=encodeURIComponent(r.n);
-  const back=`<div class="gnext">
-      <div class="gnn">왜 된다고 판정했는지는 <b>점검</b>에 있습니다</div>
-      <button class="btn btn-sm gotowhy" data-i="${key}">판정 근거 보기 ›</button></div>`;
+  const back=inl?'':`<div class="gnext">
+      <div class="gnn">왜 받을 수 있다고 판정했는지</div>
+      <button class="btn btn-sm whyin" data-i="${key}">${S.whyIn===r.n?'판정 근거 접기':'판정 근거 보기'}</button></div>
+      ${S.whyIn===r.n?`<div class="inl">${whyBlock(r,ctx(),true)}</div>`:''}`;
   if(!g) return `<div class="gd"><p class="gn">준비물과 절차를 아직 정리하지 않았습니다.
     신청처에서 확인하셔야 합니다${r.where?` · ${r.where}`:''}.</p>${back}</div>`;
   const auto=g.doc.filter(d=>d[1]==='auto').length, mine=g.doc.length-auto;
   const ag=agency(r);
   return `<div class="gd">
-    <div class="gsec">
+    <div class="gsec g-prep">
       <div class="gh">준비물 ${g.doc.length}건 · <b>${auto}건은 자동 제출</b>${mine?` · ${mine}건은 본인이 준비`:''}</div>
       ${g.doc.map(([n,k,w])=>`<div class="gdoc ${k}">
         <span class="gtag">${DOCK[k][0]}</span>
         <span class="gt">${n}${w?`<span class="gw2"> · ${w}</span>`:''}</span></div>`).join('')}
     </div>
-    <div class="gsec">
+    <div class="gsec g-proc">
       <div class="gh">절차</div>
       ${g.how.map((x,i)=>`<div class="gstep"><span class="gnum">${i+1}</span><span>${x}</span></div>`).join('')}
     </div>
@@ -1275,7 +1277,7 @@ function viewCheck(){ S.tab='sector';   /* 성격별 보기는 할 일로 옮겼
     return `<circle cx="66" cy="66" r="${r}" fill="none" stroke="${col}" stroke-width="21"
       stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 66 66)"/>`;}).join('');
   const maxOk=Math.max(...J.map(s=>s.res.filter(x=>x.s==='ok').length),1);
-  const shade=n=>n===0?'background:var(--paper);color:var(--ink-3)'
+  const shade=n=>n===0?'background:var(--paper);color:var(--ink-3);opacity:.55'
     :`background:rgba(15,110,92,${0.10+0.7*(n/maxOk)});color:${n/maxOk>0.5?'#fff':'var(--go)'};border-color:transparent`;
 
   const dl=deadlineList(c);
@@ -1413,17 +1415,17 @@ function viewCheck(){ S.tab='sector';   /* 성격별 보기는 할 일로 옮겼
           <svg width="132" height="132" viewBox="0 0 132 132" role="img" aria-label="판정 결과 비율">${donut}
             <text x="66" y="63" text-anchor="middle" style="font-size:25px;font-weight:600;fill:var(--ink)">${ok.length}</text>
             <text x="66" y="80" text-anchor="middle" style="font-size:11px;fill:var(--ink-2)">가능</text></svg>
-          <div>${seg.map(([v,col,lab])=>`<div style="display:flex;align-items:center;gap:7px;padding:3px 0">
-            <span style="width:10px;height:10px;border-radius:2px;background:${col};display:inline-block"></span>
-            <span style="font-size:13px">${lab}</span>
-            <span class="num" style="font-size:13px;color:var(--ink-2);margin-left:auto">${v}</span></div>`).join('')}</div>
+          <div class="lgd">${seg.map(([v,col,lab],i)=>`${i===4?'<div class="lgd-sep">원 밖 · 받는 것에 안 셉니다</div>':''}<div class="lgd-r${i>=4?' dim':''}">
+            <span class="lgd-k" style="background:${col}"></span>
+            <span>${lab}</span>
+            <span class="num">${typeof v==='number'?v.toLocaleString():v}</span></div>`).join('')}</div>
         </div>
       </div>
     </div>
 
     ${lost.length?`<div class="notice n-stop" style="margin:12px 0 0">
       <h3>이미 놓친 것 ${lost.length}건</h3>
-      ${lost.map(x=>`<p>${x.n} · ${x.amt} — ${x.why}</p>`).join('')}</div>`:''}
+      ${lost.map(x=>`<div class="lost-r"><div class="lost-h"><b>${x.n}</b><span>${x.amt||''}</span></div><div class="lost-w">${x.why}</div></div>`).join('')}</div>`:''}
 
     ${sig?(()=>{const dn=(J.find(x=>x.k==='debt')||{res:[]}).res.filter(x=>x.s==='ok').length;
       return `<div class="notice n-warn" style="margin:10px 0 0">
@@ -1890,6 +1892,8 @@ const MK_ORDER=['cash','save','pick','loan','task','svc'];
 /* 할 일 묶음 안에서 삶의 영역별로 한 번 더 나눕니다 · 보조금24 서비스분야 + 규칙 제도 분야 → 영역 */
 const TOPIC=[['biz','사업·창업'],['birth','임신·출산'],['kid','양육·교육'],['house','주거·이사'],['job','일자리'],
   ['life','생활·복지'],['med','의료·건강'],['farm','농어업'],['culture','교통·문화'],['tax','세금·환급'],['etc','기타 행정']];
+/* 영역 머리 점 색 · 묶음 구분용(의미 색 아님) */
+const TCOL={biz:'#1B64DA',birth:'#E0528A',kid:'#F29D38',house:'#12A58A',job:'#6B5BD6',life:'#3B9BD8',med:'#E5484D',farm:'#6AA84F',culture:'#B07CD8',tax:'#8A6D3B',etc:'#8B95A1'};
 const SEC_TOPIC={house:'house',cash:'life',tax:'tax',move:'culture',job:'job',care:'kid',med:'med',target:'life',debt:'life',
   start:'biz',small:'biz',emp:'biz',refund:'tax',death:'etc',admin:'etc'};
 const CAT_TOPIC={'생활안정':'life','농림축산어업':'farm','보육·교육':'kid','보건·의료':'med','임신·출산':'birth','고용·창업':'job',
@@ -1979,7 +1983,7 @@ function roadProgress(c){ const roads=roles().filter(r=>ROAD[r]).map(r=>ROAD[r](
         <div class="items">${st.items.map(x=>`<div class="it ${x[1]==='cond'?'lockrow':''} ${x[1]==='lost'?'lostrow':''}">
           <span class="ck ${cl(x[1])}">${icon(x[1])}</span>
           <span class="tx"><span class="tn">${x[0]}</span>
-            ${x[1]==='cond'&&x[2]?`<div class="td">${x[2]}</div>`:''}</span>
+            ${x[2]&&x[2]!=='전문가'?`<div class="td">${x[2]}</div>`:''}</span>
           ${x[1]==='free'?'<span class="tag t-go">상시</span>':''}
           ${x[1]==='now'?'<span class="tag t-logic">지금</span>':''}
           ${x[1]==='cond'?'<span class="tag t-mute">조건</span>':''}
@@ -2037,7 +2041,7 @@ function viewTodo(){
       <h3>먼저 할 것 ${top.length}건</h3>
       <p style="font-size:12.5px;color:var(--ink-2);margin:2px 0 6px">지원 금액이 큰 순서입니다. 나머지는 아래 묶음에 있습니다.</p>
       ${top.map(x=>`<button class="lrow thead" data-i="${encodeURIComponent(x.n)}" style="width:100%;text-align:left">
-        <div><div class="t">${x.n}<span class="ichev">${S.item===x.n?'닫기':'준비물'}</span></div><div class="d">${x.where||''} · ${AG[agency(x)]}</div></div>
+        <div><div class="t">${x.n}<span class="ichev hv${S.item===x.n?' on':''}">${S.item===x.n?'닫기':'준비물'}</span></div><div class="d">${x.where||''} · ${AG[agency(x)]}</div></div>
         <div class="r"><b>${x.amt||''}</b></div></button>${S.item===x.n?stepBlock(x)+foldBtn(x.n):''}`).join('')}</div>`:'';
     S.more=S.more||{};
     return head+MK_ORDER.filter(k=>G[k]&&G[k].length).map(k=>{
@@ -2057,9 +2061,9 @@ function viewTodo(){
       ${(()=>{ const row=x=>{const op=S.item===x.n, ky=encodeURIComponent(x.n);
         return `<div class="ritem r-${op?'ok':'plain'}">
         <button class="lrow thead" data-i="${ky}">
-        <div><div class="t">${x.n}<span class="ichev">${op?'닫기':'준비물'}</span></div>
+        <div><div class="t">${x.n}<span class="ichev hv${op?' on':''}">${op?'닫기':'준비물'}</span></div>
           <div class="d">${x.where||''} · <span style="opacity:.8">${AG[agency(x)]}</span></div></div>
-        <div class="r">${x.amt&&k!=='svc'?`<b>${x.amt}</b>`:''}</div></button>
+        <div class="r">${x.amt&&k!=='svc'?(/\d/.test(x.amt)?`<b>${x.amt}</b>`:`<span class="amt-na">${x.amt} · 금액 미표기</span>`):''}</div></button>
         ${op?stepBlock(x)+foldBtn(x.n):''}</div>`;};
         /* 영역이 둘 이상이면 영역별로 · 영역 안에서는 금액 큰 순 3건, 나머지는 더 보기 */
         const byT={}; L.forEach(x=>{ const t=topicOf(x); (byT[t]=byT[t]||[]).push(x); });
@@ -2069,9 +2073,9 @@ function viewTodo(){
         return ts.map(t=>{ const T2=byT[t], key=k+':'+t, hasT=T2.some(x=>x.n===S.item), tt=tally(T2);
           const ssum=k==='cash'?[(tt.y?`연 ${won(tt.y)}`:''),(tt.once?`한 번 ${won(tt.once)}`:'')].filter(Boolean).join(' + '):k==='save'&&tt.y?`연 ${won(tt.y)}`:'';
           const show=S.more[key]||hasT?T2:T2.slice(0,3);
-          return `<div class="lrow" style="background:var(--rule-2);padding-top:9px;padding-bottom:9px">
-            <div><div class="t" style="font-size:13.5px">${TOPIC.find(z=>z[0]===t)[1]} <span style="font-weight:400;color:var(--ink-3)">${T2.length}건</span></div></div>
-            <div class="r">${ssum?`<b style="font-size:13px">${ssum}</b>`:''}</div></div>`
+          return `<div class="tgh"><span class="tgdot" style="background:${TCOL[t]||'var(--ink-3)'}"></span>
+            <span class="tgname">${TOPIC.find(z=>z[0]===t)[1]}</span><span class="tgn">${T2.length}건</span>
+            ${ssum?`<span class="tgs">${ssum}</span>`:''}</div>`
             +show.map(row).join('')
             +(T2.length>3&&!S.more[key]&&!hasT?`<button class="lrow moremk" data-k="${key}" style="width:100%;justify-content:center;color:var(--go);font-size:12.5px">${TOPIC.find(z=>z[0]===t)[1]} ${T2.length-3}건 더 보기</button>`:''); }).join(''); })()}
       ${k==='svc'?`<div class="lrow"><div><div class="d">상당수는 신청 없이 해당 기관에 연락하면 이용할 수 있어 한꺼번에 제출하지 않습니다.</div></div></div>`
@@ -2202,10 +2206,11 @@ function viewMe(){
        상태가 바뀌면 그에 따라 열리거나 닫히는 자격을 알려드립니다.
        내려받은 파일은 내려받은 순간에서 멈추지만, 여기 기록은 오늘 상태입니다.</p></div>
 
+  <p style="font-size:12.5px;color:var(--ink-3);margin:14px 2px 0">아래 항목은 모두 연동으로 자동 확인한 값입니다</p>
   ${F.map(([g,items])=>`<h2 class="sec">${g}</h2><div class="ledger">
-    ${items.map(x=>`<div class="lrow">
-      <div><div class="t">${x[0]} · <span style="color:var(--ink-2)">${x[1]}</span></div></div>
-      <div class="r"><span class="tag t-go">자동</span></div></div>`).join('')}</div>`).join('')}
+    ${items.map(x=>`<div class="lrow kv">
+      <div><div class="d" style="margin:0;font-size:13.5px">${x[0]}</div></div>
+      <div class="r"><b>${x[1]}</b></div></div>`).join('')}</div>`).join('')}
 
   <h2 class="sec">계정 · 서버에 있는 것</h2>
   <div class="ledger">
@@ -2291,10 +2296,10 @@ function viewAsk(){
 
 /* ═══════════ 렌더 ═══════════ */
 function draw(){
-  main.innerHTML = S.view==='route'?viewRoute() : S.view==='road'?viewRoad()
+  main.innerHTML = S.view==='plan'?viewAI() : S.view==='route'?viewRoute() : S.view==='road'?viewRoad()
     : S.view==='check'?viewCheck() : S.view==='todo'?viewTodo()
     : S.view==='me'?viewMe() : viewAsk();
-  bind(); if(S.view==='route'||S.view==='road') bindPlan(); navPush(); }
+  bind(); if(S.view==='route'||S.view==='road') bindPlan(); if(S.view==='plan') bindAI(); navPush(); }
 function bind(){
   main.querySelectorAll('.qopt').forEach(b=>b.onclick=()=>{ S.ans[b.dataset.k]=b.dataset.v; lsSave(); draw(); });
   bindFact();
@@ -2317,11 +2322,13 @@ function bind(){
       if(r.top<top-4 || r.top>window.innerHeight*0.45)
         try{ el.scrollIntoView({behavior:'instant', block:'start'}); }catch(e){ el.scrollIntoView(true); } }); });
   /* 화면 사이 이동 · 내용을 복사하지 않고 그쪽으로 보냅니다 */
-  main.querySelectorAll('.gotostep').forEach(b=>b.onclick=()=>
-    jumpTo('todo', decodeURIComponent(b.dataset.i)));
+  main.querySelectorAll('.gotostep,.prepin').forEach(b=>b.onclick=e=>{ e.stopPropagation();
+    const n=decodeURIComponent(b.dataset.i); keep(()=>{ S.prepIn=S.prepIn===n?null:n; }); });
+  main.querySelectorAll('.whyin').forEach(b=>b.onclick=e=>{ e.stopPropagation();
+    const n=decodeURIComponent(b.dataset.i); keep(()=>{ S.whyIn=S.whyIn===n?null:n; }); });
   /* 행 안의 '준비물 ›' · 부모(자세히) 열림을 막고 바로 할 일로 보냅니다 */
   main.querySelectorAll('.goc').forEach(b=>b.onclick=e=>{ e.stopPropagation();
-    jumpTo('todo', decodeURIComponent(b.dataset.i)); });
+    const n=decodeURIComponent(b.dataset.i); keep(()=>{ S.item=n; S.prepIn=n; }); });
   main.querySelectorAll('.gotowhy').forEach(b=>b.onclick=()=>
     jumpTo('check', decodeURIComponent(b.dataset.i)));
   main.querySelectorAll('.typebtn').forEach(b=>b.onclick=()=>{

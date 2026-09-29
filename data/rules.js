@@ -828,6 +828,8 @@ const SECTORS=[
     : c.biz.on&&startupBanned(c.biz) ? NO(`${c.biz.ksic} · 중소기업창업 지원법 시행령 제4조 제외 업종입니다`)
     : c.biz.on&&!isTech(c.biz) ? CHK('공고문 확인 필요',
       `청년창업사관학교는 기술창업 대상입니다 · ${c.biz.field}이 올해 공고 대상인지 공고문에서 확인해야 합니다`)
+    : c.biz.on&&c.biz.years>7 ? NO(`업력 ${c.biz.years}년 · 기준 3년 이내(경험창업자 7년 이내)`)
+    : c.biz.on&&c.biz.years>3 ? CHK('경험창업자면 가능',`업력 ${c.biz.years}년 · 일반은 3년 이내라 해당 없고, 경험창업자로 인정되면 7년 이내까지 됩니다 · 공고문의 경험창업자 기준 확인 필요`)
     : OK('최대 1억 · 자부담 30% 이상','만 39세 이하 · 업력 3년 이내 · 경험창업자는 7년 이내','11 : 1',{max:10000})},
   {n:'TIPS', type:'compete', where:'운영사 추천 후 K-Startup', visit:'online',
    chk:'tips-2026',
