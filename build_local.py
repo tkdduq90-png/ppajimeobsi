@@ -432,7 +432,7 @@ def build(svc, cond, region, gu=None, core=(), national=False, ctab=None, cond_o
             area = gu_.group(1) if (not national and gu_) else (None if national else short_of(region))
             m = {'amt': f"{'선정형' if compete else (clean(r.get('지원유형')) or '지원')} {alab or str(v)+'만'}" if v else (clean(r.get('지원유형')) or '지원'),
                  'why': clean(r.get('지원대상'), 60)}
-            if v: m['mv'] = {kind: round(v*mul, 1)}
+            if v: m['mv'] = {'max': round(v*mul, 1)} if compete else {kind: round(v*mul, 1)}
             if area and area in MERGED:
                 area = old_area(r.get('소관기관명')) if r.get('소관기관유형') in ('지방공기업', '지방출자_출연기관') else None
                 if area is None: area = MERGED_KEYS[short_of(region)]   # 통합 광역 전체 — 광주·전남 어느 쪽이든

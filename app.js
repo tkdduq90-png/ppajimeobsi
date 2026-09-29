@@ -1121,6 +1121,13 @@ function formHTML(){ return `<h2>직접 입력해 보기</h2>
         <button class="chip" data-v="disabled">장애 등록</button>
         <button class="chip" data-v="arrears">채무 연체</button>
         <button class="chip" data-v="death">부모 사망</button></div></div>
+    <div class="form-row"><label>앞으로 계획</label>
+      <div class="chips" id="f-plan">
+        <button class="chip" data-v="startup">창업 준비</button>
+        <button class="chip" data-v="corp">법인 전환</button>
+        <button class="chip" data-v="quit">퇴사 예정</button>
+        <button class="chip" data-v="move">이사 예정</button>
+        <button class="chip" data-v="birth">출산 예정</button></div></div>
   </div>
   <button class="btn btn-fill btn-wide btn-lg" id="f-go">이 조건으로 판정하기</button>
   <button class="btn btn-wide" id="f-back">사례 목록으로</button>`; }
@@ -1132,14 +1139,14 @@ function bindForm(){
   document.querySelectorAll('#f-home .chip').forEach(b=>b.onclick=()=>{
     document.querySelectorAll('#f-home .chip').forEach(x=>x.setAttribute('aria-pressed','false'));
     b.setAttribute('aria-pressed','true'); });
-  ['#f-fam','#f-misc'].forEach(sel=>document.querySelectorAll(sel+' .chip').forEach(b=>b.onclick=()=>{
+  ['#f-fam','#f-misc','#f-plan'].forEach(sel=>document.querySelectorAll(sel+' .chip').forEach(b=>b.onclick=()=>{
     b.setAttribute('aria-pressed', b.getAttribute('aria-pressed')==='true'?'false':'true'); }));
   $('f-region').onchange=()=>{ const k=$('f-region').value; $('f-sgg').innerHTML=sggOpts(k); $('f-sgg').hidden=!(SGG[k]||[]).length; };
   $('f-back').onclick=()=>{ S.ob=0; drawOb(); };
   $('f-go').onclick=()=>{
     const pick=sel=>document.querySelector(sel+' .chip[aria-pressed="true"]')?.dataset.v;
     const many=sel=>[...document.querySelectorAll(sel+' .chip[aria-pressed="true"]')].map(x=>x.dataset.v);
-    const w=pick('#f-work'), h=pick('#f-home'), fam=many('#f-fam'), ms=many('#f-misc');
+    const w=pick('#f-work'), h=pick('#f-home'), fam=many('#f-fam'), ms=many('#f-misc'), pl=many('#f-plan');
     const age=+$('f-age').value||33, inc=+$('f-income').value;
     const region=[$('f-region').value, $('f-sgg').hidden?'':$('f-sgg').value].filter(Boolean).join(' ');
     const o={name:'직접 입력', sub:`만 ${age}세 · ${region}`, tag:'직접 입력',
@@ -1161,6 +1168,13 @@ function bindForm(){
     if(w==='corp') o.biz={on:true, kind:'corp', label:'법인', ksic:'62010 소프트웨어 개발', years:2, rev:8000, emp:1, opened:'2024-01-01'};
     if(w==='solo') o.biz={on:true, kind:'solo', label:'개인 점포', ksic:'56211 일반음식점', years:3, rev:18000, emp:1, opened:'2023-01-01'};
     if(w==='online') o.biz={on:true, kind:'online', label:'온라인 스토어', ksic:'47912 전자상거래', years:2, rev:4000, opened:'2024-01-01', tongsin:true};
+    /* 계획 · 연동으로는 알 수 없어 본인이 고릅니다 → 로드맵 목표와 판정(예비창업 등)에 씁니다 */
+    o.biz=o.biz||{}; o.work=o.work||{}; o.fam=o.fam||{}; o.admin=o.admin||{};
+    if(pl.includes('startup')) o.biz.plan=true;
+    if(pl.includes('corp')) o.biz.toCorp=true;
+    if(pl.includes('quit')) o.work.leaving=true;
+    if(pl.includes('move')) o.admin.moving=true;
+    if(pl.includes('birth')) o.fam.pregnant=true;
     MINE=mk(o); PID='me'; lsSave(); goAuth(); }; }
 
 /* ═══════════ 셸 ═══════════ */
@@ -1976,10 +1990,13 @@ function viewTodo(){
       const L=G[k].slice().sort((a,b)=>val(b)-val(a)), T=tally(L), has=L.some(x=>x.n===S.item);
       const sum=k==='cash'?(T.y?`연 ${won(T.y)}`:'')+(T.once?`${T.y?' + ':''}한 번 ${won(T.once)}`:'')
                :k==='loan'&&T.cap?`가장 큰 한도 ${won(Math.max(...L.map(x=>(x.mv||{}).cap||0)))}`:k==='pick'&&T.max?`가장 큰 것 ${won(Math.max(...L.map(x=>(x.mv||{}).max||0)))}`:k==='save'&&T.y?`연 ${won(T.y)} 절감`:'';
+      /* '최대 ○○만' 은 한도라 실제로는 덜 받을 수 있습니다 · 합계 안에서 그 몫을 따로 보여 줍니다 */
+      const upto=k==='cash'?L.filter(x=>/최대|이내|한도/.test(x.amt||'')).reduce((s,x)=>s+((x.mv||{}).y||0)+((x.mv||{}).once||0),0):0;
       const easy=L.filter(x=>{const a=agency(x); return a==='auto'||a==='one';});
       return `<details class="acc" ${has||S.more[k]?'open':''}>
       <summary><div><div class="ttl">${MK[k][0]}</div><div class="meta">${MK[k][1]}</div>
-          ${sum?`<div class="num" style="font-size:14.5px;font-weight:700;margin-top:5px;color:var(--ink)">${sum}</div>`:''}</div>
+          ${sum?`<div class="num" style="font-size:14.5px;font-weight:700;margin-top:5px;color:var(--ink)">${sum}</div>`:''}
+          ${upto>0?`<div style="font-size:12px;color:var(--ink-3);margin-top:1px">이 중 ${won(upto)}은 최대 금액 기준 · 실제는 더 적을 수 있습니다</div>`:''}</div>
         <div class="rt"><span class="tag ${MK[k][2]}">${L.length}건</span>
           <span class="chev">›</span></div></summary>
       ${k==='loan'?loanCompare(c,L):''}
