@@ -191,7 +191,22 @@ function statusVal(g,c){ const gs=statusGroups(g); if(!gs.length) return false;
 const inArea=(c,a)=>((c&&c.region)||'').split(/\s+/).includes(a);
 /* 시군구를 모르는 사람(직접 입력에서 고르지 않음)에게 시군구 제도를 '자격 미달'로 떨구면 빠뜨립니다 → 사실 질문 하나로 묻습니다 */
 const sggKnown=c=>{ const t=((c&&c.region)||'').split(/\s+/); return t.slice(1).some(g=>(SGG[t[0]]||[]).includes(g)); };
-function condJudge(x,c,m){ m=m||{};
+/* 판정 근거 · 조건표의 각 줄을 이 사람의 값과 대조한 결과를 남깁니다 (점검 '이 판정의 이유'에 표시) */
+function condJudge(x,c,m){ const r=condJudge0(x,c,m||{});
+  try{ const L=[];
+    if(m&&m.area) L.push([`${[].concat(m.area).join('·')} 주민`, [].concat(m.area).some(a=>inArea(c,a))?true:(sggKnown(c)?false:'chk')]);
+    if(x.who==='B') L.push(['사업자', !!c.biz.on]);
+    if(x.open) L.push(['대상 제한 없음', true]);
+    const [lo,hi]=x.age||[null,null];
+    if(lo!=null||hi!=null) L.push([`나이 ${lo!=null?'만 '+lo+'세':''}~${hi!=null?'만 '+hi+'세':''} · 현재 만 ${c.age}세`, (lo==null||c.age>=lo)&&(hi==null||c.age<=hi)]);
+    if(x.inc) L.push([`중위소득 ${x.inc}% 이하 · 현재 ${c.home.incomeRate}%`, (c.home.incomeRate||100)<=x.inc]);
+    (x.all||[]).forEach(g=>L.push([cLab(g), cVal(g,c)]));
+    if((x.any||[]).length){ const vs=x.any.map(g=>cVal(g,c)); const hit=x.any.find((g,i)=>vs[i]===true);
+      L.push([hit?`${cLab(hit)} (다음 중 하나: ${x.any.length}가지)`:`다음 중 하나: ${x.any.slice(0,4).map(cLab).join(' / ')}${x.any.length>4?' 외':''}`, hit?true:(vs.includes('chk')?'chk':false)]); }
+    (x.not||[]).forEach(g=>{ const v=cVal(g,c); L.push([`${cLab(g)} 아님`, v===true?false:v===false?true:'chk']); });
+    r.cl=L; }catch(e){}
+  return r; }
+function condJudge0(x,c,m){ m=m||{};
   const ask=[]; let fact=false;
   if(m.area && !(Array.isArray(m.area)?m.area:[m.area]).some(a=>inArea(c,a))){
     const a=[].concat(m.area);
@@ -380,6 +395,7 @@ function whyBlock(r,c){
       <div class="gwhy">${r.why||'—'}</div>
       ${r.rate?`<div class="gmeta">지급 방식 · ${r.rate}</div>`:''}
       ${r.where?`<div class="gmeta">소관 · ${r.where}</div>`:''}
+      ${r.cl&&r.cl.length?`<div style="margin-top:8px">${r.cl.map(([t,v])=>`<div class="gfact" style="padding-left:0"><b style="display:inline-block;width:18px;color:${v===true?'var(--go)':v===false?'var(--stop)':'var(--warn)'}">${v===true?'✓':v===false?'✗':'?'}</b>${t}</div>`).join('')}</div>`:''}
       ${r.s==='unk'&&r.need?`<div class="gmeta">판정하려면 <b>${r.need}</b>가 필요합니다 · 연동으로는 가져올 수 없습니다</div>`:''}
     </div>
     ${list.length?`<div class="gsec">
@@ -577,10 +593,34 @@ function focusItem(n, tries){
   flash(el); }
 function jumpTo(view, n){
   S.item=n;
-  if(view==='check'){ const k=secOf(n); S.sec={}; if(k) S.sec[k]=true; S.tab='sector'; }
+  if(view==='check'){
+    /* 규칙 제도는 분야에서, 보조금24 제도는 '전국 제도'·'우리 동네' 묶음에서 찾습니다.
+       묶음 안에서 금액 없는 제도는 기본으로 접혀 있으므로 펼친 상태로 엽니다 */
+    let k=secOf(n);
+    if(!k){ if((window.NATIONAL||[]).some(i=>i.n===n)) k='nat'; else if(localOf(ctx()).some(i=>i.n===n)) k='local'; }
+    S.sec={}; if(k) S.sec[k]=true; if(k==='nat'||k==='local') S.localAll=true; S.tab='sector'; }
   S.view=view; drawNav(); draw(); afterPaint(()=>focusItem(n,0)); }
 
 /* ═══════════ 스테이지 ═══════════ */
+/* ═══════════ 뒤로 가기 · 화면 이동을 브라우저 기록에 남깁니다 ═══════════
+   한 페이지 안에서 화면만 바꾸면 기록이 없어 뒤로 가기가 첫 화면(또는 이전 사이트)으로 튑니다.
+   화면(stage) · 메뉴(view) · 온보딩 단계(ob)가 바뀔 때마다 한 칸씩 쌓습니다.
+   정보 가져오기·대조(ob 1·2)는 진행 중인 과정이라 그 자리를 덮어쓰고, 되돌아오면 인물 고르기로 갑니다. */
+let NAV_SKIP=false;
+function navPush(){ if(NAV_SKIP) return;
+  const st={s:S.stage, v:S.view, o:S.ob}, cur=history.state;
+  if(cur&&cur.s===st.s&&cur.v===st.v&&(st.s!=='onboard'||cur.o===st.o)) return;
+  const tr=!cur||(st.s==='onboard'&&(st.o===1||st.o===2));
+  try{ tr?history.replaceState(st,''):history.pushState(st,''); }catch(e){} }
+window.addEventListener('popstate',e=>{ const st=e.state; if(!st) return;
+  NAV_SKIP=true;
+  try{ const fl=$('flow'); if(fl) fl.classList.add('hide'); const sh=$('sheet'); if(sh) sh.classList.add('hide');
+    S.scanStop=true;
+    if(st.s==='onboard'&&(st.o===1||st.o===2)){ history.back(); return; }   /* 지나간 과정은 건너뜁니다 */
+    if(st.s==='onboard'){ const o=st.o; S.ob=o===4?0:o; if(S.stage!=='onboard') stage('onboard'); else drawOb(); if(o===4) goAuth(); }
+    else { if(st.v) S.view=st.v; if(S.stage!==st.s) stage(st.s); else if(st.s==='app'){ drawNav(); draw(); window.scrollTo({top:0,left:0,behavior:'instant'}); } }
+  } finally { NAV_SKIP=false; } });
+
 function stage(s){ S.stage=s;
   $('landing').classList.toggle('hide', s!=='landing');
   $('onboard').classList.toggle('hide', s!=='onboard');
@@ -589,13 +629,14 @@ function stage(s){ S.stage=s;
   const ct=$('counter'); if(ct) ct.classList.toggle('hide', s!=='counter');
   const cb=$('ct-ob'); if(cb) cb.classList.toggle('hide', !(s==='onboard' && S.counter));
   $('onboard').classList.toggle('wide', s==='onboard' && !!S.counter);   /* 창구(PC)는 가로 배치 */
-  window.scrollTo(0,0);
+  window.scrollTo({top:0,left:0,behavior:'instant'});
   if(s==='counter' && window.Counter) Counter.show();
   document.querySelectorAll('#demo-bar [data-go]').forEach(b=>b.classList.toggle('on',
     b.dataset.go===(s==='counter'?'counter':s==='b2g'?'b2g':'landing')));
   if(s==='onboard') drawOb();
   if(s==='b2g') drawB2G();
-  if(s==='app'){ ident(); drawNav(); draw(); } }
+  if(s==='app'){ ident(); drawNav(); draw(); }
+  navPush(); }
 document.querySelectorAll('.start').forEach(b=>b.onclick=()=>{ S.scanStop=false; S.ob=0; stage('onboard'); });
 document.querySelectorAll('.b2g-open').forEach(b=>b.onclick=()=>stage('b2g'));
 /* 시연용 전환 띠 · 창구를 떠날 때는 창구가 바꿔둔 지역을 되돌립니다 */
@@ -787,6 +828,8 @@ const SRC_ALL=[
  ['신용정보','신용점수 · 연체 · 상환 부담 · 다중채무','월 1회',
    c=>`${c.credit.score}점 · 상환 부담 ${c.credit.dsr}%`
       +(c.credit.arrears?` · 연체 ${c.credit.arrears}일`:'')+(c.credit.multi?' · 다중채무':''), 1600],
+ ['4대보험 사업장','직원별 취득일 · 보수월액 (사업주만)','변동 시',
+   c=>c.biz.on?(c.biz.staff&&c.biz.staff.length?`직원 ${c.biz.staff.length}명 · 월 보수 ${c.biz.staff.map(w=>w.pay+'만').join('·')}`:'신고된 직원 없음'):'사업장 없음', 1300],
  ['카드매출 · 오픈마켓','일 단위 매출 추이','매일',
    c=>c.biz.on?`매출 추이 ${c.biz.revDown?'전년 대비 감소':'유지'} · 상시근로자 ${c.biz.emp}명`:'연결된 사업장 없음', 900],
  ['키프리스','특허 · 상표 출원과 등록','매일',
@@ -798,7 +841,7 @@ const SRC_ALL=[
    c=>`오늘 열려 있는 공고를 ${SECTOR_COUNT}개 분야로 분류했습니다`, 1350]
 ];
 
-function drawOb(){ const ob=$('ob-body'); ob.classList.toggle('scan2', S.ob===2); ob.classList.toggle('conn1', S.ob===1); setTimeout(bindCtQ,0);
+function drawOb(){ const ob=$('ob-body'); { const sk=NAV_SKIP; setTimeout(()=>{ if(!sk) navPush(); },0); } ob.classList.toggle('scan2', S.ob===2); ob.classList.toggle('conn1', S.ob===1); setTimeout(bindCtQ,0);
   if(S.ob===0){
     ob.innerHTML=`<h2>누구로 볼까요</h2>
     <p class="sub">예시 인물을 고르시거나 <b>직접 입력</b>해 보세요.
@@ -1127,7 +1170,8 @@ function formHTML(){ return `<h2>직접 입력해 보기</h2>
         <button class="chip" data-v="corp">법인 전환</button>
         <button class="chip" data-v="quit">퇴사 예정</button>
         <button class="chip" data-v="move">이사 예정</button>
-        <button class="chip" data-v="birth">출산 예정</button></div></div>
+        <button class="chip" data-v="birth">출산 예정</button>
+        <button class="chip" data-v="hire">직원 채용</button></div></div>
   </div>
   <button class="btn btn-fill btn-wide btn-lg" id="f-go">이 조건으로 판정하기</button>
   <button class="btn btn-wide" id="f-back">사례 목록으로</button>`; }
@@ -1175,6 +1219,7 @@ function bindForm(){
     if(pl.includes('quit')) o.work.leaving=true;
     if(pl.includes('move')) o.admin.moving=true;
     if(pl.includes('birth')) o.fam.pregnant=true;
+    if(pl.includes('hire')) o.biz.hire=true;
     MINE=mk(o); PID='me'; lsSave(); goAuth(); }; }
 
 /* ═══════════ 셸 ═══════════ */
@@ -1184,7 +1229,7 @@ function ident(){ const c=me();
   $('bell-cnt').textContent=((PID==='me'?[]:NOTI[PID])||[]).length; }
 function drawNav(){ nav.innerHTML=VIEWS.map(([k,l])=>
     `<button class="nav-i" data-v="${k}" aria-current="${S.view===k}"><span>${l}</span></button>`).join('');
-  nav.querySelectorAll('.nav-i').forEach(b=>b.onclick=()=>{ S.view=b.dataset.v; drawNav(); draw(); }); }
+  nav.querySelectorAll('.nav-i').forEach(b=>b.onclick=()=>{ S.view=b.dataset.v; drawNav(); draw(); window.scrollTo({top:0,left:0,behavior:'instant'}); }); }
 $('who').onclick=()=>{ S.ob=0; stage('onboard'); };
 /* 좌측 상단 로고 · 어디서든 홈으로 */
 document.querySelectorAll('.logo').forEach(l=>{ l.style.cursor='pointer'; l.setAttribute('role','button');
@@ -2228,7 +2273,7 @@ function draw(){
   main.innerHTML = S.view==='route'?viewRoute() : S.view==='road'?viewRoad()
     : S.view==='check'?viewCheck() : S.view==='todo'?viewTodo()
     : S.view==='me'?viewMe() : viewAsk();
-  bind(); if(S.view==='route'||S.view==='road') bindPlan(); }
+  bind(); if(S.view==='route'||S.view==='road') bindPlan(); navPush(); }
 function bind(){
   main.querySelectorAll('.qopt').forEach(b=>b.onclick=()=>{ S.ans[b.dataset.k]=b.dataset.v; lsSave(); draw(); });
   bindFact();

@@ -124,7 +124,40 @@ const SCEN={
         {t:'행복출산 원스톱', d:'주민센터에서 출생신고할 때 부모급여·아동수당·첫만남이용권 등을 한 번에 신청합니다'} ]; }},
 };
 
+/* 직원 채용 · 아직 뽑지 않은 사람이라 연동으로 알 수 없습니다 → 문답으로 조건을 좁혀 순서를 안내합니다.
+   기존 직원(4대보험 사업장 자료로 보수월액·취득일이 확인되는 사람)은 로드맵이 아니라 할 일에서 바로 판정·제출합니다 */
+const HQ=[['pay','뽑을 사람의 월 보수',[['lo','270만 원 미만'],['mid','270만~450만'],['hi','450만 초과']]],
+  ['youth','만 15~34세 청년인가요',[['y','예'],['n','아니요']]],
+  ['full','정규직 · 주 28시간 이상인가요',[['y','예'],['n','아니요']]]];
+SCEN.hire={n:'직원 채용', d:'누구를 어떤 조건으로 뽑느냐에 따라 받을 수 있는 지원이 갈립니다. 채용 전에 먼저 해야 하는 신청이 있습니다',
+  can:c=>c.biz.on, fit:c=>c.biz.on&&!!c.biz.hire,
+  steps:c=>{ const q=S.hq||{}, emp=c.biz.emp||0, cap=/^(서울|경기|인천)/.test(c.region||'');
+    const out=[{qa:true}];
+    const leapNo=cap&&emp<5?`수도권은 상시근로자 5명 이상이어야 합니다 · 지금 ${emp}명`
+      : q.youth==='n'?'만 15~34세 청년 채용이 대상입니다' : q.full==='n'?'정규직 · 주 28시간 이상 채용이 대상입니다'
+      : q.pay==='hi'?'월 급여 450만 원 이하가 대상입니다':'';
+    const leapOk=!leapNo&&q.youth==='y'&&q.full==='y'&&q.pay&&q.pay!=='hi';
+    if(leapNo) out.push({t:'청년일자리도약장려금', warn:true, d:`해당하지 않습니다 · ${leapNo}`});
+    else out.push({t:'채용 전 · 청년일자리도약장려금 참여 신청', now:leapOk,
+      d:`고용24에서 사업 참여를 먼저 신청합니다. 채용한 뒤에 신청하면 인정되지 않는 경우가 있습니다 · 기업 1년간 최대 720만(선정형)${leapOk?'':' · 위 질문에 답하시면 대상인지 좁혀집니다'}`});
+    out.push({t:'채용 · 근로계약', d: q.pay==='lo'?'월 보수를 <b>270만 원 미만</b>으로 정하면 두루누리 대상입니다'
+      : q.pay==='mid'?'월 보수 270만 원 이상이라 <b>두루누리는 대상이 아닙니다</b>' : q.pay==='hi'?'월 보수 450만 원 초과라 두루누리·청년도약 모두 대상이 아닙니다'
+      : '월 보수가 270만 원 미만이면 두루누리, 450만 원 이하면 청년도약 대상이 됩니다'});
+    const duruNo=emp>=10?`상시근로자 10명 미만 사업장만 대상입니다 · 지금 ${emp}명`: (q.pay==='mid'||q.pay==='hi')?'월 보수 270만 원 이상이라 대상이 아닙니다':'';
+    out.push(duruNo?{t:'4대보험 자격 취득 신고', d:`두루누리 사회보험료 지원은 해당하지 않습니다 · ${duruNo}`}
+      :{t:'4대보험 자격 취득 신고 · 같은 달 두루누리 신청', now:q.pay==='lo',
+        d:'근로자 1인당 보험료의 80% · 월 최대 10.9만. <b>신청한 달부터만</b> 지원되고 소급되지 않습니다. 최근 6개월 국민연금·고용보험 가입 이력이 없는 사람이어야 합니다'});
+    if(!leapNo) out.push({t:'6개월 근속 후 · 청년도약 1차 지원금 신청', d:'이후 분기별로 신청합니다'});
+    out.push({t:'이미 있는 직원은', d:'보수월액·취득일이 4대보험 사업장 자료로 확인되면 할 일에서 바로 판정·제출합니다. 로드맵은 앞으로 뽑을 사람만 다룹니다'});
+    return out; }};
+
 function stepCard(st,i){
+  if(st.qa){ const q=S.hq||{};
+    return `<div class="card pad" style="margin-top:8px"><p style="font-weight:700;font-size:15px">뽑을 사람에 대해 알려 주세요</p>
+      <p style="font-size:12.5px;opacity:.8;margin-top:2px">아직 채용 전이라 연동으로는 알 수 없습니다 · 답에 따라 아래 순서가 바뀝니다</p>
+      ${HQ.map(([k,l,o])=>`<div style="margin-top:10px"><p style="font-size:13px;font-weight:600">${l}</p>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px">${o.map(([v,t])=>`<button class="btn btn-sm hq" data-q="${k}" data-v="${v}" style="${q[k]===v?'background:var(--go);color:#fff':''}">${t}</button>`).join('')}</div></div>`).join('')}
+    </div>`; }
   const a=st.act?ACT[st.act]:null, a2=st.act2?ACT[st.act2]:null;
   const tone=st.warn?'n-warn':st.now?'n-go':'';
   return `<div class="card pad ${tone}" style="margin-top:8px;${tone?'':'background:var(--card,#fff)'}">
@@ -142,12 +175,12 @@ function stepCard(st,i){
         ${a&&a.report?`<p style="font-size:12.5px;margin-top:6px;color:var(--stop)"><b>신고 의무</b> · ${escH(a.report)}</p>`:''}
       </div></div></div>`; }
 
-const SCEN_ORDER=['birth','quit','startup','move','convert'];
+const SCEN_ORDER=['birth','quit','startup','hire','move','convert'];
 const fitOf=c=>SCEN_ORDER.filter(k=>SCEN[k].fit(c));
 function viewRoad(){
   const c=ctx(); const fit=fitOf(c);
   const other=SCEN_ORDER.filter(k=>!fit.includes(k)&&SCEN[k].can(c));
-  if(S._scenPid!==PID){ S._scenPid=PID; S.scen=null; }   /* 사람이 바뀌면 목표도 새로 감지 */
+  if(S._scenPid!==PID){ S._scenPid=PID; S.scen=null; S.hq={}; }   /* 사람이 바뀌면 목표도 새로 감지 */
   if(S.scen&&!(SCEN[S.scen]&&SCEN[S.scen].can(c))) S.scen=null;   /* 다른 사람으로 바꿨을 때 불가능한 목표가 남지 않게 */
   if(S.scen===undefined||S.scen===null) S.scen=fit[0]||null;
   const chip=k=>`<button class="btn btn-sm scen" data-k="${k}" aria-pressed="${k===S.scen}" style="${k===S.scen?'background:var(--go);color:#fff;border-color:var(--go)':''}">${SCEN[k].n}</button>`;
@@ -166,7 +199,7 @@ function viewRoad(){
       <h3>${sc.n}</h3><p style="font-size:13.5px;margin-top:2px;opacity:.85">${sc.d}</p>
       ${fit.includes(S.scen)?'':'<p style="font-size:12.5px;margin-top:4px;color:var(--warn)">감지된 목표가 아니라 고르신 가정으로 계산합니다</p>'}
     </div>
-    ${sc.steps(c).map(stepCard).join('')}
+    ${(()=>{ let n=0; return sc.steps(c).map(x=>stepCard(x, x.qa?0:n++)).join(''); })()}
     <p style="font-size:12px;opacity:.7;margin-top:12px">순서 규칙은 법령·공고 기준의 일반 원칙입니다. 최종 판단은 고용센터·세무서·주민센터 등 접수 기관이 합니다. 로드맵은 고르신 목표 안의 행동만 계산합니다.</p>`:''}`; }
 
 /* ── 오늘 동선 · 출발 전(온라인) → 들를 곳 순서 → 챙길 것 ── */
@@ -223,5 +256,6 @@ function viewRoute(){
 
 function bindPlan(){
   document.querySelectorAll('.scen').forEach(b=>b.onclick=()=>{ S.scen=b.dataset.k; draw(); });
+  document.querySelectorAll('.hq').forEach(b=>b.onclick=()=>{ const y=window.scrollY; S.hq=S.hq||{}; S.hq[b.dataset.q]=b.dataset.v; draw(); window.scrollTo({top:y,behavior:'instant'}); });
   const t=$('to-road'); if(t) t.onclick=e=>{ e.preventDefault(); S.view='road'; drawNav(); draw(); };
-  const u=$('to-todo'); if(u) u.onclick=e=>{ e.preventDefault(); S.view='todo'; drawNav(); draw(); window.scrollTo(0,0); }; }
+  const u=$('to-todo'); if(u) u.onclick=e=>{ e.preventDefault(); S.view='todo'; drawNav(); draw(); window.scrollTo({top:0,left:0,behavior:'instant'}); }; }

@@ -13,7 +13,8 @@ const BLANK={
   acct:{email:'', phone:'', joined:'2026-01-04'},
   work:{on:false, sme:false, smeType:false, insured:0, pay:0, hired:null, quit:null, taxRelief:false, freelance:false},
   biz:{on:false, plan:false, kind:null, label:'', ksic:'', years:0, rev:0, revDown:false,
-       emp:0, opened:null, noran:false, tongsin:false, ip:null, venture:false, close:false, hire:false},
+       emp:0, opened:null, noran:false, tongsin:false, ip:null, venture:false, close:false, hire:false,
+       staff:null},   /* 4대보험 사업장 자료 · 직원별 보수월액(만원)·취득월 · null = 연동 안 됨 */
   home:{own:false, rent:false, deposit:0, monthly:0, incomeRate:100, car:0},
   fam:{married:false, kids:0, infant:false, pregnant:false, college:false, elem:0, mid:0, high:0},
   credit:{score:800, drop:0, arrears:0, multi:false, dsr:20},
@@ -105,7 +106,8 @@ const isSosang=b=>(b.emp||0) < (SOSANG_10.includes(b.field||'')?10:5);
 const CTX={
  a:mk({acct:{email:'taemin.kang@example.com', phone:'010-2841-7730'}, name:'강태민', sub:'법인 대표 · 기술창업 2년차', tag:'법인사업자', age:38, region:'서울 동대문구',
    biz:{on:true, kind:'corp', label:'법인', ksic:'62010 소프트웨어 개발', years:2, rev:8400,
-        emp:1, opened:'2022-01-24', ip:'특허 출원 1건'},
+        emp:1, opened:'2022-01-24', ip:'특허 출원 1건',
+        staff:[{pay:340, since:'2022-03'}]},
    home:{rent:true, deposit:5000, monthly:75, incomeRate:145},
    admin:{passport:4, license:true, licenseDue:14},
    credit:{score:842, dsr:18},
@@ -113,7 +115,8 @@ const CTX={
 
  b:mk({acct:{email:'soyeon.k@example.com', phone:'010-5512-9084'}, name:'김소연', sub:'카페 운영 3년차 · 자녀 1명', tag:'개인사업자 · 부모', age:36, region:'인천 미추홀구',
    biz:{on:true, kind:'solo', label:'개인 점포', ksic:'56111 한식 일반 음식점업', years:3, rev:21000,
-        revDown:true, emp:2, opened:'2023-04-11'},
+        revDown:true, emp:2, opened:'2023-04-11',
+        staff:[{pay:230, since:'2025-07'},{pay:250, since:'2023-05'}]},
    home:{rent:true, deposit:8000, incomeRate:112, car:1800},
    fam:{married:true, kids:1, infant:true},
    admin:{passport:22, license:true, licenseDue:4, carCheck:2},
