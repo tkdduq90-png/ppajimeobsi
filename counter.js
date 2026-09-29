@@ -226,10 +226,6 @@ function auth(){ const f=K.f, ph=String(f.phone).replace(/\D/g,''), mb=ph.length
       <ol style="margin:8px 0 0 18px;padding:0;color:#4E5968;font-size:14px;line-height:1.7">
        <li>${K.prov} 알림을 누릅니다 (없으면 앱을 직접 여세요)</li><li>비밀번호나 생체 인증으로 승인합니다</li><li>아래 <b>인증 완료</b>를 누릅니다</li></ol>
       <div style="color:#8B95A1;font-size:14px;margin-top:8px">남은 시간 <b id="au-c">4:59</b></div></div>
-     <div style="border:1px dashed #D1D6DB;border-radius:12px;padding:12px;margin-top:10px;font-size:13px;color:#4E5968">
-      <b style="color:#8B95A1">시연 · 휴대폰 화면 대신</b><br>
-      ${K.pok?'<span style="color:#1B64DA;font-weight:700">✓ 휴대폰에서 승인했습니다</span>'
-        :`[${K.prov}] 빠짐없이 본인 인증 요청이 도착했습니다<br><button id="au-pok" style="margin-top:8px;background:#fff">휴대폰에서 승인하기</button>`}</div>
      <button class="p big" id="au-fin">인증 완료</button>
      <div id="au-err" style="color:#E5343D;font-size:14px;margin-top:8px"></div>`}`
   :`${!K.sent?`<p style="color:#4E5968;font-size:15px;margin:12px 0">휴대폰 ${esc(mb)}로 6자리 번호를 보내 드립니다.</p>
@@ -413,11 +409,11 @@ function draw(){const a=$('ct-app');
  if(K.view==='auth'){
   a.querySelectorAll('[data-am]').forEach(b=>b.onclick=()=>{K.am=b.dataset.am;K.sent=false;clearInterval(K.cd);draw();});
   const ed=$('au-edit'); if(ed) ed.onclick=()=>{ clearInterval(K.cd); go('home'); };
-  a.querySelectorAll('[data-pv]').forEach(b=>b.onclick=()=>{K.prov=b.dataset.pv;K.sent=false;K.pok=false;K.vf=false;clearInterval(K.cd);draw();});
+  a.querySelectorAll('[data-pv]').forEach(b=>b.onclick=()=>{K.prov=b.dataset.pv;K.sent=false;K.pok=false;K.vf=false;clearInterval(K.cd);clearTimeout(K.ap);draw();});
   const sd=$('au-send'); if(sd) sd.onclick=()=>{ sd.disabled=true; sd.textContent='요청 보내는 중…';
     setTimeout(()=>{ K.sent=true; K.pok=false; K.vf=false; draw(); countdown(K.am==='easy'?299:179);
+      if(K.am==='easy'){ clearTimeout(K.ap); K.ap=setTimeout(()=>{ K.pok=true; draw(); }, 5000+Math.random()*3000); }   /* 시연 · 시민이 휴대폰에서 승인한 것으로 둡니다 */
       if(K.am==='easy') toast(`시민 휴대폰으로 ${K.prov} 인증 요청을 보냈습니다`); else toast('시민 휴대폰으로 인증번호를 보냈습니다'); }, 1200+Math.random()*800); };
-  const pk=$('au-pok'); if(pk) pk.onclick=()=>{ K.pok=true; draw(); };
   const fn=$('au-fin'); if(fn) fn.onclick=()=>{ if(!K.pok){ $('au-err').textContent='아직 휴대폰에서 승인되지 않았습니다. 알림을 확인하시고 승인한 뒤 눌러 주세요.'; return; }
     K.vf=true; draw(); setTimeout(()=>{ K.vf=false; authDone(); }, 1800+Math.random()*1200); };
   const ok=$('au-ok'); if(ok){ const f=()=>{ if($('au-otp').value.trim()==='482913') authDone(); else $('au-err').textContent='번호가 맞지 않습니다. 다시 확인해 주세요.'; };

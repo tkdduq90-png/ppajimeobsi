@@ -358,7 +358,7 @@ function judgeAll(c0){ const c=c0||ctx();
     ...(N.length?[{k:'nat',   n:'전국 제도', items:N}]:[]),
     ...(L.length?[{k:'local', n:'우리 동네', items:L}]:[])];
   return ALL.map(s=>{
-    const res=s.items.map(it=>({n:it.n, type:it.type||'cash', where:it.where, visit:it.visit,
+    const res=s.items.map(it=>({n:it.n, type:it.type||'cash', where:it.where, visit:it.visit, cat:it.cat||'', sk:s.k,
       chk:chkOf(it.chk), base:it.base||null, bonus:it.bonus||null, guide:it.guide||null,
       ads:it.ads||null, ...factRun(it,c)}));
     /* 지자체 제도는 대부분 다른 동네 것이라 화면에 늘어놓지 않습니다. 몇 건을 봤는지만 남깁니다 */
@@ -972,12 +972,6 @@ function authHTML(){ const A=S.auth, c=ctx();
         <span>남은 시간</span><b id="au-left" style="color:${A.left<60?'var(--stop)':'var(--ink)'}">${mm(A.left)}</b></div>
       ${A.warn?`<div class="gwarn" style="margin-top:10px">${A.warn}</div>`:''}
     </div>
-    <div class="smsbox" style="margin-top:10px;border:1px dashed var(--rule)">
-      <div class="sh1"><span class="tag t-mute">시연</span> 휴대폰 화면 대신</div>
-      ${A.phoneOk?`<div class="gmeta" style="color:var(--go)">✓ 휴대폰에서 승인했습니다 — 이제 아래 인증 완료를 누르세요</div>`
-        :`<div class="gmeta">[${A.prov}] 빠짐없이 본인 인증 요청이 도착했습니다</div>
-          <button class="btn btn-sm" id="au-phone-ok" style="margin-top:8px">휴대폰에서 승인하기</button>`}
-    </div>
     <button class="btn btn-fill btn-wide" id="au-done">인증 완료</button>
     <div style="display:flex;gap:6px;margin-top:10px">${back}<button class="btn btn-sm" id="au-resend">다시 요청</button></div>`; }
   /* 4 · 확인 중 */
@@ -991,7 +985,7 @@ function authHTML(){ const A=S.auth, c=ctx();
 
 function bindAuth(){ const A=S.auth, $b=id=>document.getElementById(id);
   const r=()=>{ if(S.ob!==4) return; $('ob-body').innerHTML=authHTML(); bindAuth(); };
-  const stopT=()=>{ clearTimeout(A.t); clearInterval(A.iv); };
+  const stopT=()=>{ clearTimeout(A.t); clearInterval(A.iv); clearTimeout(A.ap); };
   document.querySelectorAll('#ob-body [data-pv]').forEach(b=>b.onclick=()=>{ A.prov=b.dataset.pv; A.step='form'; r(); });
   if($b('au-home')) $b('au-home').onclick=()=>{ S.ob=0; drawOb(); };
   if($b('au-back')) $b('au-back').onclick=()=>{ stopT(); A.warn=''; A.step=A.step==='form'?'pick':'form'; r(); };
@@ -1006,14 +1000,15 @@ function bindAuth(){ const A=S.auth, $b=id=>document.getElementById(id);
   const verify=()=>{ stopT(); A.step='verify'; r();
     A.t=setTimeout(()=>{ A.step='done'; r();
       A.t=setTimeout(()=>{ if(S.ob!==4) return; S.authed=true; S.ob=1; drawOb(); runConnect(); }, 1100); }, 1800+Math.random()*1400); };
+  /* 시연 · 휴대폰 승인은 요청 후 몇 초 뒤 된 것으로 둡니다(실제로는 사용자가 휴대폰에서 누름) */
   const startWait=()=>{ stopT(); A.step='wait'; A.phoneOk=false; A.left=300; A.warn=''; r();
+    A.ap=setTimeout(()=>{ A.phoneOk=true; }, 5000+Math.random()*3000);
     A.iv=setInterval(()=>{ A.left--; const e=$b('au-left'); if(e){ e.textContent=mm(A.left); if(A.left<60) e.style.color='var(--stop)'; }
       if(A.left<=0){ stopT(); A.warn='인증 시간이 지났습니다. 다시 요청해 주세요.'; r(); } }, 1000); };
   if($b('au-send')) $b('au-send').onclick=()=>{ if(A.prov==='공동인증서'){ A.step='cert'; A.warn=''; r(); return; }
     A.step='sending'; r(); A.t=setTimeout(startWait, 1200+Math.random()*800); };
   if($b('au-pw')) $b('au-pw').oninput=e=>{ A.pw=e.target.value; };
   if($b('au-pwok')) $b('au-pwok').onclick=()=>{ if((A.pw||'').length<10){ A.warn='비밀번호는 10자 이상입니다.'; r(); return; } A.warn=''; verify(); };
-  if($b('au-phone-ok')) $b('au-phone-ok').onclick=()=>{ A.phoneOk=true; A.warn=''; r(); };
   if($b('au-resend')) $b('au-resend').onclick=()=>{ A.step='sending'; r(); A.t=setTimeout(startWait, 1200); };
   if($b('au-done')) $b('au-done').onclick=()=>{
     if(A.left<=0){ A.warn='인증 시간이 지났습니다. 다시 요청해 주세요.'; r(); return; }
@@ -1892,6 +1887,20 @@ const MK={cash:['지원금','현금 · 장학금 · 이용권 · 물품','t-go']
   task:['해 둘 행정','증명서 · 신고 · 갱신 · 다른 제도의 전제가 되는 것','t-mute'],
   svc:['이용할 수 있는 서비스','상담 · 교육 · 돌봄 · 의료 · 시설 · 보험','t-mute']};
 const MK_ORDER=['cash','save','pick','loan','task','svc'];
+/* 할 일 묶음 안에서 삶의 영역별로 한 번 더 나눕니다 · 보조금24 서비스분야 + 규칙 제도 분야 → 영역 */
+const TOPIC=[['biz','사업·창업'],['birth','임신·출산'],['kid','양육·교육'],['house','주거·이사'],['job','일자리'],
+  ['life','생활·복지'],['med','의료·건강'],['farm','농어업'],['culture','교통·문화'],['tax','세금·환급'],['etc','기타 행정']];
+const SEC_TOPIC={house:'house',cash:'life',tax:'tax',move:'culture',job:'job',care:'kid',med:'med',target:'life',debt:'life',
+  start:'biz',small:'biz',emp:'biz',refund:'tax',death:'etc',admin:'etc'};
+const CAT_TOPIC={'생활안정':'life','농림축산어업':'farm','보육·교육':'kid','보건·의료':'med','임신·출산':'birth','고용·창업':'job',
+  '문화·환경':'culture','보호·돌봄':'life','행정·안전':'etc','주거·자립':'house'};
+function topicOf(x){
+  if(/임신|출산|첫만남|부모급여|산후|산모|난임|태아|신생아|출생/.test(x.n)) return 'birth';
+  if(/전입|이사/.test(x.n)) return 'house';
+  if(/지역화폐|상품권|사랑카드|페이백|계좌|통장/.test(x.n)) return 'life';
+  const [cat,b]=String(x.cat||'').split('|');
+  if(cat){ const t=CAT_TOPIC[cat]||'etc'; return b==='B'&&(t==='job'||t==='life'||t==='etc')?'biz':t; }
+  return SEC_TOPIC[x.sk]||'etc'; }
 function moneyKind(x){
   const lv=x.chk&&x.chk.lvl;
   if(lv!=='cond'){ return x.type==='save'?'save':x.type==='loan'?'loan':x.type==='compete'?'pick':x.type==='admin'?'task':'cash'; }
@@ -2038,21 +2047,33 @@ function viewTodo(){
       /* '최대 ○○만' 은 한도라 실제로는 덜 받을 수 있습니다 · 합계 안에서 그 몫을 따로 보여 줍니다 */
       const upto=k==='cash'?L.filter(x=>/최대|이내|한도/.test(x.amt||'')).reduce((s,x)=>s+((x.mv||{}).y||0)+((x.mv||{}).once||0),0):0;
       const easy=L.filter(x=>{const a=agency(x); return a==='auto'||a==='one';});
-      return `<details class="acc" ${has||S.more[k]?'open':''}>
+      return `<details class="acc" ${has||S.more[k]||Object.keys(S.more).some(z=>z.startsWith(k+':'))?'open':''}>
       <summary><div><div class="ttl">${MK[k][0]}</div><div class="meta">${MK[k][1]}</div>
           ${sum?`<div class="num" style="font-size:14.5px;font-weight:700;margin-top:5px;color:var(--ink)">${sum}</div>`:''}
           ${upto>0?`<div style="font-size:12px;color:var(--ink-3);margin-top:1px">이 중 ${won(upto)}은 최대 금액 기준 · 실제는 더 적을 수 있습니다</div>`:''}</div>
         <div class="rt"><span class="tag ${MK[k][2]}">${L.length}건</span>
           <span class="chev">›</span></div></summary>
       ${k==='loan'?loanCompare(c,L):''}
-      ${(S.more[k]||has?L:L.slice(0,5)).map(x=>{const op=S.item===x.n, ky=encodeURIComponent(x.n);
+      ${(()=>{ const row=x=>{const op=S.item===x.n, ky=encodeURIComponent(x.n);
         return `<div class="ritem r-${op?'ok':'plain'}">
         <button class="lrow thead" data-i="${ky}">
         <div><div class="t">${x.n}<span class="ichev">${op?'닫기':'준비물'}</span></div>
           <div class="d">${x.where||''} · <span style="opacity:.8">${AG[agency(x)]}</span></div></div>
         <div class="r">${x.amt&&k!=='svc'?`<b>${x.amt}</b>`:''}</div></button>
-        ${op?stepBlock(x)+foldBtn(x.n):''}</div>`;}).join('')}
-      ${L.length>5&&!S.more[k]&&!has?`<button class="lrow moremk" data-k="${k}" style="width:100%;justify-content:center;color:var(--go);font-size:13px">나머지 ${L.length-5}건 보기</button>`:''}
+        ${op?stepBlock(x)+foldBtn(x.n):''}</div>`;};
+        /* 영역이 둘 이상이면 영역별로 · 영역 안에서는 금액 큰 순 3건, 나머지는 더 보기 */
+        const byT={}; L.forEach(x=>{ const t=topicOf(x); (byT[t]=byT[t]||[]).push(x); });
+        const ts=TOPIC.map(([t])=>t).filter(t=>byT[t]).sort((a,b)=>byT[b].reduce((s,x)=>s+val(x),0)-byT[a].reduce((s,x)=>s+val(x),0)||byT[b].length-byT[a].length);
+        if(ts.length<2) return (S.more[k]||has?L:L.slice(0,5)).map(row).join('')
+          +(L.length>5&&!S.more[k]&&!has?`<button class="lrow moremk" data-k="${k}" style="width:100%;justify-content:center;color:var(--go);font-size:13px">나머지 ${L.length-5}건 보기</button>`:'');
+        return ts.map(t=>{ const T2=byT[t], key=k+':'+t, hasT=T2.some(x=>x.n===S.item), tt=tally(T2);
+          const ssum=k==='cash'?[(tt.y?`연 ${won(tt.y)}`:''),(tt.once?`한 번 ${won(tt.once)}`:'')].filter(Boolean).join(' + '):k==='save'&&tt.y?`연 ${won(tt.y)}`:'';
+          const show=S.more[key]||hasT?T2:T2.slice(0,3);
+          return `<div class="lrow" style="background:var(--rule-2);padding-top:9px;padding-bottom:9px">
+            <div><div class="t" style="font-size:13.5px">${TOPIC.find(z=>z[0]===t)[1]} <span style="font-weight:400;color:var(--ink-3)">${T2.length}건</span></div></div>
+            <div class="r">${ssum?`<b style="font-size:13px">${ssum}</b>`:''}</div></div>`
+            +show.map(row).join('')
+            +(T2.length>3&&!S.more[key]&&!hasT?`<button class="lrow moremk" data-k="${key}" style="width:100%;justify-content:center;color:var(--go);font-size:12.5px">${TOPIC.find(z=>z[0]===t)[1]} ${T2.length-3}건 더 보기</button>`:''); }).join(''); })()}
       ${k==='svc'?`<div class="lrow"><div><div class="d">상당수는 신청 없이 해당 기관에 연락하면 이용할 수 있어 한꺼번에 제출하지 않습니다.</div></div></div>`
         :easy.length?`<div class="lrow"><div><div class="d">이 중 연동 서류로 제출할 수 있는 ${easy.length}건입니다. 제출 시점과 결과는 알림으로 알려드립니다.</div></div>
         <div class="r"><button class="btn btn-sm btn-fill subgo" data-n="${encodeURIComponent(easy.map(x=>x.n).join('|'))}">${easy.length}건 제출</button></div></div>`:''}

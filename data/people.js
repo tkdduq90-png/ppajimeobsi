@@ -104,8 +104,8 @@ const SOSANG_10=['광업','제조업','건설업','운수·창고업'];
 const isSosang=b=>(b.emp||0) < (SOSANG_10.includes(b.field||'')?10:5);
 
 const CTX={
- a:mk({acct:{email:'taemin.kang@example.com', phone:'010-2841-7730'}, name:'강태민', sub:'법인 대표 · 기술창업 2년차', tag:'법인사업자', age:38, region:'서울 동대문구',
-   biz:{on:true, kind:'corp', label:'법인', ksic:'62010 소프트웨어 개발', years:2, rev:8400,
+ a:mk({acct:{email:'taemin.kang@example.com', phone:'010-2841-7730'}, name:'강태민', sub:'법인 대표 · 기술창업 5년차', tag:'법인사업자', age:38, region:'서울 동대문구',
+   biz:{on:true, kind:'corp', label:'법인', ksic:'62010 소프트웨어 개발', years:4, rev:8400,
         emp:1, opened:'2022-01-24', ip:'특허 출원 1건',
         staff:[{pay:340, since:'2022-03'}]},
    home:{rent:true, deposit:5000, monthly:75, incomeRate:145},

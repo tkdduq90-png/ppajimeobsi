@@ -29,6 +29,14 @@ GIVE = re.compile(r'지원|지급|교부|보조|드립니다|혜택|제공|1인�
 SPACE = re.compile(r'\s+')
 
 AMT = {}
+def tyd(r):
+    """지원유형 표시 · '문화/여가지원||이용권' 처럼 둘이면 받는 형태(현금·이용권·현물·감면·융자) 쪽 하나만"""
+    t = clean(r.get('지원유형')) or '지원'
+    ps = [p for p in t.split('||') if p]
+    for p in ps:
+        if re.search(r'현금|이용권|현물|감면|융자|장학', p): return p
+    return ps[0] if ps else '지원'
+CLOSED = {}
 def clean(s, n=None):
     s = SPACE.sub(' ', (s or '')).strip()
     return s[:n] if n else s
@@ -415,12 +423,12 @@ def build(svc, cond, region, gu=None, core=(), national=False, ctab=None, cond_o
             gates.append("true ? CHK('대상 확인 필요','기관 자료에 대상이 분류돼 있지 않아 누가 받는지 확정하지 못했습니다')")
 
         if v:
-            tail = (f"OK('{esc(clean(r.get('지원유형')) or '지원')} {esc(alab) if alab else str(v)+'만'}',"
+            tail = (f"OK('{esc(tyd(r))} {esc(alab) if alab else str(v)+'만'}',"
                     f"'{esc(clean(r.get('지원대상'), 60))}','요건 충족 시',"
                     f"{{{kind}:{round(v*mul,1)}}})")
         else:
             # 자격은 되는데 얼마인지 숫자가 없을 뿐입니다 — '확인 필요' 가 아니라 '가능'
-            tail = (f"OK('{esc(clean(r.get('지원유형')) or '지원')}',"
+            tail = (f"OK('{esc(tyd(r))}',"
                     f"'{esc(clean(r.get('지원대상'), 60))}','금액은 기관 자료에 숫자로 적혀 있지 않습니다')")
         fsrc = '\n    : '.join(gates + [tail])
         lvl, srcnote = 'api', ''
@@ -430,7 +438,7 @@ def build(svc, cond, region, gu=None, core=(), national=False, ctab=None, cond_o
                                or (v >= 2000 and bool(alab) and '최대' in alab))
         if sid in ctab:
             area = gu_.group(1) if (not national and gu_) else (None if national else short_of(region))
-            m = {'amt': f"{'선정형' if compete else (clean(r.get('지원유형')) or '지원')} {alab or str(v)+'만'}" if v else (clean(r.get('지원유형')) or '지원'),
+            m = {'amt': f"{'선정형' if compete else tyd(r)} {alab or str(v)+'만'}" if v else tyd(r),
                  'why': clean(r.get('지원대상'), 60)}
             if v: m['mv'] = {'max': round(v*mul, 1)} if compete else {kind: round(v*mul, 1)}
             if area and area in MERGED:
@@ -445,7 +453,10 @@ def build(svc, cond, region, gu=None, core=(), national=False, ctab=None, cond_o
         agency = clean(r.get('소관기관명')) if r.get('소관기관유형') in ('지방공기업', '지방출자_출연기관') else ''
         agency = re.sub(r'^(재단법인|\(재\)|\(주\))\s*', '', agency)
         where = f"{org} · {agency}" if agency else org
-        items.append(f"""  {{n:'{esc(name)}', type:'cash', where:'{esc(where)}', visit:'center',
+        catv = clean(r.get('서비스분야')) or ''
+        if sid in ctab and ctab[sid].get('who') == 'B': catv += '|B'
+        if sid in CLOSED: fsrc = f"NO('현재 신청을 받지 않습니다 · {esc(CLOSED[sid])}')"
+        items.append(f"""  {{n:'{esc(name)}', type:'cash', where:'{esc(where)}', visit:'center', cat:'{esc(catv)}',
    chk:{{d:'{date.today()}', src:'행정안전부 공공서비스 정보 · {esc(org)} 등록분{srcnote}',
         u:'{esc(r.get('상세조회URL') or '')}', lvl:'{lvl}'}},
    guide:{{what:'{esc(clean(r.get('지원내용'), 110))}',
@@ -469,8 +480,10 @@ def main():
     ap.add_argument('--cond', action='append', default=[], help='조건표 JSON (서비스ID → 조건) · 여러 번 줄 수 있음')
     ap.add_argument('--amt', default=None, help='금액표 JSON (서비스ID → {kind, v, label})')
     a = ap.parse_args()
-    global AMT
+    global AMT, CLOSED
     if a.amt: AMT = json.load(io.open(a.amt, encoding='utf-8'))
+    cp = os.path.join(os.path.dirname(a.cond[0]) if a.cond else 'cond', 'closed.json')
+    if os.path.exists(cp): CLOSED = json.load(io.open(cp, encoding='utf-8'))
 
     def load(n):
         p = os.path.join(a.src, n)
