@@ -253,6 +253,13 @@ def cycle(txt):
     if re.search(r'연\s*\d|매년|년\s*\d회', t): return 'y', 1
     return 'once', 1
 
+def purpose(row, name):
+    """서비스목적요약 · 무엇을 위한 제도인지 한 줄 · 이름을 되풀이한 것은 버립니다"""
+    t = clean(row.get('서비스목적요약'), 90) or ''
+    k = re.sub(r'[\s()·]', '', t); nk = re.sub(r'[\s()·]', '', name)
+    if not t or k in nk or nk in k and len(k) - len(nk) < 6: return ''
+    return t
+
 def docs(row):
     """구비서류 텍스트를 doc 배열로. 앱이 가져올 수 있는 것과 본인이 올릴 것을 나눕니다."""
     raw = clean(row.get('구비서류'))
@@ -459,7 +466,7 @@ def build(svc, cond, region, gu=None, core=(), national=False, ctab=None, cond_o
         items.append(f"""  {{n:'{esc(name)}', type:'cash', where:'{esc(where)}', visit:'center', cat:'{esc(catv)}',
    chk:{{d:'{date.today()}', src:'행정안전부 공공서비스 정보 · {esc(org)} 등록분{srcnote}',
         u:'{esc(r.get('상세조회URL') or '')}', lvl:'{lvl}'}},
-   guide:{{what:'{esc(clean(r.get('지원내용'), 110))}',
+   guide:{{what:'{esc(clean(r.get('지원내용'), 110))}', sum:'{esc(purpose(r, name))}',
      doc:{json.dumps(docs(r), ensure_ascii=False)},
      how:{json.dumps(how(r), ensure_ascii=False)},
      warn:'{esc(clean(r.get('선정기준') or r.get('지원대상'), 110))}',

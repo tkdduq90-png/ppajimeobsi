@@ -204,7 +204,11 @@ function condJudge(x,c,m){ const r=condJudge0(x,c,m||{});
     if((x.any||[]).length){ const vs=x.any.map(g=>cVal(g,c)); const hit=x.any.find((g,i)=>vs[i]===true);
       L.push([hit?`${cLab(hit)} (다음 중 하나: ${x.any.length}가지)`:`다음 중 하나: ${x.any.slice(0,4).map(cLab).join(' / ')}${x.any.length>4?' 외':''}`, hit?true:(vs.includes('chk')?'chk':false)]); }
     (x.not||[]).forEach(g=>{ const v=cVal(g,c); L.push([`${cLab(g)} 아님`, v===true?false:v===false?true:'chk']); });
-    r.cl=L; }catch(e){}
+    r.cl=L;
+    const im=(x.all||[]).map(g=>/^중위<=(\d+)/.exec(g)).find(Boolean);
+    const t=x.inc||(im?+im[1]:null);
+    if(t){ r.incT=t; const other=L.filter(([lab])=>!/중위소득/.test(lab));
+      r.incDec=other.every(([,v])=>v!==false); } }catch(e){}
   return r; }
 function condJudge0(x,c,m){ m=m||{};
   const ask=[]; let fact=false;
@@ -333,7 +337,7 @@ function ensureLocal(key){
   if(!key || !LOCAL_FILE[key] || LOCAL_BY[key] || LOCAL_WAIT[key]) return;
   LOCAL_WAIT[key]=1;
   const s=document.createElement('script');
-  s.src='data/local/'+LOCAL_FILE[key]+'.js?v=82';
+  s.src='data/local/'+LOCAL_FILE[key]+'.js?v=87';
   s.onload =()=>{ delete LOCAL_WAIT[key]; if(document.getElementById('main')) draw(); };
   s.onerror=()=>{ LOCAL_BY[key]=[]; delete LOCAL_WAIT[key]; };   /* 그 지역 파일이 아직 없으면 조용히 넘어갑니다 */
   document.head.appendChild(s); }
@@ -341,7 +345,7 @@ function ensureLocal(key){
 let NAT_WAIT=false;
 function ensureNational(){
   if(window.NATIONAL || NAT_WAIT) return; NAT_WAIT=true;
-  const s=document.createElement('script'); s.src='data/national.js?v=82';
+  const s=document.createElement('script'); s.src='data/national.js?v=87';
   s.onload =()=>{ NAT_WAIT=false; if(document.getElementById('main')) draw(); };
   s.onerror=()=>{ window.NATIONAL=[]; NAT_WAIT=false; };
   document.head.appendChild(s); }
@@ -364,7 +368,8 @@ function judgeAll(c0){ const c=c0||ctx();
     /* 지자체 제도는 대부분 다른 동네 것이라 화면에 늘어놓지 않습니다. 몇 건을 봤는지만 남깁니다 */
     if(!WIDE(s.k)) return {...s, res};
     const keep=res.filter(r=>r.s!=='no');
-    return {...s, res:keep, seen:res.length, hidden:res.length-keep.length}; }); }
+    return {...s, res:keep, seen:res.length, hidden:res.length-keep.length,
+      inc:res.filter(r=>r.incT&&r.incDec).map(r=>({t:r.incT, s:r.s, n:r.n}))}; }); }
 
 /* ═══════════ 두 화면의 역할 분리 ═══════════════════════════
    같은 제도가 점검에도 할 일에도 나옵니다. 같은 내용을 두 번 쓰면
@@ -429,8 +434,12 @@ function stepBlock(r,inl){
   if(!g) return `<div class="gd"><p class="gn">준비물과 절차를 아직 정리하지 않았습니다.
     신청처에서 확인하셔야 합니다${r.where?` · ${r.where}`:''}.</p>${back}</div>`;
   const auto=g.doc.filter(d=>d[1]==='auto').length, mine=g.doc.length-auto;
-  const ag=agency(r);
+  const ag=agency(r), reg=!!(r.chk&&r.chk.lvl);
+  /* 무슨 제도인지 먼저 · 이름만으로는 알 수 없습니다 */
+  const about=reg?[g.sum&&['무엇을 위한 제도', g.sum], g.what&&['받는 것', g.what], g.warn&&['대상', g.warn]].filter(Boolean)
+                 :[g.what&&['이 제도는', g.what]].filter(Boolean);
   return `<div class="gd">
+    ${about.length?`<div class="gsec g-about">${about.map(([h,t])=>`<div class="gab"><b>${h}</b><span>${t}</span></div>`).join('')}</div>`:''}
     <div class="gsec g-prep">
       <div class="gh">준비물 ${g.doc.length}건 · <b>${auto}건은 자동 제출</b>${mine?` · ${mine}건은 본인이 준비`:''}</div>
       ${g.doc.map(([n,k,w])=>`<div class="gdoc ${k}">
@@ -441,7 +450,7 @@ function stepBlock(r,inl){
       <div class="gh">절차</div>
       ${g.how.map((x,i)=>`<div class="gstep"><span class="gnum">${i+1}</span><span>${x}</span></div>`).join('')}
     </div>
-    ${g.warn?`<div class="gwarn">${g.warn}</div>`:''}
+    ${g.warn&&!reg?`<div class="gwarn">${g.warn}</div>`:''}
     ${adBlock(r)}
     <div class="gfoot">${g.time?`처리 기간 ${g.time}`:''}${r.where?` · 신청처 ${r.where}`:''}</div>
     <div class="gact">
@@ -600,7 +609,7 @@ function jumpTo(view, n){
        묶음 안에서 금액 없는 제도는 기본으로 접혀 있으므로 펼친 상태로 엽니다 */
     let k=secOf(n);
     if(!k){ if((window.NATIONAL||[]).some(i=>i.n===n)) k='nat'; else if(localOf(ctx()).some(i=>i.n===n)) k='local'; }
-    S.sec={}; if(k) S.sec[k]=true; if(k==='nat'||k==='local') S.localAll=true; S.tab='sector'; }
+    S.sec={}; if(k) S.sec[k]=true; if(k==='nat'||k==='local') S.localAll=true; S.tab='sector'; S.chkMode='sector'; }
   S.view=view; drawNav(); draw(); afterPaint(()=>focusItem(n,0)); }
 
 /* ═══════════ 스테이지 ═══════════ */
@@ -1255,7 +1264,7 @@ function tally(list){ const t={y:0,once:0,cap:0,max:0,none:0,n:{y:0,once:0,cap:0
   return t; }
 const won=v=>v>=10000?(Math.round(v/1000)/10)+'억':Math.round(v).toLocaleString()+'만';
 
-function viewCheck(){ S.tab='sector';   /* 성격별 보기는 할 일로 옮겼습니다 · 점검은 분야별만 */
+function viewCheck(){ S.tab=S.chkMode==='kind'?'kind':'sector';   /* 분야별 · 성격별 두 가지로 봅니다 */
   const c=ctx(), J=judgeAll(), all=J.flatMap(s=>s.res);
   const ok=all.filter(x=>x.s==='ok'), chk=all.filter(x=>x.s==='chk'),
         no=all.filter(x=>x.s==='no'), lost=all.filter(x=>x.s==='lost'),
@@ -1455,10 +1464,10 @@ function viewCheck(){ S.tab='sector';   /* 성격별 보기는 할 일로 옮겼
     :''}
   </div>
 
-  <h2 class="sec">분야별로 보기</h2>
-  <p class="segn">${SECTOR_COUNT}개 분야 · 안 되는 이유와 판정 근거까지</p>
+  <div class="vseg"><button class="vsegb" data-m="sector" aria-pressed="${S.tab==='sector'}">분야별로 보기</button><button class="vsegb" data-m="kind" aria-pressed="${S.tab==='kind'}">성격별로 보기</button></div>
+  <p class="segn">${S.tab==='kind'?'지원금 · 감면 · 선정형 · 대출 · 행정 · 서비스로 나눴습니다 · 누르면 펼쳐집니다':`${SECTOR_COUNT}개 분야 · 안 되는 이유와 판정 근거까지`}</p>
 
-  ${S.tab!=='sector'?typeLedger():`
+  ${S.tab!=='sector'?viewTodo(true):`
   ${(()=>{const pct=Math.round(CHECK_COUNT/RULE_COUNT*100), org=Math.round(ORG_COUNT/RULE_COUNT*100);
     const none=RULE_COUNT-CHECK_COUNT-ORG_COUNT; return `
   <div class="card pad" style="margin-bottom:8px">
@@ -1994,7 +2003,7 @@ function roadProgress(c){ const roads=roles().filter(r=>ROAD[r]).map(r=>ROAD[r](
   }).join('<div style="height:22px"></div>')
   :`<div class="card pad"><p style="font-size:13.5px;color:var(--ink-2)">
      연속적인 경로가 있는 역할이 아닙니다 · 아래에서 목표를 골라 순서를 보세요.</p></div>`; }
-function viewTodo(){
+function viewTodo(bare){
   const c=ctx(), J=judgeAll(), ok=J.flatMap(s=>s.res.filter(x=>x.s==='ok'));
   const byVisit={};
   ok.forEach(x=>{ const v=x.visit||'online'; (byVisit[v]=byVisit[v]||[]).push(x); });
@@ -2025,11 +2034,11 @@ function viewTodo(){
     return `<span class="agn">연동 ${d.length-need.length}건 자동 · 직접 ${need.length}건`
       +(issue?` (발급 필요 ${issue}건)`:'')+` · ${need.map(x=>x[0]).join(' · ')}</span>`; };
 
-  return `
+  return `${bare?'':`
   <h2 class="sec" style="margin-top:0">받을 수 있는 것</h2>
   <p style="font-size:13px;color:var(--ink-2);line-height:1.6;margin-bottom:10px">
     받을 수 있다는 것을 아는 것과 실제로 받는 것은 다른 일입니다.
-    가능 ${ok.length}건을 성격별로 나눴습니다. 누르면 펼쳐집니다.</p>
+    가능 ${ok.length}건을 성격별로 나눴습니다. 누르면 펼쳐집니다.</p>`}
   ${(()=>{ const G={}; ok.forEach(x=>{ const k=moneyKind(x); (G[k]=G[k]||[]).push(x); });
     const val=x=>{ const m=x.mv||{}; return (m.y||0)+(m.once||0)+(m.max||0)+(m.cap||0); };
     const AG={auto:'앱이 처리',one:'서류 1개',self:'준비물',expert:'전문가 검수',verify:'자격 확인'};
@@ -2044,7 +2053,7 @@ function viewTodo(){
         <div><div class="t">${x.n}<span class="ichev hv${S.item===x.n?' on':''}">${S.item===x.n?'닫기':'준비물'}</span></div><div class="d">${x.where||''} · ${AG[agency(x)]}</div></div>
         <div class="r"><b>${x.amt||''}</b></div></button>${S.item===x.n?stepBlock(x)+foldBtn(x.n):''}`).join('')}</div>`:'';
     S.more=S.more||{};
-    return head+MK_ORDER.filter(k=>G[k]&&G[k].length).map(k=>{
+    return (bare?'':head)+MK_ORDER.filter(k=>G[k]&&G[k].length).map(k=>{
       const L=G[k].slice().sort((a,b)=>val(b)-val(a)), T=tally(L), has=L.some(x=>x.n===S.item);
       const sum=k==='cash'?(T.y?`연 ${won(T.y)}`:'')+(T.once?`${T.y?' + ':''}한 번 ${won(T.once)}`:'')
                :k==='loan'&&T.cap?`가장 큰 한도 ${won(Math.max(...L.map(x=>(x.mv||{}).cap||0)))}`:k==='pick'&&T.max?`가장 큰 것 ${won(Math.max(...L.map(x=>(x.mv||{}).max||0)))}`:k==='save'&&T.y?`연 ${won(T.y)} 절감`:'';
@@ -2207,6 +2216,7 @@ function viewMe(){
        내려받은 파일은 내려받은 순간에서 멈추지만, 여기 기록은 오늘 상태입니다.</p></div>
 
   <p style="font-size:12.5px;color:var(--ink-3);margin:14px 2px 0">아래 항목은 모두 연동으로 자동 확인한 값입니다</p>
+  ${meCharts(c)}
   ${F.map(([g,items])=>`<h2 class="sec">${g}</h2><div class="ledger">
     ${items.map(x=>`<div class="lrow kv">
       <div><div class="d" style="margin:0;font-size:13.5px">${x[0]}</div></div>
@@ -2355,6 +2365,7 @@ function bind(){
     const i=+b.dataset.i; if(!S.asked.includes(i)) S.asked.push(i); draw(); });
   const ag=$('ask-go'); if(ag) ag.onclick=()=>{ if(!S.asked.includes(0)) S.asked.push(0); draw(); };
   const wp=$('me-wipe'); if(wp) wp.onclick=()=>{ lsWipe(); PID='d'; stage('landing'); };
+  main.querySelectorAll('.vsegb').forEach(b=>b.onclick=()=>keep(()=>{ S.chkMode=b.dataset.m; S.item=null; S.prepIn=null; }));
   main.querySelectorAll('.segb').forEach(b=>b.onclick=()=>keep(()=>{ S.tab=b.dataset.tab; }));
   const bk=$('me-bak'); if(bk) bk.onchange=e=>{ S.backup=e.target.checked; lsSave(); draw(); };
   main.querySelectorAll('.subgo').forEach(b=>b.onclick=()=>
@@ -2373,3 +2384,110 @@ function bind(){
   if(d.pid && (CTX[d.pid]||(d.pid==='me'&&MINE))) PID=d.pid; })();
 
 stage('landing');
+
+/* ═══════════ 내 정보 · 문턱 차트 ═══════════════════════════
+   판정에 쓰이는 문턱이 있는 값만 그립니다 (소득 · 나이 · 업력).
+   값이 하나뿐이고 문턱이 없는 것(신용점수·매출)은 그리지 않습니다. */
+function meCharts(c){
+  const out=[];
+  /* 소득 · 조건표에서 '소득 말고는 다 맞는' 제도만 기준선별로 셉니다 */
+  const rate=c.home.incomeRate; let TT=[];
+  if(rate!=null){
+    const J=judgeAll(c===me()?undefined:c), seen=new Set(), by={};
+    J.forEach(s=>{ const L=s.inc||s.res.filter(r=>r.incT&&r.incDec).map(r=>({t:r.incT,s:r.s,n:r.n}));
+      L.forEach(r=>{ if(seen.has(r.n)) return; seen.add(r.n); by[r.t]=(by[r.t]||0)+1; }); });
+    const T=Object.keys(by).map(Number).filter(t=>t<=250).sort((a,b)=>a-b);
+    TT=T;
+    if(T.length){
+      const mx=Math.max(...T.map(t=>by[t]));
+      const inN=T.filter(t=>t>=rate).reduce((n,t)=>n+by[t],0), outN=T.filter(t=>t<rate).reduce((n,t)=>n+by[t],0);
+      const near=T.filter(t=>t<rate).pop();
+      const rowsT=T.slice().reverse(); let meDone=false;
+      const rows=rowsT.map(t=>{ let pre='';
+        if(!meDone&&t<rate){ meDone=true; pre=`<div class="ib-me"><span>나 · ${rate}%</span></div>`; }
+        const ok=t>=rate;
+        return pre+`<div class="ib-r ${ok?'in':'out'}"><span class="ib-l">${t}% 이하</span>
+          <span class="ib-b"><i style="width:${Math.max(4,by[t]/mx*100)}%"></i></span><span class="ib-n">${by[t]}건</span></div>`; }).join('')
+        +(meDone?'':`<div class="ib-me"><span>나 · ${rate}%</span></div>`);
+      out.push(`<div class="card pad mechart">
+        <h3>소득 위치 · 기준 중위소득 ${rate}%</h3>
+        <p class="ct-sub">소득 기준이 있는 제도 중 <b>소득 말고 다른 조건은 맞는 것</b>을 기준선별로 셌습니다. 선 위는 들어가고, 아래는 소득 때문에 빠집니다.</p>
+        <div class="ib">${rows}</div>
+        <div class="ct-leg"><span><i style="background:var(--go)"></i>기준 안 · ${inN}건</span><span><i style="background:#E0A15A"></i>소득 때문에만 빠짐 · ${outN}건</span></div>
+        ${near?`<p class="ct-note">가장 가까운 기준은 <b>${near}% 이하</b>(${by[near]}건)로, ${rate-near}%p 차이로 빠졌습니다.</p>`:''}
+      </div>`); } }
+
+  if(rate!=null) out.push(incTrend(c,TT));
+  /* 나이 · 제도 나이 문턱까지의 거리 */
+  const AG=[[35,'청년 (만 34세까지)'],[40,'청년 (만 39세까지)'],[50,'중장년 (50세부터)'],[65,'노인 (65세부터)']];
+  const lo=Math.max(15,Math.min(c.age-8,20)), hi=Math.max(70,c.age+5), P=a=>((a-lo)/(hi-lo)*100).toFixed(2);
+  const next=AG.find(([a])=>a>c.age);
+  out.push(`<div class="card pad mechart">
+    <h3>나이 · 만 ${c.age}세</h3>
+    <div class="tl"><div class="tl-bar"><span style="width:${P(c.age)}%"></span></div>
+      ${AG.map(([a,l])=>`<div class="tl-m ${a<=c.age?'past':''}" style="left:${P(a)}%"><em>${a}</em>${next&&next[0]===a?`<b>${l}</b>`:''}</div>`).join('')}
+      <div class="tl-me" style="left:${P(c.age)}%">나</div></div>
+    ${next?`<p class="ct-note">다음 문턱: <b>${next[1]}</b> · ${next[0]-c.age}년 뒤${next[0]<=40?' 끝납니다':' 열립니다'}</p>`:''}
+  </div>`);
+
+  /* 업력 · 사업자만 */
+  if(c.biz.on&&c.biz.opened){
+    const y=Math.max(0,(new Date('2026-09-30')-new Date(c.biz.opened))/(365.25*864e5)), H=Math.max(8,Math.ceil(y+1));
+    const Q=v=>(v/H*100).toFixed(2), BM=[[3,'초기창업 (3년 이내)'],[7,'창업도약·성장 (3~7년)']];
+    const nb=BM.find(([v])=>v>y);
+    out.push(`<div class="card pad mechart">
+      <h3>업력 · 개업 ${c.biz.opened} · ${y.toFixed(1)}년</h3>
+      <div class="tl"><div class="tl-bar"><span style="width:${Q(y)}%"></span></div>
+        ${BM.map(([v,l])=>`<div class="tl-m ${v<=y?'past':''}" style="left:${Q(v)}%"><em>${v}년</em>${nb&&nb[0]===v?`<b>${l}</b>`:''}</div>`).join('')}
+        <div class="tl-me" style="left:${Q(y)}%">지금</div></div>
+      ${nb?`<p class="ct-note">${nb[1].split(' ')[0]} 기준이 끝나기까지 <b>${(nb[0]-y).toFixed(1)}년</b> 남았습니다</p>`:''}
+    </div>`); }
+  if(c.biz.on&&c.biz.rev) out.push(revTrend(c));
+  out.push(crTrend(c));
+  return out.length?`<div class="mecharts">${out.join('')}</div>`:''; }
+
+/* ── 추이 · 시연에서는 예시 인물의 지난 기록이 없어 예시 값을 만듭니다(인물마다 고정) ──
+   실서비스: 매출·소득은 첫 연결 때 신고 이력이 딸려 오고, 신용점수는 앱이 다시 조회할 때마다 쌓입니다 */
+function seedRnd(k){ let h=2166136261; for(const ch of String(k)) h=Math.imul(h^ch.charCodeAt(0),16777619);
+  return ()=>{ h=Math.imul(h^(h>>>15),2246822507); h=Math.imul(h^(h>>>13),3266489909); h^=h>>>16; return (h>>>0)/4294967296; }; }
+const EX='<span class="ex-tag">예시 데이터</span>';
+/* 세로 막대 · 값 라벨 · 선택적 기준선 */
+function colChart(pts, o){ o=o||{};
+  const vals=pts.map(p=>p.v), lines=(o.lines||[]);
+  const hi=Math.max(...vals,...lines.map(l=>l.v))*1.08, lo=o.lo!=null?o.lo:0, Y=v=>((v-lo)/(hi-lo)*100);
+  return `<div class="cc"><div class="cc-plot">
+    ${lines.map(l=>`<div class="cc-line" style="bottom:${Y(l.v)}%;border-color:${l.col}"><span style="color:${l.col}">${l.lab}</span></div>`).join('')}
+    ${pts.map(p=>`<div class="cc-col"><em>${p.lab2||p.v}</em><i style="height:${Math.max(2,Y(p.v))}%;background:${p.col||'var(--go)'}"></i></div>`).join('')}
+    </div><div class="cc-x">${pts.map(p=>`<span>${p.x}</span>`).join('')}</div></div>`; }
+
+function incTrend(c,T){ const r=seedRnd('inc'+PID+c.home.incomeRate), rate=c.home.incomeRate, yrs=[2022,2023,2024,2025,2026];
+  const v=[rate]; for(let i=1;i<5;i++) v.unshift(Math.max(20,Math.round(v[0]*(0.9+r()*0.2))));
+  const below=T.filter(t=>t<rate).pop(), above=T.filter(t=>t>=rate)[0];
+  const lines=[below&&{v:below,lab:`${below}% 기준`,col:'#D98A2B'}, above&&above<=rate*1.4&&{v:above,lab:`${above}% 기준`,col:'var(--go)'}].filter(Boolean);
+  const d=rate-v[3], lo=Math.max(0,Math.min(...v,...lines.map(l=>l.v))-25);
+  return `<div class="card pad mechart"><h3>소득 비율 추이 ${EX}</h3>
+    <p class="ct-sub">해마다의 신고 소득으로 계산한 기준 중위소득 대비 비율입니다. 첫 연결 때 몇 년 치가 함께 옵니다.</p>
+    ${colChart(yrs.map((y,i)=>({x:y+(i===4?'':''), v:v[i], lab2:v[i]+'%', col:i===4?'var(--ink)':'#AFC4E6'})),{lines,lo})}
+    <p class="ct-note">작년 ${v[3]}% → 올해 <b>${rate}%</b> (${d>=0?'+':''}${d}%p)${below?` · ${below}% 기준까지 <b>${rate-below}%p</b>`:''}</p></div>`; }
+
+function revTrend(c){ const r=seedRnd('rev'+PID), q=c.biz.rev/4;
+  const Q=['24.3Q','24.4Q','25.1Q','25.2Q','25.3Q','25.4Q','26.1Q','26.2Q'];
+  const fall=(c.credit.drop||0)<-30;   /* 신용 급락 인물은 매출도 꺾이는 예시 */
+  const v=Q.map((_,i)=>{ const season=[1.05,1.12,0.86,0.97][i%4], tr=fall?(i<4?1.15:0.78):(1+i*0.02);
+    return Math.round(q*season*tr*(0.93+r()*0.14)); });
+  const yoy=v.map((x,i)=>i>=4?Math.round((x/v[i-4]-1)*100):null), last=yoy[7];
+  return `<div class="card pad mechart"><h3>분기 매출 ${EX}</h3>
+    <p class="ct-sub">부가세 신고 기준입니다. 첫 연결 때 홈택스 신고 이력으로 채워집니다. 올해 분기는 전년 같은 분기와 비교합니다.</p>
+    ${colChart(Q.map((x,i)=>({x, v:v[i], lab2:i>=4?`${yoy[i]>=0?'+':''}${yoy[i]}%`:v[i].toLocaleString(),
+      col:i<4?'#C9D3E3':yoy[i]<=-10?'#E0A15A':'var(--go)'})))}
+    <p class="ct-note">${last<=-10?`최근 분기 매출이 전년 같은 분기보다 <b>${-last}% 줄었습니다</b>. 매출 감소를 요건으로 하는 지원이 있는지 확인할 시점입니다 · 기준은 공고마다 다릅니다.`
+      :`최근 분기 매출은 전년 같은 분기 대비 <b>${last>=0?'+':''}${last}%</b>입니다.`}</p></div>`; }
+
+function crTrend(c){ const r=seedRnd('cr'+PID), n=6, now=c.credit.score, drop=c.credit.drop||0;
+  const M=['4월','5월','6월','7월','8월','9월'], v=[now];
+  for(let i=1;i<n;i++){ const step=i===1&&drop<0?-drop:Math.round((r()-0.5)*14); v.unshift(Math.min(1000,v[0]+step)); }
+  const lo=Math.max(0,Math.min(...v)-80);
+  return `<div class="card pad mechart"><h3>신용점수 · ${now}점 ${EX}</h3>
+    <p class="ct-sub">앱이 다시 조회할 때마다 한 점씩 쌓입니다. 연결한 달부터 기록이 시작됩니다.</p>
+    ${colChart(M.map((x,i)=>({x, v:v[i], lab2:v[i], col:i===n-1?(drop<-30?'#E0A15A':'var(--ink)'):'#C9D3E3'})),{lo})}
+    <p class="ct-note">${drop<-30?`지난달보다 <b>${-drop}점 떨어졌습니다</b>. 채무조정 제도를 함께 확인했습니다 · 점검 화면에 있습니다.`:`최근 6개월 사이 큰 변화가 없습니다.`}</p></div>`; }
